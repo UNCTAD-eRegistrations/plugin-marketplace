@@ -1,6 +1,6 @@
 ---
 description: Bulk-import cost structures into a BPA service from a structured file
-argument-hint: <file-path> <service-id> [mcp-server]
+argument-hint: <file-path> <service-id> [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Import costs for service `$ARGUMENTS`.
 
 - First: path to CSV or Excel file (required)
 - Second: service ID (required)
-- Third: MCP server (optional)
+- Third: instance profile name (optional)
 
 ## Expected File Format
 
@@ -40,5 +40,5 @@ Renewal,Renewal Fee,fixed,25,USD,
 ## Usage
 
 ```
-/import-costs ./data/fees.csv 42 BPA-jamaica
+/import-costs ./data/fees.csv 42 jamaica
 ```

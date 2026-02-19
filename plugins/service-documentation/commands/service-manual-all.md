@@ -10,13 +10,13 @@ Generate citizen-facing HTML user manuals for all services. `$ARGUMENTS`
 
 ## Instructions
 
-The argument (if provided) is the MCP server name.
+The argument (if provided) is the instance profile name.
 
 Follow the `service-manual-all` skill in this plugin (`skills/service-manual-all/SKILL.md`).
 
 ## Usage
 
 ```
-/service-manual-all BPA-lesotho2
+/service-manual-all lesotho2
 /service-manual-all
 ```

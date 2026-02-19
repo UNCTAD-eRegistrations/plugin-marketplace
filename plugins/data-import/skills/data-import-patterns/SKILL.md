@@ -48,7 +48,7 @@ Before importing any row:
 
 Always produce an import report:
 ```
-Import Report: countries.csv → "Country Codes" catalog (BPA-jamaica)
+Import Report: countries.csv → "Country Codes" catalog (jamaica)
 ────────────────────────────────────────────────────────────
 Total rows:        249
 Successfully imported: 247

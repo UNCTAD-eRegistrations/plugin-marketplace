@@ -1,6 +1,6 @@
 ---
 description: Audit institution assignments across all services on a BPA instance
-argument-hint: [mcp-server]
+argument-hint: [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -30,5 +30,5 @@ Unassigned items prevent citizens from submitting applications — treat as CRIT
 ## Usage
 
 ```
-/audit-institutions BPA-jamaica
+/audit-institutions jamaica
 ```

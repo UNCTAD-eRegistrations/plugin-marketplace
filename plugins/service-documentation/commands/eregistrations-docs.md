@@ -1,6 +1,6 @@
 ---
 description: Export BPA service data to structured Excel documentation reports
-argument-hint: [service-id] [mcp-server]
+argument-hint: [service-id] [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -10,7 +10,7 @@ Generate structured Excel reports. `$ARGUMENTS`
 
 ## Instructions
 
-Parse arguments: first token is an optional service ID (if omitted, process all services), second is the optional MCP server name.
+Parse arguments: first token is an optional service ID (if omitted, process all services), second is the optional instance profile name.
 
 Follow the `eregistrations-docs` skill in this plugin (`skills/eregistrations-docs/SKILL.md`).
 
@@ -21,6 +21,6 @@ Requires `python3` + `openpyxl` in the environment.
 ## Usage
 
 ```
-/eregistrations-docs 42 BPA-jamaica
+/eregistrations-docs 42 jamaica
 /eregistrations-docs
 ```

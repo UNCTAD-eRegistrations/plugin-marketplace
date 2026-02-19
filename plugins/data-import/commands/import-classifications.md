@@ -1,6 +1,6 @@
 ---
 description: Import classification catalog entries from a CSV or Excel file
-argument-hint: <file-path> [mcp-server] [--catalog-id <id> | --create <name>]
+argument-hint: <file-path> [instance] [--catalog-id <id> | --create <name>]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -11,7 +11,7 @@ Import classification data from `$ARGUMENTS`.
 ## Arguments
 
 - First: path to CSV or Excel file (required)
-- Second: MCP server (optional)
+- Second: instance profile name (optional)
 - `--catalog-id <id>`: import into an existing catalog
 - `--create <name>`: create a new catalog with this name and import into it
 
@@ -45,6 +45,6 @@ NG,Nigeria,Federal Republic of Nigeria
 ## Usage
 
 ```
-/import-classifications ./data/countries.csv BPA-jamaica --create "Country Codes"
-/import-classifications ./data/sectors.xlsx BPA-lesotho2 --catalog-id 12
+/import-classifications ./data/countries.csv jamaica --create "Country Codes"
+/import-classifications ./data/sectors.xlsx lesotho2 --catalog-id 12
 ```

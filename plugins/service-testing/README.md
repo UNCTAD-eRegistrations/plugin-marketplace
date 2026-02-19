@@ -33,18 +33,18 @@ Validate BPA service configuration, score against UNCTAD quality standards, and 
 
 ```bash
 # Before making changes — save a snapshot
-/snapshot-service 42 BPA-jamaica
+/snapshot-service 42 jamaica
 
 # Make your changes...
 
 # After changes — verify only intended changes happened
-/snapshot-service 42 BPA-jamaica --compare
+/snapshot-service 42 jamaica --compare
 
 # Full test suite
-/test-service 42 BPA-jamaica --full
+/test-service 42 jamaica --full
 
 # Quality score
-/score-service 42 BPA-jamaica
+/score-service 42 jamaica
 ```
 
 ## Requirements

@@ -1,6 +1,6 @@
 ---
 description: Run the full test suite on a BPA service configuration
-argument-hint: <service-id> [mcp-server] [--quick | --full]
+argument-hint: <service-id> [instance] [--quick | --full]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -11,7 +11,7 @@ Run tests on BPA service `$ARGUMENTS`.
 ## Arguments
 
 - First token: service ID (required)
-- Second token: MCP server name (optional)
+- Second token: instance profile name (optional)
 - `--quick`: run only critical checks (structural integrity, no orphans)
 - `--full`: run all checks including quality scoring and scenario tracing (default)
 
@@ -66,7 +66,7 @@ Warnings: N
 ## Usage
 
 ```
-/test-service 42 BPA-jamaica
+/test-service 42 jamaica
 /test-service 17 --quick
-/test-service 42 BPA-lesotho2 --full
+/test-service 42 lesotho2 --full
 ```

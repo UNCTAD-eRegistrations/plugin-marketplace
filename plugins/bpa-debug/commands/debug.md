@@ -1,6 +1,6 @@
 ---
 description: Scan, investigate, and fix configuration issues in a BPA service
-argument-hint: <service-id> [mcp-server] [--fix]
+argument-hint: <service-id> [instance] [--fix]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Debug BPA service `$ARGUMENTS`.
 
 Parse arguments:
 - First token: service ID (required)
-- Second token: MCP server name (optional, use active server if omitted)
+- Second token: instance profile name (optional)
 - `--fix` flag: automatically apply fixes after scanning
 
 ### Execution flow
@@ -34,7 +34,7 @@ Parse arguments:
 ## Usage
 
 ```
-/debug 42 BPA-jamaica
+/debug 42 jamaica
 /debug 17 --fix
-/debug 42 BPA-lesotho2 --fix
+/debug 42 lesotho2 --fix
 ```

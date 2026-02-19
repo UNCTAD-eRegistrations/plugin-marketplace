@@ -1,6 +1,6 @@
 ---
 description: Score a BPA service against UNCTAD trade facilitation quality standards
-argument-hint: <service-id> [mcp-server]
+argument-hint: <service-id> [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -10,7 +10,7 @@ Score BPA service `$ARGUMENTS` against UNCTAD quality standards.
 
 ## Instructions
 
-Parse arguments: service ID (required), MCP server (optional).
+Parse arguments: service ID (required), instance profile name (optional).
 
 Delegate to the `service-tester` agent or follow the `service-quality-standards` skill.
 
@@ -51,6 +51,6 @@ Citizen Experience:  XX / 25
 ## Usage
 
 ```
-/score-service 42 BPA-jamaica
+/score-service 42 jamaica
 /score-service 17
 ```

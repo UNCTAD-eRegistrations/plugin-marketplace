@@ -1,6 +1,6 @@
 ---
 description: Compare the same service across two BPA instances to find configuration drift
-argument-hint: <service-id> <server-a> <server-b>
+argument-hint: <service-id> <instance-a> <instance-b>
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -10,7 +10,7 @@ Compare service `$ARGUMENTS` across two BPA instances.
 
 ## Instructions
 
-1. Export service from both instances via `service_to_yaml`
+1. Export service from both instances via `mcp__BPA__service_to_yaml(instance="<name>")`
 2. Run a structured diff: fields added/removed/changed, determinants, roles, costs
 3. Report:
 
@@ -29,5 +29,5 @@ Use this to track what diverged after a migration, or to audit consistency acros
 ## Usage
 
 ```
-/diff-instances 42 BPA-jamaica BPA-lesotho2
+/diff-instances 42 jamaica lesotho2
 ```

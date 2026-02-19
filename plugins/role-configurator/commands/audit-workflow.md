@@ -1,6 +1,6 @@
 ---
 description: Audit the role and workflow completeness of all services on a BPA instance
-argument-hint: [mcp-server]
+argument-hint: [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -29,5 +29,5 @@ Mining License (8)          ❌ Dead-end status "Under Review" — no transition
 ## Usage
 
 ```
-/audit-workflow BPA-jamaica
+/audit-workflow jamaica
 ```

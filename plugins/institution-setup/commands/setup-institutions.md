@@ -1,6 +1,6 @@
 ---
 description: Interactive wizard for configuring institutions and assigning them to services
-argument-hint: [mcp-server] [--service <id>]
+argument-hint: [instance] [--service <id>]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -10,7 +10,7 @@ Configure institutions for `$ARGUMENTS`.
 
 ## Arguments
 
-- First token: MCP server name (optional)
+- First token: instance profile name (optional)
 - `--service <id>`: scope setup to one service's registrations
 
 ## What this does
@@ -49,6 +49,6 @@ If yes, create via `roleunit_create`.
 ## Usage
 
 ```
-/setup-institutions BPA-lesotho2
-/setup-institutions BPA-jamaica --service 42
+/setup-institutions lesotho2
+/setup-institutions jamaica --service 42
 ```

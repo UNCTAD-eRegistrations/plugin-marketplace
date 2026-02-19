@@ -1,6 +1,6 @@
 ---
 description: Design and configure the role and workflow structure for a BPA service
-argument-hint: <service-id> [mcp-server] [--wizard]
+argument-hint: <service-id> [instance] [--wizard]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -11,7 +11,7 @@ Configure roles and workflow for BPA service `$ARGUMENTS`.
 ## Arguments
 
 - First: service ID (required)
-- Second: MCP server (optional)
+- Second: instance profile name (optional)
 - `--wizard`: guided step-by-step creation (default if service has no roles yet)
 
 ## Current State Review
@@ -58,6 +58,6 @@ Show current workflow, then offer:
 ## Usage
 
 ```
-/configure-roles 42 BPA-jamaica
-/configure-roles 17 BPA-lesotho2 --wizard
+/configure-roles 42 jamaica
+/configure-roles 17 lesotho2 --wizard
 ```

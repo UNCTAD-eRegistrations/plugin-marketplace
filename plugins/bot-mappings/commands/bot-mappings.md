@@ -1,6 +1,6 @@
 ---
 description: Create, configure, and manage BPA bot integrations and field mappings
-argument-hint: <service-id> [mcp-server] [--suggest]
+argument-hint: <service-id> [instance] [--suggest]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Configure bot integrations for BPA service `$ARGUMENTS`.
 
 Parse arguments:
 - First token: service ID (required)
-- Second token: MCP server name (optional)
+- Second token: instance profile name (optional)
 - `--suggest`: auto-suggest mappings using AI (min_confidence=0.3)
 
 ### Execution flow
@@ -30,7 +30,7 @@ After any mapping changes, run `bot_validate` to confirm configuration integrity
 ## Usage
 
 ```
-/bot-mappings 42 BPA-jamaica
+/bot-mappings 42 jamaica
 /bot-mappings 17 --suggest
-/bot-mappings 42 BPA-lesotho2 --suggest
+/bot-mappings 42 lesotho2 --suggest
 ```

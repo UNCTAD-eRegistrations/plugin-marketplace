@@ -1,6 +1,6 @@
 ---
 description: Create and manage print documents (certificates, licenses, permits) for BPA services
-argument-hint: <service-id> [mcp-server] [--from-template]
+argument-hint: <service-id> [instance] [--from-template]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Build print documents for BPA service `$ARGUMENTS`.
 
 Parse arguments:
 - First token: service ID (required)
-- Second token: MCP server name (optional)
+- Second token: instance profile name (optional)
 - `--from-template`: list available templates and build from selected template
 
 ### Flow
@@ -34,7 +34,7 @@ If the service already has print documents, offer to:
 ## Usage
 
 ```
-/build-print-doc 42 BPA-jamaica
+/build-print-doc 42 jamaica
 /build-print-doc 17 --from-template
-/build-print-doc 42 BPA-lesotho2 --from-template
+/build-print-doc 42 lesotho2 --from-template
 ```

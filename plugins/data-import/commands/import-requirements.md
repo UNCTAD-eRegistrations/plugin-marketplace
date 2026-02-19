@@ -1,6 +1,6 @@
 ---
 description: Bulk-import document requirements into a BPA service from a structured file
-argument-hint: <file-path> <service-id> [mcp-server]
+argument-hint: <file-path> <service-id> [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -40,6 +40,6 @@ Skip if a requirement with the same name already exists (warn the user).
 ## Usage
 
 ```
-/import-requirements ./data/requirements.csv 42 BPA-jamaica
-/import-requirements ./requirements.xlsx 17 BPA-lesotho2
+/import-requirements ./data/requirements.csv 42 jamaica
+/import-requirements ./requirements.xlsx 17 lesotho2
 ```

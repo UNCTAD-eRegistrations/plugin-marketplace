@@ -1,6 +1,6 @@
 ---
 description: Design or update notification templates for a BPA service
-argument-hint: <service-id> [mcp-server] [--type email|sms|push]
+argument-hint: <service-id> [instance] [--type email|sms|push]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -11,7 +11,7 @@ Design notifications for BPA service `$ARGUMENTS`.
 ## Arguments
 
 - First: service ID (required)
-- Second: MCP server (optional)
+- Second: instance profile name (optional)
 - `--type email|sms|push`: filter to one channel (default: show all)
 
 ## Flow
@@ -42,6 +42,6 @@ For each missing notification:
 ## Usage
 
 ```
-/design-notification 42 BPA-jamaica
+/design-notification 42 jamaica
 /design-notification 17 --type sms
 ```

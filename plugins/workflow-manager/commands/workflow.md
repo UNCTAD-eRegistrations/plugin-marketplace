@@ -1,6 +1,6 @@
 ---
 description: Discover, execute, and manage BPA workflow orchestrations
-argument-hint: [workflow-id-or-name] [mcp-server] [--dry-run]
+argument-hint: [workflow-id-or-name] [instance] [--dry-run]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Manage BPA workflows from `$ARGUMENTS`.
 
 Parse arguments:
 - First token: workflow ID or name (if omitted, list available workflows)
-- Second token: MCP server name (optional)
+- Second token: instance profile name (optional)
 - `--dry-run`: validate inputs without executing
 
 ### If no workflow specified
@@ -32,6 +32,6 @@ For workflows requiring step-by-step confirmation, use `workflow_start_interacti
 
 ```
 /workflow
-/workflow setup-service BPA-jamaica
-/workflow 15 BPA-lesotho2 --dry-run
+/workflow setup-service jamaica
+/workflow 15 lesotho2 --dry-run
 ```

@@ -1,6 +1,6 @@
 ---
 description: List all notification templates and triggers for a BPA service
-argument-hint: <service-id> [mcp-server]
+argument-hint: <service-id> [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -37,5 +37,5 @@ Flag missing notifications as ❌ (run `/design-notification` to add them).
 ## Usage
 
 ```
-/list-notifications 42 BPA-jamaica
+/list-notifications 42 jamaica
 ```

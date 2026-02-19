@@ -11,19 +11,19 @@ Authenticate to BPA instance(s): `$ARGUMENTS`
 ## Instructions
 
 Parse arguments as a list of instance names (e.g., `jamaica lesotho2`).
-If no arguments, prompt the user to choose from the configured instances.
+If no arguments, call `instance_list` and prompt the user to choose.
 
-For each instance, call `auth_login` via `mcp__BPA-<name>__auth_login`.
+For each instance, call `mcp__BPA__auth_login(instance="<name>")`.
 
 - **Keycloak instances**: opens a browser for PKCE login — no password needed
-- **CAS instances**: requires `BPA_<NAME>_CLIENT_SECRET` env var to be set
+- **CAS instances**: credentials were stored in the profile during `/bpa-setup`
 
-After each login attempt, call `connection_status` to confirm success.
+After each login attempt, call `mcp__BPA__connection_status(instance="<name>")` to confirm success.
 
 Report result:
 ```
-BPA-jamaica  ✅ Authenticated as user@example.com (token expires in 2h)
-BPA-lesotho2 ❌ Login failed: browser timeout
+jamaica  ✅ Authenticated as user@example.com (token expires in 2h)
+lesotho2 ❌ Login failed: browser timeout
 ```
 
 ## Usage

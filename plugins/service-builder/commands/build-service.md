@@ -1,6 +1,6 @@
 ---
 description: Design and build a new eRegistrations service interactively
-argument-hint: [service-name] [mcp-server]
+argument-hint: [service-name] [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -12,7 +12,7 @@ Build a new eRegistrations service: `$ARGUMENTS`.
 
 Parse arguments:
 - First token: service name or description (optional, will prompt if omitted)
-- Second token: MCP server name (optional)
+- Second token: instance profile name (optional)
 
 ### Interactive build flow
 
@@ -35,6 +35,6 @@ Ask clarifying questions at each step if requirements are unclear.
 ## Usage
 
 ```
-/build-service "Business Registration" BPA-jamaica
+/build-service "Business Registration" jamaica
 /build-service "Import Permit"
 ```

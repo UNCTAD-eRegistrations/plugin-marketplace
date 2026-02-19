@@ -1,6 +1,6 @@
 ---
 description: Create, manage, and export BPA classification catalogs
-argument-hint: [action] [classification-id] [mcp-server]
+argument-hint: [action] [classification-id] [instance]
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -13,7 +13,7 @@ Manage BPA classification catalogs. `$ARGUMENTS`
 Parse arguments:
 - First token: action (`list`, `get`, `create`, `export`, `country-codes`) — default: `list`
 - Second token: classification ID (for `get`, `export`)
-- Third token: MCP server name (optional)
+- Third token: instance profile name (optional)
 
 ### Actions
 
@@ -30,8 +30,8 @@ Parse arguments:
 ## Usage
 
 ```
-/manage-classifications list BPA-jamaica
-/manage-classifications get 5 BPA-lesotho2
+/manage-classifications list jamaica
+/manage-classifications get 5 lesotho2
 /manage-classifications export 12
-/manage-classifications country-codes BPA-jamaica
+/manage-classifications country-codes jamaica
 ```
