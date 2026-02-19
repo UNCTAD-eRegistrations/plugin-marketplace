@@ -1,6 +1,6 @@
-# UNCTAD Digital Government — Software Factory
+# UNCTAD eRegistrations Plugin Marketplace
 
-Official plugin marketplace and tools for UNCTAD's digital government platform, supporting eRegistrations deployments across all types of government services: business registration, permits, social protection, health, environment, tax, and more.
+Official Claude Code plugins for UNCTAD's eRegistrations platform, supporting BPA service development across all types of government services: business registration, permits, social protection, health, environment, tax, and more.
 
 > **Note:** Only install plugins from trusted sources. Verify each plugin before installation.
 
@@ -10,6 +10,18 @@ Official plugin marketplace and tools for UNCTAD's digital government platform, 
 - **`/scripts`** — Utility scripts (`migrate-to-multi-instance.py`, `sync-skills.sh`)
 
 ## Installing Plugins
+
+First, register this marketplace in your Claude Code settings:
+
+```json
+{
+  "pluginMarketplaces": [
+    "https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/.claude-plugin/marketplace.json"
+  ]
+}
+```
+
+Then install plugins by name:
 
 ```bash
 /plugin install bpa-instances@unctad-digital-government

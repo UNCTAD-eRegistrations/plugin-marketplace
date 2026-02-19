@@ -1,5 +1,5 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "$schema": "https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/.claude-plugin/marketplace.schema.json",
   "name": "unctad-digital-government",
   "description": "Official plugin marketplace for UNCTAD Digital Government Tools — eRegistrations platform, BPA service development, government procedure reform, and digital public services",
   "owner": {
