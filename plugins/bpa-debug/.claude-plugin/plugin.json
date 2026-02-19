@@ -1,0 +1,8 @@
+{
+  "name": "bpa-debug",
+  "description": "Scan, investigate, and fix configuration issues in BPA services",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

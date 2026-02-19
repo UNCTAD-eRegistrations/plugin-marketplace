@@ -1,0 +1,8 @@
+{
+  "name": "service-builder",
+  "description": "Design and build new eRegistrations services with forms, determinants, roles, and registrations",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

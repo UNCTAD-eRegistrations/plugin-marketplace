@@ -1,0 +1,103 @@
+{
+  "BPA-nigeria": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.gateway.nipc.gov.ng",
+      "KEYCLOAK_URL": "https://login.gateway.nipc.gov.ng",
+      "KEYCLOAK_REALM": "NG"
+    }
+  },
+  "BPA-elsalvador-dev": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.dev.els.eregistrations.org",
+      "KEYCLOAK_URL": "https://login.dev.els.eregistrations.org",
+      "KEYCLOAK_REALM": "SV"
+    }
+  },
+  "BPA-kenya-test": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.test.kenya.eregistrations.org",
+      "KEYCLOAK_URL": "https://login.test.kenya.eregistrations.org",
+      "KEYCLOAK_REALM": "KE"
+    }
+  },
+  "BPA-investkenya": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.investkenya.go.ke",
+      "KEYCLOAK_URL": "https://login.investkenya.go.ke",
+      "KEYCLOAK_REALM": "ke"
+    }
+  },
+  "BPA-cuba-test": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.test.cuba.eregistrations.org",
+      "CAS_URL": "https://eid.test.cuba.eregistrations.org/cback/v1.0",
+      "CAS_CLIENT_ID": "mcp-bpa",
+      "CAS_CLIENT_SECRET": "${BPA_CUBA_TEST_CLIENT_SECRET}"
+    }
+  },
+  "BPA-cuba": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.cuba.eregistrations.org",
+      "CAS_URL": "https://bpa.cuba.eregistrations.org/cback/v1.0",
+      "CAS_CLIENT_ID": "mcp-bpa",
+      "CAS_CLIENT_SECRET": "${BPA_CUBA_CLIENT_SECRET}"
+    }
+  },
+  "BPA-jamaica": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.jamaica.eregistrations.org",
+      "KEYCLOAK_URL": "https://login.jamaica.eregistrations.org",
+      "KEYCLOAK_REALM": "JM"
+    }
+  },
+  "BPA-lesotho2": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.businessregistrations.gov.ls",
+      "KEYCLOAK_URL": "https://login.businessregistrations.gov.ls",
+      "KEYCLOAK_REALM": "LS"
+    }
+  },
+  "BPA-colombia-test": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.test.colombia.eregistrations.org",
+      "KEYCLOAK_URL": "https://login.test.colombia.eregistrations.org",
+      "KEYCLOAK_REALM": "CO"
+    }
+  },
+  "BPA-gambia": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.easybusiness.gov.gm",
+      "KEYCLOAK_URL": "https://login.easybusiness.gov.gm",
+      "KEYCLOAK_REALM": "GM"
+    }
+  },
+  "BPA-bhutan-staging": {
+    "type": "stdio",
+    "command": "mcp-eregistrations-bpa",
+    "env": {
+      "BPA_INSTANCE_URL": "https://bpa.stagingibls.moea.gov.bt",
+      "KEYCLOAK_URL": "https://login.stagingibls.moea.gov.bt",
+      "KEYCLOAK_REALM": "BT"
+    }
+  }
+}

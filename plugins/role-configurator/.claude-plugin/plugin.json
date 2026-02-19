@@ -1,0 +1,8 @@
+{
+  "name": "role-configurator",
+  "description": "Design and configure BPA role structures, status transitions, institution assignments, and processing units",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

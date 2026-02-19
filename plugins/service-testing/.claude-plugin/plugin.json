@@ -1,0 +1,8 @@
+{
+  "name": "service-testing",
+  "description": "Validate BPA service configuration integrity, score against UNCTAD quality standards, and snapshot services for regression testing",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

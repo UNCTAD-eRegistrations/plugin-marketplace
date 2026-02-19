@@ -1,0 +1,8 @@
+{
+  "name": "print-document-builder",
+  "description": "Design and manage print documents (certificates, licenses, permits) for BPA services",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

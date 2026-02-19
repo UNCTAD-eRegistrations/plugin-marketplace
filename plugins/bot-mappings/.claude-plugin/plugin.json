@@ -1,0 +1,8 @@
+{
+  "name": "bot-mappings",
+  "description": "Create, configure, and manage BPA bot integrations and field mappings",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

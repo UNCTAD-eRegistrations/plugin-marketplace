@@ -1,0 +1,8 @@
+{
+  "name": "bpa-instances",
+  "description": "Configure Claude Code MCP connections for all eRegistrations BPA instances. Install this once — all other UNCTAD plugins depend on it.",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

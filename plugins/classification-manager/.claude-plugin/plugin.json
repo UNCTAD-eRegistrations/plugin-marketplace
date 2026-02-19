@@ -1,0 +1,8 @@
+{
+  "name": "classification-manager",
+  "description": "Create, manage, and export BPA classification catalogs and country code mappings",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

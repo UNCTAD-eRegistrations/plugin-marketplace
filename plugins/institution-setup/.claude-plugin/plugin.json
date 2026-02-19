@@ -1,0 +1,8 @@
+{
+  "name": "institution-setup",
+  "description": "Configure institutions, role-institution assignments, and units for a BPA deployment",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

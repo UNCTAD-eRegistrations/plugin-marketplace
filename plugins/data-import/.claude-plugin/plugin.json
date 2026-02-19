@@ -1,0 +1,8 @@
+{
+  "name": "data-import",
+  "description": "Import classifications, document requirements, and cost structures from CSV or Excel files into a BPA instance",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

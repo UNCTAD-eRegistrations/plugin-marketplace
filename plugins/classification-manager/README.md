@@ -1,0 +1,23 @@
+# classification-manager
+
+Create, manage, and export BPA classification catalogs.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/manage-classifications list [server]` | List all catalogs |
+| `/manage-classifications get <id> [server]` | Show catalog entries |
+| `/manage-classifications create [server]` | Create new catalog interactively |
+| `/manage-classifications export <id>` | Export catalog as CSV |
+| `/manage-classifications country-codes [server]` | Apply ISO country codes |
+
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| `classification-design` | Catalog design patterns, naming conventions, standard catalogs |
+
+## Requirements
+
+- Authenticated BPA MCP server

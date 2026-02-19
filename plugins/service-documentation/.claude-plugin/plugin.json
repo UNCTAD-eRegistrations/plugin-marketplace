@@ -1,0 +1,8 @@
+{
+  "name": "service-documentation",
+  "description": "Generate citizen-facing HTML service manuals, batch-generate all service manuals, and export structured Excel documentation for eRegistrations BPA services",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}

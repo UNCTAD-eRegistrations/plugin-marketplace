@@ -1,0 +1,8 @@
+{
+  "name": "notification-designer",
+  "description": "Design and manage email/SMS/push notification templates and triggers for BPA services",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section",
+    "email": "tf-tools@unctad.org"
+  }
+}
