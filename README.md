@@ -7,8 +7,7 @@ Official plugin marketplace and tools for UNCTAD's digital government platform, 
 ## Structure
 
 - **`/plugins`** — Claude Code plugins maintained by UNCTAD
-- **`/skills`** — Claude Code skills (Agent Skills spec, for direct installation)
-- **`/scripts`** — Utility scripts (MCP config generation, skills sync)
+- **`/scripts`** — Utility scripts (`migrate-to-multi-instance.py`, `sync-skills.sh`)
 
 ## Installing Plugins
 
@@ -52,15 +51,36 @@ plugin-name/
 └── README.md             # Documentation
 ```
 
-## BPA MCP Servers
+## Getting Started
 
-Plugins require an authenticated BPA MCP server. Install `bpa-instances` first, then authenticate:
+All plugins require the `bpa-instances` plugin and an authenticated BPA connection:
 
 ```bash
-/bpa-login BPA-jamaica
-/bpa-login BPA-lesotho2
+# 1. Install the BPA MCP server binary first
+uv tool install ./MCP_eRegistrations_BPA
+
+# 2. Register all known country instances (run once)
+/bpa-setup
+
+# 3. Authenticate to the instance(s) you need
+/bpa-login jamaica
+/bpa-login lesotho2
+```
+
+See the [`bpa-instances` plugin README](./plugins/bpa-instances/README.md) for full setup instructions and a list of all available instance profiles.
+
+## Upgrading from the multi-server setup
+
+If you have `BPA-jamaica`, `BPA-lesotho2`, etc. in your MCP config, run the migration script:
+
+```bash
+# Dry run first
+uv run scripts/migrate-to-multi-instance.py
+
+# Apply when ready
+uv run scripts/migrate-to-multi-instance.py --apply
 ```
 
 ## Contributing
 
-For the skills spec, see [skills/CLAUDE.md](./skills/CLAUDE.md).
+See [CLAUDE.md](./CLAUDE.md) for conventions and contribution guidelines.
