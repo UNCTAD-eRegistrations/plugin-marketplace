@@ -12,26 +12,34 @@ Register all known BPA deployment profiles so they can be used by any BPA tool v
 
 ### Step 1 — Ensure the MCP server binary is installed
 
-Run `mcp-eregistrations-bpa --version` via Bash.
+Run `command -v mcp-eregistrations-bpa` via Bash.
 
 - If it succeeds, continue to Step 2.
 - If the command is not found, install it:
 
-  1. Locate the marketplace repo by checking these paths in order via Bash:
-     - `~/PROJECTS/software-factory/plugin-marketplace/MCP_eRegistrations_BPA`
-     - `~/plugin-marketplace/MCP_eRegistrations_BPA`
-     - Ask the user: "Where is your plugin-marketplace repo? I need the path to install the BPA MCP server."
-
-  2. Once the path is confirmed, run:
+  1. Run:
      ```
-     uv tool install <path>/MCP_eRegistrations_BPA
+     uv tool install mcp-eregistrations-bpa
      ```
 
-  3. Verify with `mcp-eregistrations-bpa --version`. If it still fails, tell the user to restart Claude and run `/bpa-setup` again (Claude must reload MCP tool definitions after a new server is installed).
+  2. Verify with `command -v mcp-eregistrations-bpa`. If not found, tell the user to restart their terminal or Claude and run `/bpa-setup` again — the PATH may need to refresh after install.
 
 Do not proceed past this point until the binary is confirmed.
 
-### Step 2 — Register instance profiles
+### Step 2 — Confirm the BPA MCP server is loaded
+
+Attempt to call `mcp__BPA__instance_list()`.
+
+- If it succeeds (even returning an empty list), continue to Step 3.
+- If the tool is unavailable or the call fails with a server/connection error, stop and tell the user:
+
+  > The BPA MCP server is not loaded yet. This happens after a fresh install — Claude needs to restart to pick up the new MCP server.
+  >
+  > Please restart Claude, then run `/bpa-setup` again.
+
+Do not proceed past this point until the BPA tools are confirmed available.
+
+### Step 3 — Register instance profiles
 
 Call `mcp__BPA__instance_add` for each deployment below. Skip any profile that already exists
 (check with `instance_list` first to avoid duplicates).
@@ -68,7 +76,7 @@ If the user doesn't have Cuba credentials, skip those profiles.
 
 ## After setup
 
-Confirm with `instance_list` and show the registered profiles.
+Call `mcp__BPA__instance_list()` and show the registered profiles.
 Then suggest: "Run `/bpa-login <instance>` to authenticate."
 
 ## Upgrading note

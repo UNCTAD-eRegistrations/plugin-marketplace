@@ -74,7 +74,7 @@ All plugins require the `bpa-instances` plugin and an authenticated BPA connecti
 
 ```bash
 # 1. Install the BPA MCP server binary first
-uv tool install ./MCP_eRegistrations_BPA
+uv tool install mcp-eregistrations-bpa
 
 # 2. Register all known country instances (run once)
 /bpa-setup

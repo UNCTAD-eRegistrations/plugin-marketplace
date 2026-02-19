@@ -21,10 +21,10 @@ A single `BPA` MCP server. Instance profiles are managed via `/bpa-setup` after 
 ### 1. Install the MCP server
 
 ```bash
-uv tool install ./MCP_eRegistrations_BPA
+uv tool install mcp-eregistrations-bpa
 ```
 
-Verify: `mcp-eregistrations-bpa --version`
+Verify: `command -v mcp-eregistrations-bpa`
 
 ### 2. Install this plugin and register instances
 
