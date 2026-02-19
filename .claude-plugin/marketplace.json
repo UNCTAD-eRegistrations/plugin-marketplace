@@ -146,6 +146,6 @@
       },
       "source": "./plugins/print-document-builder",
       "category": "development"
-    },
+    }
   ]
 }
