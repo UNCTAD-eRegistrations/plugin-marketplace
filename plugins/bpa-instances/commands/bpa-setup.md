@@ -10,18 +10,24 @@ Register all known BPA deployment profiles so they can be used by any BPA tool v
 
 ## Instructions
 
-### Step 1 — Check the MCP server binary
+### Step 1 — Ensure the MCP server binary is installed
 
 Run `mcp-eregistrations-bpa --version` via Bash.
 
 - If it succeeds, continue to Step 2.
-- If the command is not found, stop and tell the user:
+- If the command is not found, install it:
 
-  > The BPA MCP server is not installed. Run the following from the plugin marketplace repository root, then restart Claude:
-  > ```
-  > uv tool install ./MCP_eRegistrations_BPA
-  > ```
-  > Once installed, run `/bpa-setup` again.
+  1. Locate the marketplace repo by checking these paths in order via Bash:
+     - `~/PROJECTS/software-factory/plugin-marketplace/MCP_eRegistrations_BPA`
+     - `~/plugin-marketplace/MCP_eRegistrations_BPA`
+     - Ask the user: "Where is your plugin-marketplace repo? I need the path to install the BPA MCP server."
+
+  2. Once the path is confirmed, run:
+     ```
+     uv tool install <path>/MCP_eRegistrations_BPA
+     ```
+
+  3. Verify with `mcp-eregistrations-bpa --version`. If it still fails, tell the user to restart Claude and run `/bpa-setup` again (Claude must reload MCP tool definitions after a new server is installed).
 
 Do not proceed past this point until the binary is confirmed.
 
