@@ -7,7 +7,7 @@ Design and configure multi-agency role and workflow structures for BPA services.
 | Command | Description |
 |---------|-------------|
 | `/configure-roles <id> [--wizard]` | Design or edit roles and status transitions |
-| `/audit-workflow [server]` | Check workflow completeness across all services |
+| `/audit-workflow [instance]` | Check workflow completeness across all services |
 
 ## Agents
 

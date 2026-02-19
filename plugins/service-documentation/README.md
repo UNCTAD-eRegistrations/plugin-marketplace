@@ -6,9 +6,9 @@ All documentation generation tools for eRegistrations BPA services.
 
 | Command | Description |
 |---------|-------------|
-| `/service-manual <id> [server]` | Generate citizen-facing HTML manual for one service |
-| `/service-manual-all [server]` | Batch-generate manuals for all services + catalog index |
-| `/eregistrations-docs [id] [server]` | Export service data to Excel workbook |
+| `/service-manual <id> [instance]` | Generate citizen-facing HTML manual for one service |
+| `/service-manual-all [instance]` | Batch-generate manuals for all services + catalog index |
+| `/eregistrations-docs [id] [instance]` | Export service data to Excel workbook |
 
 ## Bundled Skills
 

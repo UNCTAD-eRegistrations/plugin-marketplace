@@ -6,8 +6,8 @@ Configure institutions and their assignments for BPA deployments.
 
 | Command | Description |
 |---------|-------------|
-| `/setup-institutions [server] [--service <id>]` | Interactive wizard for institution configuration |
-| `/audit-institutions [server]` | Audit institution coverage across all services |
+| `/setup-institutions [instance] [--service <id>]` | Interactive wizard for institution configuration |
+| `/audit-institutions [instance]` | Audit institution coverage across all services |
 
 ## Agents
 
