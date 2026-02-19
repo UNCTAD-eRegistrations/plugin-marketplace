@@ -1,6 +1,18 @@
 # UNCTAD eRegistrations Plugin Marketplace
 
-Claude Code plugins for UNCTAD technical staff working on eRegistrations deployments. Covers the full service development lifecycle — design, testing, debugging, documentation, and deployment — across business registration, permits, social protection, health, environment, tax, and more.
+AI plugins for eRegistrations service design. Each plugin bundles skills, agents, and slash commands that empower service designers to design and maintain digital government services through agentic AI — covering design, testing, debugging, and documentation.
+
+## How it works
+
+The **BPA MCP server** connects Claude directly to any eRegistrations instance — giving it real-time access to services, forms, roles, bots, determinants, and every other BPA resource. It is the professional kitchen: the tools, the ingredients, the live connection to the platform.
+
+The **skills** are the recipes. They encode UNCTAD service design knowledge — workflows, quality standards, best practices — so Claude knows not just *what* it can do, but *how* to do it well.
+
+The **agents** handle complex, multi-step tasks autonomously: designing a full service from scratch, running a 4-suite test battery, migrating a service between country instances. They orchestrate skills and MCP calls in the right order, with the right checks.
+
+The **slash commands** are the entry points: a single `/service-test`, `/bpa-debug`, or `/service-doc` invocation hands control to the appropriate agent and delivers the result.
+
+Together, they turn Claude into a specialist service designer — one that understands the BPA data model, speaks the eRegistrations vocabulary, and can execute the full service lifecycle without hand-holding.
 
 ## Structure
 
@@ -55,9 +67,9 @@ Each plugin follows this convention:
 plugin-name/
 ├── .claude-plugin/
 │   └── plugin.json       # Plugin metadata (required)
-├── commands/             # Slash commands (optional)
-├── agents/               # Agent definitions (optional)
 ├── skills/               # Skill definitions (optional)
+├── agents/               # Agent definitions (optional)
+├── commands/             # Slash commands (optional)
 └── README.md             # Documentation
 ```
 
