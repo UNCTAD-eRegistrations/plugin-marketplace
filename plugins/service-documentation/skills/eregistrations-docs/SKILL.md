@@ -8,9 +8,10 @@ license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server connection. Python 3.x and openpyxl must be installed (pip install openpyxl).
 allowed-tools: Bash(python3 *), Read, Write
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   version-date: "2026-02-19"
   author: "Frank Grozel (gfrankgva)"
+  argument-hint: "[service-id] [instance]"
   disable-model-invocation: "true"
 ---
 
@@ -25,12 +26,33 @@ metadata:
 - `scripts/service_analyzer.py` -- Python script (17KB) that parses BPA service JSON exports
 - `resources/` -- Place reference files and templates here
 
+## Inputs
+
+- **Service ID**: `$ARGUMENTS[0]`
+- **Instance**: `$ARGUMENTS[1]`
+
+## Discovering Available BPA Instances
+
+If **Instance** is not provided, discover which instance profiles are registered:
+
+1. Call `mcp__BPA__instance_list()` to get all registered profiles.
+2. Present the results to the user:
+   > "Found {N} BPA instance(s):
+   > 1. **{name}** → {url}
+   > Which one would you like to use?"
+3. Use the chosen `{name}` as the instance for all subsequent calls (pass `instance="{name}"` to every `mcp__BPA__*` tool).
+
 ## Procedure
+
+### Step 0: Check Auth
+
+Call `mcp__BPA__connection_status(instance="{instance}")`.
+- If not authenticated → run `mcp__BPA__auth_login(instance="{instance}")`, wait for success.
 
 ### Step 1: Get the Service Export
 Use BPA MCP tools to export the service:
 ```
-service_export_raw(service_id=...)
+mcp__BPA__service_export_raw(service_id="{service_id}", instance="{instance}")
 ```
 Or the user may provide a JSON file directly.
 
@@ -52,22 +74,14 @@ The script extracts:
 ### Step 3: Deliver
 - Provide the Excel report to the user
 - Summarize key findings (field count, complexity, issues found)
-- Optionally generate a YAML representation via `service_to_yaml()`
-
-## Discovering Available BPA Instances
-
-If you don't know which BPA MCP server to use:
-
-1. Look at your available tools for any namespace that has a `server_info` tool.
-   Pattern to match: `mcp__{name}__server_info`
-2. Call `server_info` on each — no authentication required.
-3. Present the list to the user and ask which instance to use.
+- Optionally generate a YAML representation via `mcp__BPA__service_to_yaml(service_id="{service_id}", instance="{instance}")`
 
 ## Notes
 - Refer to the `rosetta-stone.md` in your workspace AI guides for BPA terminology
 
 ## Changelog
 
+- 1.5.0 (2026-02-19) gfrankgva — Multi-instance migration: instance_list discovery, mcp__BPA__ prefix with instance= param, added auth check and argument-hint
 - 1.4.0 (2026-02-19) gfrankgva — Discovery via server_info tool; dropped ! injection and config file parsing
 - 1.3.0 (2026-02-19) gfrankgva — Generic BPA MCP discovery via ! injection; removed hardcoded server names
 - 1.2.0 (2026-02-19) gfrankgva — disable-model-invocation true; added allowed-tools; fixed MCP server names; removed stale path reference

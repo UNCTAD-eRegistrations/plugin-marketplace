@@ -6,7 +6,7 @@ Design and build new eRegistrations services with forms, determinants, roles, an
 
 | Command | Description |
 |---------|-------------|
-| `/build-service [name] [server]` | Interactive guided service build |
+| `/build-service [name] [instance]` | Interactive guided service build |
 
 ## Agents
 

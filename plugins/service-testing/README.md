@@ -49,4 +49,4 @@ Validate BPA service configuration, score against UNCTAD quality standards, and 
 
 ## Requirements
 
-- `mcp-eregistrations-bpa` installed (see repo root README)
+- `bpa-instances` plugin installed and configured

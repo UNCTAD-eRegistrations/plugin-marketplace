@@ -12,7 +12,7 @@ Import document requirements from `$ARGUMENTS`.
 
 - First: path to CSV or Excel file (required)
 - Second: service ID (required)
-- Third: MCP server (optional)
+- Third: instance profile name (optional)
 
 ## Expected File Format
 

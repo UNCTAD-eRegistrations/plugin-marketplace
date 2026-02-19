@@ -6,7 +6,7 @@ Discover, execute, monitor, and manage BPA workflow orchestrations.
 
 | Command | Description |
 |---------|-------------|
-| `/workflow [id/name] [server] [--dry-run]` | Execute or list workflows |
+| `/workflow [id/name] [instance] [--dry-run]` | Execute or list workflows |
 
 ## Features
 

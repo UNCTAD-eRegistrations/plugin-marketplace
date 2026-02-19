@@ -6,7 +6,7 @@ Create, configure, and manage BPA bot integrations and field mappings.
 
 | Command | Description |
 |---------|-------------|
-| `/bot-mappings <id> [server] [--suggest]` | Manage bot mappings for a service |
+| `/bot-mappings <id> [instance] [--suggest]` | Manage bot mappings for a service |
 
 ## Features
 

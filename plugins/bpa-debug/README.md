@@ -6,7 +6,7 @@ Scan, investigate, and fix configuration issues in BPA services.
 
 | Command | Description |
 |---------|-------------|
-| `/debug <id> [server] [--fix]` | Scan and optionally auto-fix issues |
+| `/debug <id> [instance] [--fix]` | Scan and optionally auto-fix issues |
 
 ## Agents
 

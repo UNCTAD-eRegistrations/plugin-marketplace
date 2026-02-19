@@ -48,6 +48,16 @@ If the user doesn't have Cuba credentials, skip those profiles.
 Confirm with `instance_list` and show the registered profiles.
 Then suggest: "Run `/bpa-login <instance>` to authenticate."
 
+## Upgrading note
+
+If the user seems to be upgrading (they mention old server names like `BPA-jamaica`, or tools from the old servers still appear), tell them:
+
+> You may still have old BPA-* server entries in your config. Run this from the marketplace repo root to clean them up:
+> ```
+> uv run scripts/migrate-to-multi-instance.py --apply
+> ```
+> Then restart Claude Desktop if open.
+
 ## Usage
 
 ```

@@ -62,11 +62,25 @@ After running `/bpa-setup`, the following profiles are available:
 | `gambia` | Gambia | `bpa.easybusiness.gov.gm` |
 | `bhutan-staging` | Bhutan (Staging) | `bpa.stagingibls.moea.gov.bt` |
 
+## Upgrading from the old multi-server setup
+
+If you previously installed this plugin and have `BPA-nigeria`, `BPA-jamaica`, etc. in your config, run the migration script from the marketplace repo root:
+
+```bash
+# Dry run first (shows what will change)
+uv run scripts/migrate-to-multi-instance.py
+
+# Apply when ready
+uv run scripts/migrate-to-multi-instance.py --apply
+```
+
+This removes all `BPA-*` entries and adds the single `BPA` entry in both your project `.mcp.json` and Claude Desktop config. Then run `/bpa-setup` to re-register all instance profiles.
+
 ## Adding or removing instances
 
 ```
-/bpa-setup             # register all known profiles
-instance_add           # add a custom profile via tool call
-instance_remove        # remove a profile via tool call
-instance_list          # list all registered profiles
+/bpa-setup                   # register all known profiles (slash command)
+mcp__BPA__instance_add       # add a custom profile
+mcp__BPA__instance_remove    # remove a profile
+mcp__BPA__instance_list      # list all registered profiles
 ```

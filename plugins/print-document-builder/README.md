@@ -6,7 +6,7 @@ Design and manage print documents (certificates, licenses, permits) for BPA serv
 
 | Command | Description |
 |---------|-------------|
-| `/build-print-doc <id> [server] [--from-template]` | Create or edit print documents |
+| `/build-print-doc <id> [instance] [--from-template]` | Create or edit print documents |
 
 ## Skills
 

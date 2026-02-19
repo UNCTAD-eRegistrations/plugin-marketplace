@@ -46,13 +46,13 @@ Use a classification (catalog) whenever a form field offers a list of options th
 
 ## Country Codes Pattern
 
-Always apply ISO country codes using `classification_apply_country_codes` rather than manually entering them. This ensures:
+Always apply ISO country codes using `mcp__BPA__classification_apply_country_codes` rather than manually entering them. This ensures:
 - Correct ISO 3166-1 alpha-2 codes
 - Consistent labeling
 - All 249 countries/territories included
 
 ```
-classification_apply_country_codes(classification_id=<id>)
+mcp__BPA__classification_apply_country_codes(classification_id=<id>, instance="<instance>")
 ```
 
 ## Changelog

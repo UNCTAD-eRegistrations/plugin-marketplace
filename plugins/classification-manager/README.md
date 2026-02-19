@@ -6,11 +6,11 @@ Create, manage, and export BPA classification catalogs.
 
 | Command | Description |
 |---------|-------------|
-| `/manage-classifications list [server]` | List all catalogs |
-| `/manage-classifications get <id> [server]` | Show catalog entries |
-| `/manage-classifications create [server]` | Create new catalog interactively |
+| `/manage-classifications list [instance]` | List all catalogs |
+| `/manage-classifications get <id> [instance]` | Show catalog entries |
+| `/manage-classifications create [instance]` | Create new catalog interactively |
 | `/manage-classifications export <id>` | Export catalog as CSV |
-| `/manage-classifications country-codes [server]` | Apply ISO country codes |
+| `/manage-classifications country-codes [instance]` | Apply ISO country codes |
 
 ## Skills
 

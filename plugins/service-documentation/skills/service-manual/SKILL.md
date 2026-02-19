@@ -8,10 +8,10 @@ license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server connection.
 allowed-tools: Read, Write, Bash(open *), Bash(mkdir -p *)
 metadata:
-  version: "2.4.0"
+  version: "2.5.0"
   version-date: "2026-02-19"
   author: "Frank Grozel (gfrankgva)"
-  argument-hint: "[service-id] [mcp-server]"
+  argument-hint: "[service-id] [instance]"
   disable-model-invocation: "true"
 ---
 
@@ -22,20 +22,18 @@ You will create a comprehensive, citizen-friendly HTML user manual for the eRegi
 ## Inputs
 
 - **Service ID**: `$ARGUMENTS[0]`
-- **MCP Server**: `$ARGUMENTS[1]`
+- **Instance**: `$ARGUMENTS[1]`
 
 ## Discovering Available BPA Instances
 
-If **MCP Server** is not provided, discover which BPA instances are installed:
+If **Instance** is not provided, discover which instance profiles are registered:
 
-1. Look at your available tools for any namespace that has a `server_info` tool.
-   Pattern to match: `mcp__{name}__server_info`
-2. Call `server_info` on each — it requires no authentication and returns immediately.
-3. Present the results to the user:
+1. Call `mcp__BPA__instance_list()` to get all registered profiles.
+2. Present the results to the user:
    > "Found {N} BPA instance(s):
-   > 1. **{name}** → {bpa_instance_url} (realm: {keycloak_realm})
+   > 1. **{name}** → {url}
    > Which one would you like to use?"
-4. Use the chosen `{name}` as the MCP server for all subsequent calls.
+3. Use the chosen `{name}` as the instance for all subsequent calls (pass `instance="{name}"` to every `mcp__BPA__*` tool).
 
 ## CRITICAL RULES
 
@@ -47,13 +45,13 @@ If **MCP Server** is not provided, discover which BPA instances are installed:
 
 Run these checks BEFORE any heavy data fetching:
 
-1. **Check auth**: Call `connection_status` on the MCP server.
-   - If not authenticated → run `auth_login`, wait for success
-   - If server name not found → run the discovery procedure above to find valid server names
-2. **Validate service**: Call `service_get(service_id)` to confirm it exists
+1. **Check auth**: Call `mcp__BPA__connection_status(instance="{instance}")`.
+   - If not authenticated → run `mcp__BPA__auth_login(instance="{instance}")`, wait for success
+   - If instance not found → run the discovery procedure above
+2. **Validate service**: Call `mcp__BPA__service_get(service_id="{service_id}", instance="{instance}")` to confirm it exists
    - Get the service name, description, and status
    - If not found → tell user and stop
-3. **Quick form check**: Call `form_get(service_id)` to get component count
+3. **Quick form check**: Call `mcp__BPA__form_get(service_id="{service_id}", instance="{instance}")` to get component count
    - This tells us the complexity (small: <50 components, medium: 50-150, large: 150+)
    - **Empty service guard**: If component count is ≤ 5, STOP and warn the user:
      > "Warning: This service has only {N} form component(s). It may be empty, a template, or still under development. Generating a manual for an empty service will produce fabricated content. Do you want to proceed anyway?"
@@ -95,13 +93,13 @@ Use the Task tool with:
 - `subagent_type`: `"general-purpose"`
 - `description`: `"Generate service manual HTML"`
 
-Pass this prompt to the subagent (fill in actual values for service_id, mcp_server, service_name, working_directory):
+Pass this prompt to the subagent (fill in actual values for service_id, instance, service_name, working_directory):
 
 ~~~
 You are generating an HTML user manual for an eRegistrations service.
 
 **Service ID**: {service_id}
-**MCP Server**: {mcp_server} (use MCP tools prefixed with mcp__{mcp_server}__)
+**Instance**: {instance} (pass `instance="{instance}"` to all `mcp__BPA__*` tools)
 **Service Name**: {service_name}
 **Output file**: {working_directory}/{service-slug}.html
 **Visual Identity**:
@@ -124,13 +122,13 @@ Only document what actually exists in the data returned by the MCP tools.
 ### Step 1: Fetch ALL Data
 
 Call these MCP tools in parallel:
-1. `mcp__{mcp_server}__form_get(service_id="{service_id}")` — full form structure
-2. `mcp__{mcp_server}__field_list(service_id="{service_id}", limit=500)` — all fields
-3. `mcp__{mcp_server}__determinant_list(service_id="{service_id}")` — conditional logic
-4. `mcp__{mcp_server}__role_list(service_id="{service_id}")` — workflow roles
-5. `mcp__{mcp_server}__bot_list(service_id="{service_id}")` — automations
-6. `mcp__{mcp_server}__analyze_service(service_id="{service_id}")` — overview with costs/requirements
-7. `mcp__{mcp_server}__registration_list(service_id="{service_id}")` — registrations
+1. `mcp__BPA__form_get(service_id="{service_id}", instance="{instance}")` — full form structure
+2. `mcp__BPA__field_list(service_id="{service_id}", instance="{instance}", limit=500)` — all fields
+3. `mcp__BPA__determinant_list(service_id="{service_id}", instance="{instance}")` — conditional logic
+4. `mcp__BPA__role_list(service_id="{service_id}", instance="{instance}")` — workflow roles
+5. `mcp__BPA__bot_list(service_id="{service_id}", instance="{instance}")` — automations
+6. `mcp__BPA__analyze_service(service_id="{service_id}", instance="{instance}")` — overview with costs/requirements
+7. `mcp__BPA__registration_list(service_id="{service_id}", instance="{instance}")` — registrations
 
 If field_list has `has_more=true`, fetch additional pages with offset.
 
@@ -215,8 +213,8 @@ Create a single self-contained HTML file with:
 Every generated manual MUST include a version block in the HTML footer:
 ```html
 <footer class="manual-version">
-  <p>Manual v1.0 — Generated {YYYY-MM-DD HH:MM UTC} — Source: {mcp_server}/{service_id}</p>
-  <p>Generated by /service-manual skill v2.4.0</p>
+  <p>Manual v1.0 — Generated {YYYY-MM-DD HH:MM UTC} — Source: BPA/{instance}/{service_id}</p>
+  <p>Generated by /service-manual skill v2.5.0</p>
 </footer>
 ```
 Use the current date/time when generating. First generation is always v1.0. If a manual already exists at the output path, read its version number and increment (v1.0 → v1.1).
@@ -243,6 +241,7 @@ After the subagent completes:
 
 ## Changelog
 
+- 2.5.0 (2026-02-19) gfrankgva — Multi-instance migration: instance_list discovery, mcp__BPA__ prefix with instance= param throughout
 - 2.4.0 (2026-02-19) gfrankgva — Phase 1.5: ask user for brand URL, fetch visual identity (logo, colors, font), pass to subagent
 - 2.3.0 (2026-02-19) gfrankgva — Discovery via server_info tool; dropped ! injection and config file parsing
 - 2.2.0 (2026-02-19) gfrankgva — Generic BPA MCP discovery via ! injection; removed hardcoded server names
