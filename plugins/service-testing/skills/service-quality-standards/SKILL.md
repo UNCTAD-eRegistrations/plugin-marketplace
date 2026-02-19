@@ -7,9 +7,9 @@ description: >
   a service against best-practice templates from other deployments.
 license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server.
-allowed-tools: Read Write Bash
+allowed-tools: Read
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   version-date: "2026-02-19"
   author: "UNCTAD Trade Facilitation Section (tf-tools@unctad.org)"
 ---
@@ -17,6 +17,28 @@ metadata:
 # Service Quality Standards
 
 UNCTAD benchmarks for evaluating eRegistrations service configurations.
+
+## Connecting to BPA
+
+Before any tool call:
+1. If the instance is unknown, call `mcp__BPA__instance_list()` to see registered profiles.
+2. Check auth: `mcp__BPA__connection_status(instance="{name}")`.
+3. If not authenticated → `mcp__BPA__auth_login(instance="{name}")`, wait for success.
+
+Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
+
+## Scoring Formula
+
+The exact scoring algorithm (point allocations, scaling formulas) is defined in the `/score-service` command. This skill provides the qualitative benchmarks and thresholds; the command implements the calculation.
+
+Key data sources for scoring:
+```
+mcp__BPA__analyze_service(instance="{instance}", service_id="{id}")   # overview, costs, requirements
+mcp__BPA__debug_scan(instance="{instance}", service_id="{id}")        # issue counts
+mcp__BPA__bot_list(instance="{instance}", service_id="{id}")          # automation coverage
+mcp__BPA__service_get(instance="{instance}", service_id="{id}")       # published flag, metadata
+mcp__BPA__print_document_list(instance="{instance}", service_id="{id}") # print doc presence
+```
 
 ## Quality Dimensions
 
@@ -44,9 +66,9 @@ A valid service has zero errors.
 
 | Metric | Target |
 |--------|--------|
-| `debug_scan` CRITICAL issues | 0 |
-| `debug_scan` ERROR issues | 0 |
-| `debug_scan` WARNING issues | < 5 |
+| `mcp__BPA__debug_scan` CRITICAL issues | 0 |
+| `mcp__BPA__debug_scan` ERROR issues | 0 |
+| `mcp__BPA__debug_scan` WARNING issues | < 5 |
 | Orphaned determinants | 0 |
 
 ### 4. Citizen Experience
@@ -54,10 +76,10 @@ A published service is accessible and documented.
 
 | Requirement | Check |
 |-------------|-------|
-| Published on citizen portal | `service_get.published == true` |
-| Has at least one print document | `print_document_list` not empty |
+| Published on citizen portal | `mcp__BPA__service_get` → `published == true` |
+| Has at least one print document | `mcp__BPA__print_document_list` not empty |
 | Has citizen manual (HTML) | file exists in output/manuals/ |
-| Has short name | `service_get.short_name` not null |
+| Has short name | `mcp__BPA__service_get` → `short_name` not null |
 
 ## Grade Scale
 
@@ -73,16 +95,17 @@ A published service is accessible and documented.
 
 Before publishing a new service, verify:
 
-- [ ] `debug_scan` returns zero CRITICAL/ERROR issues
+- [ ] `mcp__BPA__debug_scan` returns zero CRITICAL/ERROR issues
 - [ ] All roles have at least one institution assigned
 - [ ] All registrations are linked and active
-- [ ] All bots pass `bot_validate`
-- [ ] Service is activated (`service_activate`)
+- [ ] All bots pass `mcp__BPA__bot_validate`
+- [ ] Service is activated (`mcp__BPA__service_activate`)
 - [ ] At least one print document created
-- [ ] Service published (`service_publish`)
+- [ ] Service published (`mcp__BPA__service_publish`)
 - [ ] Citizen manual generated (`/service-manual`)
 - [ ] Quality score ≥ 70 (`/score-service`)
 
 ## Changelog
 
+- 1.1.0 (2026-02-19) tf-tools — Add Connecting to BPA section, scoring formula reference, full mcp__BPA__ tool call syntax, allowed-tools narrowed to Read
 - 1.0.0 (2026-02-19) tf-tools — Initial quality standards

@@ -7,9 +7,9 @@ description: >
   with print document templates, or reverting to a previous document version.
 license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server.
-allowed-tools: Read Write Bash
+allowed-tools: Read
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   version-date: "2026-02-19"
   author: "UNCTAD Trade Facilitation Section (tf-tools@unctad.org)"
 ---
@@ -17,6 +17,23 @@ metadata:
 # Print Document Design Skill
 
 Best practices for creating official government print documents in BPA.
+
+## Connecting to BPA
+
+Before any tool call:
+1. If the instance is unknown, call `mcp__BPA__instance_list()` to see registered profiles.
+2. Check auth: `mcp__BPA__connection_status(instance="{name}")`.
+3. If not authenticated → `mcp__BPA__auth_login(instance="{name}")`, wait for success.
+
+Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
+
+## Creating a Print Document
+
+1. **Check for templates**: `mcp__BPA__print_document_templates(instance="{instance}")` — start from a template when available rather than building from scratch.
+2. **Create the document**: `mcp__BPA__print_document_create(instance="{instance}", service_id="{id}", name="...", registration_id="{reg_id}")`
+3. **Add components in order** (see Standard Component Order below): `mcp__BPA__print_document_component_add(instance="{instance}", document_id="{doc_id}", component_type="...", ...)`
+4. **Set display order**: `mcp__BPA__print_document_sort(instance="{instance}", document_id="{doc_id}", component_ids=[...])`
+5. **Review structure**: `mcp__BPA__print_document_get(instance="{instance}", document_id="{doc_id}")`
 
 ## Document Types
 
@@ -50,10 +67,11 @@ Best practices for creating official government print documents in BPA.
 
 Print documents support revisions. After any significant change:
 1. The previous version is automatically saved in history
-2. Use `print_document_history` to view all versions
-3. Use `print_document_revert` to roll back if the new version has issues
+2. Use `mcp__BPA__print_document_history(instance="{instance}", document_id="{id}")` to view all versions
+3. Use `mcp__BPA__print_document_revert(instance="{instance}", document_id="{id}", version=N)` to roll back if the new version has issues
 4. Always test the document by reviewing component structure before publishing
 
 ## Changelog
 
+- 1.1.0 (2026-02-19) tf-tools — Add Connecting to BPA section, creation procedure with tool calls, templates tip, allowed-tools narrowed to Read
 - 1.0.0 (2026-02-19) tf-tools — Initial skill

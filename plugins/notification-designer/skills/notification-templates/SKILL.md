@@ -7,9 +7,9 @@ description: >
   or choosing which events should trigger notifications.
 license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server.
-allowed-tools: Read Write Bash
+allowed-tools: Read
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   version-date: "2026-02-19"
   author: "UNCTAD Trade Facilitation Section (tf-tools@unctad.org)"
 ---
@@ -17,6 +17,35 @@ metadata:
 # Notification Templates Skill
 
 Guidance for writing effective BPA notification messages.
+
+## Connecting to BPA
+
+Before any tool call:
+1. If the instance is unknown, call `mcp__BPA__instance_list()` to see registered profiles.
+2. Check auth: `mcp__BPA__connection_status(instance="{name}")`.
+3. If not authenticated → `mcp__BPA__auth_login(instance="{name}")`, wait for success.
+
+Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
+
+## Creating Notifications
+
+```
+# List existing notifications for a service
+mcp__BPA__message_list(instance="{instance}", service_id="{service_id}")
+
+# Create a new notification message
+mcp__BPA__message_create(instance="{instance}", service_id="{service_id}",
+  name="...", subject="...", body="...")
+
+# Update an existing message
+mcp__BPA__message_update(instance="{instance}", message_id="{id}",
+  subject="...", body="...")
+
+# Check the notification rules (which events trigger which messages)
+mcp__BPA__notification_list(instance="{instance}", service_id="{service_id}")
+```
+
+Always check `mcp__BPA__message_list` before creating — avoid duplicates.
 
 ## When to Notify
 
@@ -80,4 +109,5 @@ Submitted: {{submission_date}}
 
 ## Changelog
 
+- 1.1.0 (2026-02-19) tf-tools — Add Connecting to BPA section, tool call examples, allowed-tools narrowed to Read
 - 1.0.0 (2026-02-19) tf-tools — Initial notification templates skill
