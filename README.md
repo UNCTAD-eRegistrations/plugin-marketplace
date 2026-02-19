@@ -14,11 +14,6 @@ The **slash commands** are the entry points: a single `/service-test`, `/bpa-deb
 
 Together, they turn Claude into a specialist service designer — one that understands the BPA data model, speaks the eRegistrations vocabulary, and can execute the full service lifecycle without hand-holding.
 
-## Structure
-
-- **`/plugins`** — Claude Code plugins maintained by UNCTAD
-- **`/scripts`** — Utility scripts (`migrate-to-multi-instance.py`, `sync-skills.sh`)
-
 ## Installing Plugins
 
 First, register this marketplace in your Claude Code settings:
