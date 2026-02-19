@@ -35,7 +35,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/service-testing",
-      "category": "development"
+      "category": "design"
     },
     {
       "name": "service-builder",
@@ -45,7 +45,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/service-builder",
-      "category": "development"
+      "category": "design"
     },
     {
       "name": "service-migration",
@@ -55,7 +55,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/service-migration",
-      "category": "development"
+      "category": "design"
     },
     {
       "name": "bpa-debug",
@@ -75,7 +75,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/role-configurator",
-      "category": "development"
+      "category": "design"
     },
     {
       "name": "institution-setup",
@@ -115,7 +115,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/notification-designer",
-      "category": "development"
+      "category": "design"
     },
     {
       "name": "classification-manager",
@@ -145,7 +145,7 @@
         "email": "tf-tools@unctad.org"
       },
       "source": "./plugins/print-document-builder",
-      "category": "development"
+      "category": "design"
     }
   ]
 }
