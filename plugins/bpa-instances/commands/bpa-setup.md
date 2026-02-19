@@ -10,6 +10,23 @@ Register all known BPA deployment profiles so they can be used by any BPA tool v
 
 ## Instructions
 
+### Step 1 — Check the MCP server binary
+
+Run `mcp-eregistrations-bpa --version` via Bash.
+
+- If it succeeds, continue to Step 2.
+- If the command is not found, stop and tell the user:
+
+  > The BPA MCP server is not installed. Run the following from the plugin marketplace repository root, then restart Claude:
+  > ```
+  > uv tool install ./MCP_eRegistrations_BPA
+  > ```
+  > Once installed, run `/bpa-setup` again.
+
+Do not proceed past this point until the binary is confirmed.
+
+### Step 2 — Register instance profiles
+
 Call `mcp__BPA__instance_add` for each deployment below. Skip any profile that already exists
 (check with `instance_list` first to avoid duplicates).
 
