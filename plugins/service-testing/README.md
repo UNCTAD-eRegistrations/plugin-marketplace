@@ -49,4 +49,4 @@ Validate BPA service configuration, score against UNCTAD quality standards, and 
 
 ## Requirements
 
-- `bpa-instances` plugin installed and configured
+- `bpa-mcp` plugin installed and configured

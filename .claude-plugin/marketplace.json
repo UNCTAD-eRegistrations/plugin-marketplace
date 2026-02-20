@@ -8,13 +8,13 @@
   },
   "plugins": [
     {
-      "name": "bpa-instances",
-      "description": "Configure Claude Code MCP connections for all eRegistrations BPA instances (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan). Install this first — all other plugins depend on it. Requires the BPA MCP server binary: run `uv tool install mcp-eregistrations-bpa` before using.",
+      "name": "bpa-mcp",
+      "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan). Install this first — all other plugins depend on it. Requires: `uv tool install mcp-eregistrations-bpa`.",
       "author": {
         "name": "UNCTAD Trade Facilitation Section",
         "email": "tf-tools@unctad.org"
       },
-      "source": "./plugins/bpa-instances",
+      "source": "./plugins/bpa-mcp",
       "category": "integration"
     },
     {

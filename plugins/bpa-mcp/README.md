@@ -1,18 +1,18 @@
-# bpa-instances
+# bpa-mcp
 
-Configure Claude Code MCP connection for all eRegistrations BPA deployments.
+Install the BPA MCP server and register eRegistrations instance profiles.
 
 **Install this plugin first** — all other UNCTAD plugins require an active BPA MCP connection.
 
 ## What this installs
 
-A single `BPA` MCP server. Instance profiles are managed via `/bpa-setup` after install.
+A single `BPA` MCP server. Instance profiles are managed via `/bpa-install` after install.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/bpa-setup` | Register all known BPA instance profiles (run once after install) |
+| `/bpa-install [instance]` | Install the MCP server and register instance profiles (all or one) |
 | `/bpa-status [instance]` | Check connection status for all or one instance |
 | `/bpa-login <instance> [...]` | Authenticate to one or more instances |
 
@@ -29,10 +29,11 @@ Verify: `command -v mcp-eregistrations-bpa`
 ### 2. Install this plugin and register instances
 
 ```
-/bpa-setup
+/bpa-install              # register all known profiles
+/bpa-install lesotho2     # register only lesotho2
 ```
 
-This registers all known deployments as named profiles. Run once — profiles persist across sessions.
+This registers deployments as named profiles. Run once — profiles persist across sessions.
 
 ### 3. Authenticate
 
@@ -42,11 +43,11 @@ Keycloak instances (most countries) use browser-based PKCE — no password neede
 /bpa-login jamaica
 ```
 
-CAS instances (Cuba) require providing client credentials during `/bpa-setup`.
+CAS instances (Cuba) require providing client credentials during `/bpa-install`.
 
 ## Instance profiles
 
-After running `/bpa-setup`, the following profiles are available:
+After running `/bpa-install`, the following profiles are available:
 
 | Profile name | Country | URL |
 |--------------|---------|-----|
@@ -74,13 +75,13 @@ uv run scripts/migrate-to-multi-instance.py
 uv run scripts/migrate-to-multi-instance.py --apply
 ```
 
-This removes all `BPA-*` entries and adds the single `BPA` entry in both your project `.mcp.json` and Claude Desktop config. Then run `/bpa-setup` to re-register all instance profiles.
+This removes all `BPA-*` entries and adds the single `BPA` entry in both your project `.mcp.json` and Claude Desktop config. Then run `/bpa-install` to re-register all instance profiles.
 
 ## Adding or removing instances
 
 ```
-/bpa-setup                   # register all known profiles (slash command)
-mcp__BPA__instance_add       # add a custom profile
-mcp__BPA__instance_remove    # remove a profile
-mcp__BPA__instance_list      # list all registered profiles
+/bpa-install                     # register all known profiles (slash command)
+mcp__BPA__instance_add           # add a custom profile
+mcp__BPA__instance_remove        # remove a profile
+mcp__BPA__instance_list          # list all registered profiles
 ```

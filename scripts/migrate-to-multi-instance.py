@@ -2,13 +2,13 @@
 """Migrate BPA MCP configs from multi-server to single-server multi-instance.
 
 Old setup: one MCP server entry per country (BPA-nigeria, BPA-jamaica, ...)
-New setup: one BPA server, instances registered via /bpa-setup command
+New setup: one BPA server, instances registered via /bpa-install command
 
 What this script does:
   1. Finds all config files containing BPA-* server entries
   2. Shows a dry-run diff of what would be removed / added
   3. On confirmation: backs up each file, then applies the changes
-  4. Prints next steps (reinstall plugin + run /bpa-setup)
+  4. Prints next steps (reinstall plugin + run /bpa-install)
 
 Targets:
   - ./mcp.json (project-level, flat format)
@@ -186,7 +186,7 @@ def main() -> None:
         print("Migration complete.\n")
         print("Next steps:")
         print("  1. Restart Claude Desktop (if it was open)")
-        print("  2. In Claude Code, run: /bpa-setup")
+        print("  2. In Claude Code, run: /bpa-install")
         print("     (registers all instance profiles)")
         print("  3. Authenticate: /bpa-login <instance>")
         print("     e.g. /bpa-login jamaica nigeria lesotho2")

@@ -27,4 +27,4 @@ Form structure · Determinants · Roles · Registrations · Costs · Requirement
 
 ## Requires
 
-`bpa-instances` plugin installed with both source and target servers configured.
+`bpa-mcp` plugin installed with both source and target servers configured.

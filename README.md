@@ -40,7 +40,7 @@ Or via the CLI:
 Then install plugins by name:
 
 ```bash
-/plugin install bpa-instances@unctad-digital-government
+/plugin install bpa-mcp@unctad-digital-government
 /plugin install service-builder@unctad-digital-government
 ```
 
@@ -50,7 +50,7 @@ Or browse via `/plugin > Discover`.
 
 | Plugin | Category | Description |
 |--------|----------|-------------|
-| `bpa-instances` | integration | MCP connections for all BPA instances (install first) |
+| `bpa-mcp` | integration | MCP connections for all BPA instances (install first) |
 | `service-documentation` | documentation | Citizen-facing HTML manuals and Excel exports |
 | `service-testing` | design | 4-suite validation and quality scoring (0–100) |
 | `service-builder` | design | Design and build new eRegistrations services |
@@ -81,21 +81,21 @@ plugin-name/
 
 ## Getting Started
 
-All plugins require the `bpa-instances` plugin and an authenticated BPA connection:
+All plugins require the `bpa-mcp` plugin and an authenticated BPA connection:
 
 ```bash
 # 1. Install the BPA MCP server binary first
 uv tool install mcp-eregistrations-bpa
 
 # 2. Register all known country instances (run once)
-/bpa-setup
+/bpa-install
 
 # 3. Authenticate to the instance(s) you need
 /bpa-login jamaica
 /bpa-login lesotho2
 ```
 
-See the [`bpa-instances` plugin README](./plugins/bpa-instances/README.md) for full setup instructions and a list of all available instance profiles.
+See the [`bpa-mcp` plugin README](./plugins/bpa-mcp/README.md) for full setup instructions and a list of all available instance profiles.
 
 ## Upgrading from the multi-server setup
 

@@ -16,7 +16,7 @@ If no arguments, call `instance_list` and prompt the user to choose.
 For each instance, call `mcp__BPA__auth_login(instance="<name>")`.
 
 - **Keycloak instances**: opens a browser for PKCE login — no password needed
-- **CAS instances**: credentials were stored in the profile during `/bpa-setup`
+- **CAS instances**: credentials were stored in the profile during `/bpa-install`
 
 After each login attempt, call `mcp__BPA__connection_status(instance="<name>")` to confirm success.
 
