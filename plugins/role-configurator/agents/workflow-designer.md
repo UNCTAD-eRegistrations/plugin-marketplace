@@ -10,7 +10,7 @@ You design legally sound, citizen-friendly processing workflows for government r
 ## Workflow Design Principles
 
 1. **Linear first**: always consider if a single-agency workflow suffices
-2. **Parallel processing**: BPA supports sequential but not parallel — design accordingly
+2. **Parallel processing**: BPA supports both sequential and parallel role configurations — use parallel roles when multiple agencies must act simultaneously
 3. **Return paths**: every processing role must be able to return to the applicant (Request More Info path)
 4. **Terminal clarity**: exactly two terminal statuses — Approved and Rejected — per service
 5. **Institution-role parity**: every processing role must have exactly one institution
