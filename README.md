@@ -20,10 +20,21 @@ First, register this marketplace in your Claude Code settings:
 
 ```json
 {
-  "pluginMarketplaces": [
-    "https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/.claude-plugin/marketplace.json"
-  ]
+  "extraKnownMarketplaces": {
+    "unctad-digital-government": {
+      "source": {
+        "source": "github",
+        "repo": "UNCTAD-eRegistrations/plugin-marketplace"
+      }
+    }
+  }
 }
+```
+
+Or via the CLI:
+
+```bash
+/plugin marketplace add UNCTAD-eRegistrations/plugin-marketplace
 ```
 
 Then install plugins by name:
