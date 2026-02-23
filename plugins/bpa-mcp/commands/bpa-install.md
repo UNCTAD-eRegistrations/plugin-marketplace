@@ -41,6 +41,23 @@ Attempt to call `mcp__BPA__instance_list()`.
 
 Do not proceed past this point until the BPA tools are confirmed available.
 
+### Step 2.5 — Migrate old server entries (upgrade path)
+
+Run the migration detector via Bash:
+
+```
+mcp-eregistrations-bpa migrate
+```
+
+- If the output says **"Nothing to migrate"** → continue to Step 3.
+- If it shows a migration plan (old `BPA-*` entries detected) → apply it:
+
+  ```
+  mcp-eregistrations-bpa migrate --apply
+  ```
+
+  Report the migration results to the user (profiles created, entries removed, backup details). If the output mentions restarting Claude Desktop, relay that to the user. Then continue to Step 3.
+
 ### Step 3 — Register instance profiles
 
 If an instance name was provided (e.g. `/bpa-install lesotho2`), register **only that instance** from the registry below.
@@ -80,16 +97,6 @@ If the user doesn't have Cuba credentials, skip those profiles.
 
 Call `mcp__BPA__instance_list()` and show the registered profiles.
 Then suggest: "Run `/bpa-login <instance>` to authenticate."
-
-## Upgrading note
-
-If the user seems to be upgrading (they mention old server names like `BPA-jamaica`, or tools from the old servers still appear), tell them:
-
-> You may still have old BPA-* server entries in your config. Run this from the marketplace repo root to clean them up:
-> ```
-> uv run scripts/migrate-to-multi-instance.py --apply
-> ```
-> Then restart Claude Desktop if open.
 
 ## Usage
 
