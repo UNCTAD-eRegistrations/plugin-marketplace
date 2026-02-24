@@ -82,6 +82,12 @@ If a name was provided but does not match any entry below, tell the user:
 
 Call `instance_add` with the corresponding `name`, `bpa_instance_url`, `keycloak_url`, and `keycloak_realm`.
 
+**Auto-login (optional):** After registering Keycloak instances, ask the user:
+
+> Would you like to set up auto-login for any instances? This stores your BPA credentials securely in the OS keyring so authentication happens transparently — no browser interaction needed.
+
+If yes, for each instance the user wants auto-login on, call `instance_add` again with the same profile params plus `username` and `password`. The server will store the credentials in the system keyring (marked with a `__keyring__` sentinel — never stored in plain text).
+
 #### CAS instances (Cuba)
 
 For Cuba instances, ask the user for the CAS client secret before registering:

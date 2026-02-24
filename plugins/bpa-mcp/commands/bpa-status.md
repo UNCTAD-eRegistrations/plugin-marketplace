@@ -21,11 +21,12 @@ Report a table:
 Instance       | URL                                        | Auth   | Status
 jamaica        | https://bpa.jamaica.eregistrations.org     | OIDC   | ✅ Authenticated (expires 2h)
 lesotho2       | https://bpa.businessregistrations.gov.ls   | OIDC   | ❌ Not authenticated
-nigeria        | https://bpa.gateway.nipc.gov.ng            | OIDC   | ✅ Authenticated (expires 45m)
+nigeria        | https://bpa.gateway.nipc.gov.ng            | OIDC   | 🔑 Auto-login ready (stored credentials)
 cuba           | https://bpa.cuba.eregistrations.org        | CAS    | ❌ Not authenticated
 ```
 
-For unauthenticated instances, show: "Run `/bpa-login <name>` to authenticate."
+- If `auto_login_available` is true and not currently authenticated, show "Auto-login ready" — credentials exist and will activate on first tool call.
+- For unauthenticated instances without auto-login, show: "Run `/bpa-login <name>` to authenticate."
 
 ## Usage
 

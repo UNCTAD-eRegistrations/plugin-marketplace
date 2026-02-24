@@ -43,6 +43,8 @@ Keycloak instances (most countries) use browser-based PKCE — no password neede
 /bpa-login jamaica
 ```
 
+**Auto-login (optional):** During `/bpa-install`, you can provide credentials to enable transparent auto-login — no browser interaction or explicit `/bpa-login` needed. Credentials are stored securely in the OS keyring. Refresh tokens also persist across sessions automatically.
+
 CAS instances (Cuba) require providing client credentials during `/bpa-install`.
 
 ## Instance profiles
@@ -65,17 +67,19 @@ After running `/bpa-install`, the following profiles are available:
 
 ## Upgrading from the old multi-server setup
 
-If you previously installed this plugin and have `BPA-nigeria`, `BPA-jamaica`, etc. in your config, run the migration script from the marketplace repo root:
+If you previously had per-country `BPA-nigeria`, `BPA-jamaica`, etc. entries, the migration is built into the server:
 
 ```bash
 # Dry run first (shows what will change)
-uv run scripts/migrate-to-multi-instance.py
+mcp-eregistrations-bpa migrate
 
 # Apply when ready
-uv run scripts/migrate-to-multi-instance.py --apply
+mcp-eregistrations-bpa migrate --apply
 ```
 
-This removes all `BPA-*` entries and adds the single `BPA` entry in both your project `.mcp.json` and Claude Desktop config. Then run `/bpa-install` to re-register all instance profiles.
+Or run `/bpa-install` — it automatically detects old entries and offers to migrate them (Step 2.5).
+
+This removes all `BPA-*` entries, adds the single `BPA` entry, and creates named instance profiles. Restart Claude after migration to pick up the new config.
 
 ## Adding or removing instances
 
