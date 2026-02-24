@@ -12,12 +12,11 @@ Arguments: `$ARGUMENTS`
 
 ## Instructions
 
-### Step 1 — Ensure the MCP server binary is installed
+### Step 1 — Ensure the MCP server binary is installed (and up to date)
 
 Run `command -v mcp-eregistrations-bpa` via Bash.
 
-- If it succeeds, continue to Step 2.
-- If the command is not found, install it:
+- **If not found**, install it:
 
   1. Run:
      ```
@@ -25,6 +24,13 @@ Run `command -v mcp-eregistrations-bpa` via Bash.
      ```
 
   2. Verify with `command -v mcp-eregistrations-bpa`. If not found, tell the user to restart their terminal or Claude and run `/bpa-install` again — the PATH may need to refresh after install.
+
+- **If found**, check for updates by running these two commands **in parallel**:
+
+  1. `uv tool list 2>/dev/null | grep mcp-eregistrations-bpa | head -1 | awk '{print $2}' | tr -d 'v'`
+  2. `curl -sf https://pypi.org/pypi/mcp-eregistrations-bpa/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"`
+
+  If a newer version is available, run `uv tool upgrade mcp-eregistrations-bpa` and report the upgrade to the user. If already up to date or the PyPI check fails, continue silently.
 
 Do not proceed past this point until the binary is confirmed.
 
