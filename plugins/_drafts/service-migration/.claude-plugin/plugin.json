@@ -2,7 +2,6 @@
   "name": "service-migration",
   "description": "Copy or migrate a BPA service between instances (e.g., staging to production, or Jamaica to Lesotho)",
   "author": {
-    "name": "UNCTAD Trade Facilitation Section",
-    "email": "tf-tools@unctad.org"
+    "name": "UNCTAD Trade Facilitation Section"
   }
 }

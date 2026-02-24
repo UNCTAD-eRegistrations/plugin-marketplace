@@ -2,7 +2,6 @@
   "name": "workflow-manager",
   "description": "Discover, execute, monitor, and manage BPA workflow orchestrations",
   "author": {
-    "name": "UNCTAD Trade Facilitation Section",
-    "email": "tf-tools@unctad.org"
+    "name": "UNCTAD Trade Facilitation Section"
   }
 }

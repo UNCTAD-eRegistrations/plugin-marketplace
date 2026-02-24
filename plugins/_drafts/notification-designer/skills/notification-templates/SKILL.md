@@ -11,7 +11,7 @@ allowed-tools: Read
 metadata:
   version: "1.1.0"
   version-date: "2026-02-19"
-  author: "UNCTAD Trade Facilitation Section (tf-tools@unctad.org)"
+  author: "UNCTAD Trade Facilitation Section"
 ---
 
 # Notification Templates Skill

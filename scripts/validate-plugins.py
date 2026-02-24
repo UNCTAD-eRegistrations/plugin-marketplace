@@ -101,9 +101,8 @@ def validate_plugin_json(path: Path) -> list[str]:
     if not isinstance(author, dict):
         errors.append("missing 'author' object")
     else:
-        for af in ("name", "email"):
-            if not author.get(af):
-                errors.append(f"missing 'author.{af}'")
+        if not author.get("name"):
+            errors.append("missing 'author.name'")
 
     # name must match the plugin directory
     plugin_dir = path.parent.parent.name

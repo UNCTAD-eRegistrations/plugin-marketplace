@@ -3,16 +3,14 @@
   "name": "unctad-digital-government",
   "description": "Official plugin marketplace for UNCTAD Digital Government Tools — eRegistrations platform, BPA service development, government procedure reform, and digital public services",
   "owner": {
-    "name": "UNCTAD Trade Facilitation Section",
-    "email": "tf-tools@unctad.org"
+    "name": "UNCTAD Trade Facilitation Section"
   },
   "plugins": [
     {
       "name": "bpa-mcp",
       "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan). Install this first — all other plugins depend on it. Requires: `uv tool install mcp-eregistrations-bpa`.",
       "author": {
-        "name": "UNCTAD Trade Facilitation Section",
-        "email": "tf-tools@unctad.org"
+        "name": "UNCTAD Trade Facilitation Section"
       },
       "source": "./plugins/bpa-mcp",
       "category": "integration"
@@ -21,8 +19,7 @@
       "name": "service-documentation",
       "description": "Generate citizen-facing HTML service manuals (single and batch) and export structured Excel documentation covering fields, determinants, roles, bots, costs, and document requirements.",
       "author": {
-        "name": "UNCTAD Trade Facilitation Section",
-        "email": "tf-tools@unctad.org"
+        "name": "UNCTAD Trade Facilitation Section"
       },
       "source": "./plugins/service-documentation",
       "category": "documentation"

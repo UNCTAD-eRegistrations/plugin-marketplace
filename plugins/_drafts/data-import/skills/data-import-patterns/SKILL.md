@@ -11,7 +11,7 @@ allowed-tools: Read Write Bash
 metadata:
   version: "1.0.0"
   version-date: "2026-02-19"
-  author: "UNCTAD Trade Facilitation Section (tf-tools@unctad.org)"
+  author: "UNCTAD Trade Facilitation Section"
 ---
 
 # Data Import Patterns Skill
