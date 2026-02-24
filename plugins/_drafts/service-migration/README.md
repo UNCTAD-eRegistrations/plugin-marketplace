@@ -1,3 +1,5 @@
+> **DRAFT** — This plugin was AI-generated and has not been verified against a live BPA instance. Tool names, parameters, and workflows may be outdated or incorrect.
+
 # service-migration
 
 Copy BPA services between instances and audit cross-instance configuration drift.

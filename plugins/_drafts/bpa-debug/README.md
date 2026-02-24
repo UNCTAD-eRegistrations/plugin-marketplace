@@ -1,3 +1,5 @@
+> **DRAFT** — This plugin was AI-generated and has not been verified against a live BPA instance. Tool names, parameters, and workflows may be outdated or incorrect.
+
 # bpa-debug
 
 Scan, investigate, and fix configuration issues in BPA services.

@@ -188,9 +188,12 @@ def validate_file(path: Path) -> list[str]:
 def collect_plugin_files(root: Path) -> list[Path]:
     patterns = [
         "plugins/*/.claude-plugin/plugin.json",
+        "plugins/_drafts/*/.claude-plugin/plugin.json",
         ".claude-plugin/marketplace.json",
         "plugins/*/skills/*/SKILL.md",
+        "plugins/_drafts/*/skills/*/SKILL.md",
         "plugins/*/commands/*.md",
+        "plugins/_drafts/*/commands/*.md",
     ]
     files = []
     for pattern in patterns:

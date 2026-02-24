@@ -52,6 +52,15 @@ Or browse via `/plugin > Discover`.
 |--------|----------|-------------|
 | `bpa-mcp` | integration | MCP connections for all BPA instances (install first) |
 | `service-documentation` | documentation | Citizen-facing HTML manuals and Excel exports |
+
+## Draft Plugins
+
+The following plugins are AI-generated and **have not been verified** against a live BPA instance. They live in `plugins/_drafts/` and are not listed in the marketplace discovery. Tool names, parameters, and workflows may be outdated.
+
+To promote a draft to production: verify it against a live instance, move it from `plugins/_drafts/` to `plugins/`, and add it to `marketplace.json`.
+
+| Plugin | Category | Description |
+|--------|----------|-------------|
 | `service-testing` | design | 4-suite validation and quality scoring (0–100) |
 | `service-builder` | design | Design and build new eRegistrations services |
 | `service-migration` | design | Copy services between instances with diff and dry-run |
@@ -99,15 +108,17 @@ See the [`bpa-mcp` plugin README](./plugins/bpa-mcp/README.md) for full setup in
 
 ## Upgrading from the multi-server setup
 
-If you have `BPA-jamaica`, `BPA-lesotho2`, etc. in your MCP config, run the migration script:
+If you have `BPA-jamaica`, `BPA-lesotho2`, etc. in your MCP config, the migration is built into the server:
 
 ```bash
 # Dry run first
-uv run scripts/migrate-to-multi-instance.py
+mcp-eregistrations-bpa migrate
 
 # Apply when ready
-uv run scripts/migrate-to-multi-instance.py --apply
+mcp-eregistrations-bpa migrate --apply
 ```
+
+Or run `/bpa-install` — it automatically detects old entries and offers to migrate (Step 2.5).
 
 ## Contributing
 
