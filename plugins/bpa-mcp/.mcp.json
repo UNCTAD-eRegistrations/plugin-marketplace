@@ -1,6 +1,7 @@
 {
   "BPA": {
     "type": "stdio",
-    "command": "mcp-eregistrations-bpa"
+    "command": "uvx",
+    "args": ["mcp-eregistrations-bpa@latest"]
   }
 }

@@ -18,13 +18,13 @@ A single `BPA` MCP server. Instance profiles are managed via `/bpa-install` afte
 
 ## Prerequisites
 
-### 1. Install the MCP server
+### 1. Install `uv` (if not already installed)
 
 ```bash
-uv tool install mcp-eregistrations-bpa
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Verify: `command -v mcp-eregistrations-bpa`
+The MCP server is auto-downloaded via `uvx` when the plugin starts — no manual `uv tool install` needed.
 
 ### 2. Install this plugin and register instances
 
