@@ -48,11 +48,11 @@ cuba           | https://bpa.cuba.eregistrations.org        | CAS    | ❌ Not a
 ```
 
 - If `auto_login_available` is true and not currently authenticated, show "Auto-login ready" — credentials exist and will activate on first tool call.
-- For unauthenticated instances without auto-login, show: "Run `/bpa-login <name>` to authenticate."
+- For unauthenticated instances without auto-login, show: "Run `/bpa-mcp:login <name>` to authenticate."
 
 ## Usage
 
 ```
-/bpa-status
-/bpa-status jamaica
+/bpa-mcp:status
+/bpa-mcp:status jamaica
 ```

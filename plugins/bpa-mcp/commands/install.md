@@ -27,7 +27,7 @@ Run `command -v uvx` via Bash.
     > curl -LsSf https://astral.sh/uv/install.sh | sh
     > ```
     >
-    > Then restart your terminal and run `/bpa-install` again.
+    > Then restart your terminal and run `/bpa-mcp:install` again.
 
 Do not proceed past this point until `uv`/`uvx` is confirmed.
 
@@ -54,7 +54,7 @@ Attempt to call `mcp__BPA__instance_list()`.
 
   > The BPA MCP server is not loaded yet. This happens after a fresh install — Claude needs to restart to pick up the new MCP server.
   >
-  > Please restart Claude, then run `/bpa-install` again.
+  > Please restart Claude, then run `/bpa-mcp:install` again.
 
 Do not proceed past this point until the BPA tools are confirmed available.
 
@@ -77,11 +77,11 @@ mcp-eregistrations-bpa migrate 2>/dev/null || uvx mcp-eregistrations-bpa migrate
 
 ### Step 3 — Register instance profiles
 
-If an instance name was provided (e.g. `/bpa-install lesotho2`), register **only that instance** from the registry below.
+If an instance name was provided (e.g. `/bpa-mcp:install lesotho2`), register **only that instance** from the registry below.
 If no arguments, register **all instances**. Skip any profile that already exists (check with `instance_list` first).
 
 If a name was provided but does not match any entry below, tell the user:
-> Unknown instance "\<name\>". Run `/bpa-install` with no arguments to see all available profiles, or check the spelling.
+> Unknown instance "\<name\>". Run `/bpa-mcp:install` with no arguments to see all available profiles, or check the spelling.
 
 #### Keycloak instances
 
@@ -119,12 +119,12 @@ If the user doesn't have Cuba credentials, skip those profiles.
 ## After install
 
 Call `mcp__BPA__instance_list()` and show the registered profiles.
-Then suggest: "Run `/bpa-login <instance>` to authenticate."
+Then suggest: "Run `/bpa-mcp:login <instance>` to authenticate."
 
 ## Usage
 
 ```
-/bpa-install              # register all instances
-/bpa-install lesotho2     # register only lesotho2
-/bpa-install jamaica      # register only jamaica
+/bpa-mcp:install              # register all instances
+/bpa-mcp:install lesotho2     # register only lesotho2
+/bpa-mcp:install jamaica      # register only jamaica
 ```

@@ -45,7 +45,7 @@ Run these two commands **in parallel** via Bash:
 Attempt to call `mcp__BPA__instance_list()`.
 
 - **Succeeds** → `[ok] BPA MCP server loaded and responding`
-- **Fails or tool not found** → `[FAIL] BPA MCP server not loaded — restart Claude and run /bpa-install`
+- **Fails or tool not found** → `[FAIL] BPA MCP server not loaded — restart Claude and run /bpa-mcp:install`
 
 If FAIL, skip checks 4–6 (they depend on the server) but still report all issues collected so far.
 
@@ -58,14 +58,14 @@ mcp-eregistrations-bpa migrate 2>/dev/null || uvx mcp-eregistrations-bpa migrate
 ```
 
 - **"Nothing to migrate"** → `[ok] no legacy BPA-* entries`
-- **Migration plan shown** → `[warn] legacy BPA-* entries found — run /bpa-install to migrate (Step 2.5)`
+- **Migration plan shown** → `[warn] legacy BPA-* entries found — run /bpa-mcp:install to migrate (Step 2.5)`
 
 ### Check 5 — Instance profiles
 
 Use the result from `instance_list` in Check 3.
 
 - **1+ profiles registered** → `[ok] <count> instance profiles registered`
-- **Empty list** → `[warn] no instance profiles — run /bpa-install to register`
+- **Empty list** → `[warn] no instance profiles — run /bpa-mcp:install to register`
 
 ### Check 6 — Auth status per instance
 
@@ -76,7 +76,7 @@ Run these in parallel (batch all instances at once).
 For each instance:
 - **Authenticated** → `[ok] <name>: authenticated`
 - **Auto-login ready (not yet authenticated)** → `[ok] <name>: auto-login ready`
-- **Not authenticated, no auto-login** → `[warn] <name>: not authenticated — run /bpa-login <name>`
+- **Not authenticated, no auto-login** → `[warn] <name>: not authenticated — run /bpa-mcp:login <name>`
 - **Connection error** → `[FAIL] <name>: unreachable — check network or instance URL`
 
 ### Check 7 — Server logs (errors only)
@@ -113,5 +113,5 @@ Suggested fixes:
 ## Usage
 
 ```
-/bpa-doctor
+/bpa-mcp:doctor
 ```
