@@ -15,6 +15,7 @@ A single `BPA` MCP server. Instance profiles are managed via `/bpa-install` afte
 | `/bpa-install [instance]` | Install the MCP server and register instance profiles (all or one) |
 | `/bpa-status [instance]` | Check connection status for all or one instance |
 | `/bpa-login <instance> [...]` | Authenticate to one or more instances |
+| `/bpa-doctor` | Diagnose and fix common MCP server issues |
 
 ## Prerequisites
 
