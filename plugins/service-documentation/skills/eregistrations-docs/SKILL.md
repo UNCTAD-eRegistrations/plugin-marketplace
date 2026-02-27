@@ -8,8 +8,8 @@ license: UNCTAD-Internal
 compatibility: Requires an authenticated BPA MCP server connection. Python 3.x and openpyxl must be installed (pip install openpyxl).
 allowed-tools: Bash(python3 *), Read, Write
 metadata:
-  version: "1.5.0"
-  version-date: "2026-02-19"
+  version: "1.6.0"
+  version-date: "2026-02-27"
   author: "Frank Grozel (gfrankgva)"
   argument-hint: "[service-id] [instance]"
   disable-model-invocation: "true"
@@ -71,6 +71,8 @@ The script extracts:
 - Document requirements
 - Costs
 
+**Catalog/Data Source column (v1.6.0+):** The form export now includes a `catalog` field on select and radio components, identifying which BPA classification backs the dropdown. The analyzer should extract this field and add a "Data Source" column to the field inventory sheet showing the catalog name (from `classification_get`) for select/radio fields. Fields without a catalog backing show empty. This enables auditors to trace which classification populates each dropdown.
+
 ### Step 3: Deliver
 - Provide the Excel report to the user
 - Summarize key findings (field count, complexity, issues found)
@@ -81,6 +83,7 @@ The script extracts:
 
 ## Changelog
 
+- 1.6.0 (2026-02-27) gfrankgva — Document catalog/data source column for field inventory; select/radio components now show which classification backs them
 - 1.5.0 (2026-02-19) gfrankgva — Multi-instance migration: instance_list discovery, mcp__BPA__ prefix with instance= param, added auth check and argument-hint
 - 1.4.0 (2026-02-19) gfrankgva — Discovery via server_info tool; dropped ! injection and config file parsing
 - 1.3.0 (2026-02-19) gfrankgva — Generic BPA MCP discovery via ! injection; removed hardcoded server names
