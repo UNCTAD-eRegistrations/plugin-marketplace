@@ -9,7 +9,7 @@ description: >
   have done X instead", or "report this bug".
 license: UNCTAD-Internal
 compatibility: Works with or without an active BPA MCP server connection.
-allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(uvx *), Bash(mcp-eregistrations-bpa *)
+allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *)
 metadata:
   version: "1.0.0"
   version-date: "2026-02-25"
@@ -38,30 +38,19 @@ If the problem is visible in the current conversation (a tool call that returned
 
 ## Step 2 — Gather environment details
 
-Collect these automatically (don't ask the user). Run via Bash:
+Collect these automatically (don't ask the user):
 
-1. **Server version:**
-   ```
-   uv tool list 2>/dev/null | grep mcp-eregistrations-bpa | head -1 | awk '{print $2}' | tr -d 'v'
-   ```
+1. **Server version and instances:** Call `mcp__BPA__connection_status(instance="<name>")` for the affected instance. The response includes `version`, `latest_version`, and `update_available` fields. Also call `mcp__BPA__instance_list()` to capture registered instances.
 
-2. **Latest available version:**
-   ```
-   curl -sf https://pypi.org/pypi/mcp-eregistrations-bpa/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null
-   ```
-
-3. **Today's date:**
+2. **Today's date:** Run via Bash:
    ```
    date +%Y-%m-%d
    ```
 
-4. **Recent server log errors** (if available):
+3. **Recent server log errors** (if available). Run via Bash:
    ```
    find ~/.config/mcp-eregistrations-bpa/instances -name 'server.log' -exec grep -E 'ERROR|CRITICAL' {} \; 2>/dev/null | tail -10
    ```
-
-If the BPA MCP server is loaded, also call:
-- `mcp__BPA__instance_list()` to capture registered instances
 
 ## Step 3 — Identify the root cause area
 

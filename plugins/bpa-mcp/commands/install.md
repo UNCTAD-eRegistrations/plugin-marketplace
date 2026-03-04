@@ -31,25 +31,13 @@ Run `command -v uvx` via Bash.
 
 Do not proceed past this point until `uv`/`uvx` is confirmed.
 
-### Step 1 — Ensure the MCP server package is available (and up to date)
+### Step 1 — Confirm the BPA MCP server is loaded
 
-The plugin's `.mcp.json` uses `uvx` to auto-download and run the server, so no manual `uv tool install` is needed. However, check if the user already has it installed and whether it's up to date.
-
-Run these two commands **in parallel** via Bash:
-
-1. `uv tool list 2>/dev/null | grep mcp-eregistrations-bpa | head -1 | awk '{print $2}' | tr -d 'v'`
-2. `curl -sf https://pypi.org/pypi/mcp-eregistrations-bpa/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"`
-
-- If **already installed and outdated**, run `uv tool upgrade mcp-eregistrations-bpa` and report the upgrade.
-- If **already installed and up to date**, continue silently.
-- If **not installed**, that's fine — `uvx` will download it on demand. Continue silently.
-- If the PyPI check fails, continue silently.
-
-### Step 2 — Confirm the BPA MCP server is loaded
+> The plugin's `.mcp.json` uses `uvx mcp-eregistrations-bpa@latest`, which auto-downloads the latest version on every startup. No manual install or upgrade is needed.
 
 Attempt to call `mcp__BPA__instance_list()`.
 
-- If it succeeds (even returning an empty list), continue to Step 3.
+- If it succeeds (even returning an empty list), continue to Step 2.
 - If the tool is unavailable or the call fails with a server/connection error, stop and tell the user:
 
   > The BPA MCP server is not loaded yet. This happens after a fresh install — Claude needs to restart to pick up the new MCP server.
@@ -58,19 +46,19 @@ Attempt to call `mcp__BPA__instance_list()`.
 
 Do not proceed past this point until the BPA tools are confirmed available.
 
-### Step 2.5 — Migrate old server entries (upgrade path)
+### Step 2 — Migrate old server entries (upgrade path)
 
 Run the migration detector via Bash:
 
 ```
-mcp-eregistrations-bpa migrate 2>/dev/null || uvx mcp-eregistrations-bpa migrate 2>/dev/null
+uvx mcp-eregistrations-bpa@latest migrate 2>/dev/null
 ```
 
 - If the output says **"Nothing to migrate"** → continue to Step 3.
 - If it shows a migration plan (old `BPA-*` entries detected) → apply it:
 
   ```
-  mcp-eregistrations-bpa migrate --apply 2>/dev/null || uvx mcp-eregistrations-bpa migrate --apply
+  uvx mcp-eregistrations-bpa@latest migrate --apply
   ```
 
   Report the migration results to the user (profiles created, entries removed, backup details). If the output mentions restarting Claude Desktop, relay that to the user. Then continue to Step 3.

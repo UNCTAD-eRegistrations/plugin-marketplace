@@ -28,46 +28,38 @@ Run `command -v uvx` via Bash.
 
 If FAIL, continue checking (don't stop) — report all issues at once.
 
-### Check 2 — Server version and updates
-
-Run these two commands **in parallel** via Bash:
-
-1. `uv tool list 2>/dev/null | grep mcp-eregistrations-bpa | head -1 | awk '{print $2}' | tr -d 'v'`
-2. `curl -sf https://pypi.org/pypi/mcp-eregistrations-bpa/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"`
-
-- **Installed and up to date** → `[ok] mcp-eregistrations-bpa v<version> (latest)`
-- **Installed but outdated** → `[warn] mcp-eregistrations-bpa v<installed> → v<latest> available — run: uv tool upgrade mcp-eregistrations-bpa`
-- **Not installed via uv tool** → `[ok] not installed locally (uvx will download on demand)`
-- **PyPI check failed** → `[warn] could not check latest version (network issue?)`
-
-### Check 3 — BPA MCP server loaded
+### Check 2 — BPA MCP server loaded
 
 Attempt to call `mcp__BPA__instance_list()`.
 
 - **Succeeds** → `[ok] BPA MCP server loaded and responding`
 - **Fails or tool not found** → `[FAIL] BPA MCP server not loaded — restart Claude and run /bpa-mcp:install`
 
-If FAIL, skip checks 4–6 (they depend on the server) but still report all issues collected so far.
+If succeeds, also report the server version using the `version`, `latest_version`, and `update_available` fields from the first `connection_status` call in Check 5:
+- **Up to date** → `[ok] mcp-eregistrations-bpa v<version> (latest)`
+- **Update available** → `[warn] mcp-eregistrations-bpa v<version> → v<latest> available — restart Claude Code to pick up the latest version`
 
-### Check 4 — Legacy BPA-* entries
+If FAIL, skip checks 3–5 (they depend on the server) but still report all issues collected so far.
+
+### Check 3 — Legacy BPA-* entries
 
 Run via Bash:
 
 ```
-mcp-eregistrations-bpa migrate 2>/dev/null || uvx mcp-eregistrations-bpa migrate 2>/dev/null
+uvx mcp-eregistrations-bpa@latest migrate 2>/dev/null
 ```
 
 - **"Nothing to migrate"** → `[ok] no legacy BPA-* entries`
-- **Migration plan shown** → `[warn] legacy BPA-* entries found — run /bpa-mcp:install to migrate (Step 2.5)`
+- **Migration plan shown** → `[warn] legacy BPA-* entries found — run /bpa-mcp:install to migrate`
 
-### Check 5 — Instance profiles
+### Check 4 — Instance profiles
 
-Use the result from `instance_list` in Check 3.
+Use the result from `instance_list` in Check 2.
 
 - **1+ profiles registered** → `[ok] <count> instance profiles registered`
 - **Empty list** → `[warn] no instance profiles — run /bpa-mcp:install to register`
 
-### Check 6 — Auth status per instance
+### Check 5 — Auth status per instance
 
 For each registered instance, call `mcp__BPA__connection_status(instance="<name>")`.
 
@@ -79,7 +71,7 @@ For each instance:
 - **Not authenticated, no auto-login** → `[warn] <name>: not authenticated — run /bpa-mcp:login <name>`
 - **Connection error** → `[FAIL] <name>: unreachable — check network or instance URL`
 
-### Check 7 — Server logs (errors only)
+### Check 6 — Server logs (errors only)
 
 Run via Bash:
 
