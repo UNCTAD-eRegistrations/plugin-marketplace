@@ -1,0 +1,7 @@
+{
+  "name": "voice-agent",
+  "description": "Tools for managing and debugging voice agent deployments — feedback triage, trace analysis, and conversation diagnostics",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}
