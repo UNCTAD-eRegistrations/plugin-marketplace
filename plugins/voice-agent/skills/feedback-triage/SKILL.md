@@ -41,8 +41,10 @@ Use `WebFetch` for each. If either returns an error or is unreachable, report an
 ## Step 3: Fetch Feedback Entries
 
 ```
-GET {siteUrl}/api/feedback?limit={limit}&from={from}&to={to}
+GET {siteUrl}/api/feedback?status=new&limit={limit}&from={from}&to={to}
 ```
+
+Use `?status=new` by default to show only untriaged entries. Pass `--status all` to see everything.
 
 Present results as a summary table:
 
@@ -100,7 +102,7 @@ For each turn, extract:
 For each feedback entry, report:
 
 ```
-### Feedback #{n}: "{complaint text}"
+### {ticketId}: "{complaint text}"
 **Turn {t}** on route `{route}`
 **User said:** "{stt transcription}"
 **Tool called:** {toolName} → returned {summary of result}
@@ -110,6 +112,23 @@ For each feedback entry, report:
 **Fix location:** {file path or component}
 **Severity:** {high|medium|low} — {impact description}
 ```
+
+## Step 8: Update Status
+
+After analyzing each entry, update its status via the PATCH API:
+
+```
+PATCH {siteUrl}/api/feedback/{ticketId}
+Content-Type: application/json
+
+{
+  "status": "triaged",
+  "rootCause": "{category from Step 6}",
+  "notes": "{one-line summary of diagnosis}"
+}
+```
+
+Use `WebFetch` with method PATCH. This prevents re-triaging the same entry in future runs.
 
 ## Common Patterns
 
