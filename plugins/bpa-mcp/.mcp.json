@@ -2,6 +2,6 @@
   "BPA": {
     "type": "stdio",
     "command": "uvx",
-    "args": ["mcp-eregistrations@latest"]
+    "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-bpa"]
   }
 }

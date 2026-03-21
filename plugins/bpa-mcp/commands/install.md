@@ -34,7 +34,7 @@ Do not proceed past this point until `uv`/`uvx` is confirmed.
 
 ### Step 1 — Confirm the BPA MCP server is loaded
 
-> The plugin's `.mcp.json` uses `uvx mcp-eregistrations@latest`, which auto-downloads the latest version on every startup. No manual install or upgrade is needed.
+> The plugin's `.mcp.json` uses `uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa`, which auto-downloads the latest version on every startup. No manual install or upgrade is needed.
 
 Attempt to call `mcp__BPA__instance_list()`.
 
@@ -52,14 +52,14 @@ Do not proceed past this point until the BPA tools are confirmed available.
 Run the migration detector via Bash:
 
 ```
-uvx mcp-eregistrations@latest migrate 2>/dev/null
+uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa migrate 2>/dev/null
 ```
 
 - If the output says **"Nothing to migrate"** → continue to Step 3.
 - If it shows a migration plan (old `BPA-*` entries detected) → apply it:
 
   ```
-  uvx mcp-eregistrations@latest migrate --apply
+  uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa migrate --apply
   ```
 
   Report the migration results to the user (profiles created, entries removed, backup details). If the output mentions restarting Claude Desktop, relay that to the user. Then continue to Step 3.
