@@ -1,6 +1,7 @@
 ---
 description: Install the BPA MCP server and register instance profiles
 argument-hint: [instance-name]
+effort: low
 allowed-tools: [Bash]
 ---
 

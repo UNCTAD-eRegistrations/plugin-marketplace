@@ -8,11 +8,20 @@
   "plugins": [
     {
       "name": "bpa-mcp",
-      "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan). Install this first — all other plugins depend on it. Requires: `uv tool install mcp-eregistrations-bpa`.",
+      "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan, Guatemala). Install this first — all other plugins depend on it.",
       "author": {
         "name": "UNCTAD Trade Facilitation Section"
       },
       "source": "./plugins/bpa-mcp",
+      "category": "integration"
+    },
+    {
+      "name": "gdb-mcp",
+      "description": "GDB (Generic Database Builder) MCP server — manage databases, schemas, and records. Create registers, define fields, populate data, publish, duplicate. Requires bpa-mcp plugin for authentication.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/gdb-mcp",
       "category": "integration"
     },
     {

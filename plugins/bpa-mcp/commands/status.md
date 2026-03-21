@@ -1,6 +1,7 @@
 ---
 description: Check connection status for all configured BPA instances
 argument-hint: [instance-name]
+effort: low
 allowed-tools: []
 ---
 

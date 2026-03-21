@@ -1,5 +1,6 @@
 ---
 name: mcp-issue
+effort: medium
 description: >
   Report a BPA MCP tool that produced wrong results, failed unexpectedly, or behaved
   differently from the BPA web UI. Use when the user says something went wrong, a tool

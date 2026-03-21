@@ -1,6 +1,7 @@
 ---
 description: Authenticate to one or more BPA instances
 argument-hint: <instance-name> [instance-name ...]
+effort: low
 allowed-tools: [Bash]
 ---
 

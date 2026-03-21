@@ -1,5 +1,6 @@
 ---
 description: Diagnose and fix common BPA MCP server issues
+effort: low
 allowed-tools: [Bash]
 ---
 

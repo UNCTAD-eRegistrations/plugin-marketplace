@@ -1,6 +1,7 @@
 ---
 description: Report a BPA MCP tool issue or unexpected behavior
 argument-hint: [description]
+effort: medium
 allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(uvx *), Bash(mcp-eregistrations-bpa *)
 ---
 
