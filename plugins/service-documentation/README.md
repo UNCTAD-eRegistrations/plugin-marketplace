@@ -32,5 +32,5 @@ The `/eregistrations-docs` command produces `service-{id}-docs.xlsx` with:
 
 ## Requirements
 
-- `mcp-eregistrations-bpa` installed (see repo root README)
+- `mcp-eregistrations` installed (see repo root README)
 - `python3` + `openpyxl` for `/eregistrations-docs`

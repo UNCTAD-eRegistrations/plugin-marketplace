@@ -94,7 +94,7 @@ All plugins require the `bpa-mcp` plugin and an authenticated BPA connection:
 
 ```bash
 # 1. Install the BPA MCP server binary first
-uv tool install mcp-eregistrations-bpa
+uv tool install mcp-eregistrations
 
 # 2. Register all known country instances (run once)
 /bpa-install

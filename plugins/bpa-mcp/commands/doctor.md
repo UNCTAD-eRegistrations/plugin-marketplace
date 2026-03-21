@@ -47,7 +47,7 @@ If FAIL, skip checks 3–5 (they depend on the server) but still report all issu
 Run via Bash:
 
 ```
-uvx mcp-eregistrations-bpa@latest migrate 2>/dev/null
+uvx mcp-eregistrations@latest migrate 2>/dev/null
 ```
 
 - **"Nothing to migrate"** → `[ok] no legacy BPA-* entries`
