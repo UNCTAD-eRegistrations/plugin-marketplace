@@ -74,34 +74,35 @@ If a name was provided but does not match any entry below, tell the user:
 
 #### Keycloak instances
 
-| Name | BPA URL | Keycloak URL | Realm |
-|------|---------|-------------|-------|
-| `nigeria` | `https://bpa.gateway.nipc.gov.ng` | `https://login.gateway.nipc.gov.ng` | `NG` |
-| `elsalvador-dev` | `https://bpa.dev.els.eregistrations.org` | `https://login.dev.els.eregistrations.org` | `SV` |
-| `kenya-test` | `https://bpa.test.kenya.eregistrations.org` | `https://login.test.kenya.eregistrations.org` | `KE` |
-| `investkenya` | `https://bpa.investkenya.go.ke` | `https://login.investkenya.go.ke` | `ke` |
-| `jamaica` | `https://bpa.jamaica.eregistrations.org` | `https://login.jamaica.eregistrations.org` | `JM` |
-| `lesotho2` | `https://bpa.businessregistrations.gov.ls` | `https://login.businessregistrations.gov.ls` | `LS` |
-| `colombia-test` | `https://bpa.test.colombia.eregistrations.org` | `https://login.test.colombia.eregistrations.org` | `CO` |
-| `gambia` | `https://bpa.easybusiness.gov.gm` | `https://login.easybusiness.gov.gm` | `GM` |
-| `bhutan-staging` | `https://bpa.stagingibls.moea.gov.bt` | `https://login.stagingibls.moea.gov.bt` | `BT` |
+| Name | BPA URL | GDB URL | Keycloak URL | Realm |
+|------|---------|---------|-------------|-------|
+| `guatemala-dev` | `https://bpa.dev.gt.eregistrations.org` | `https://gdb.dev.gt.eregistrations.org` | `https://login.dev.gt.eregistrations.org` | `GT` |
+| `nigeria` | `https://bpa.gateway.nipc.gov.ng` | `https://gdb.gateway.nipc.gov.ng` | `https://login.gateway.nipc.gov.ng` | `NG` |
+| `elsalvador-dev` | `https://bpa.dev.els.eregistrations.org` | `https://gdb.dev.els.eregistrations.org` | `https://login.dev.els.eregistrations.org` | `SV` |
+| `kenya-test` | `https://bpa.test.kenya.eregistrations.org` | `https://gdb.test.kenya.eregistrations.org` | `https://login.test.kenya.eregistrations.org` | `KE` |
+| `investkenya` | `https://bpa.investkenya.go.ke` | `https://gdb.investkenya.go.ke` | `https://login.investkenya.go.ke` | `ke` |
+| `jamaica` | `https://bpa.jamaica.eregistrations.org` | `https://gdb.jamaica.eregistrations.org` | `https://login.jamaica.eregistrations.org` | `JM` |
+| `lesotho2` | `https://bpa.businessregistrations.gov.ls` | `https://gdb.businessregistrations.gov.ls` | `https://login.businessregistrations.gov.ls` | `LS` |
+| `colombia-test` | `https://bpa.test.colombia.eregistrations.org` | `https://gdb.test.colombia.eregistrations.org` | `https://login.test.colombia.eregistrations.org` | `CO` |
+| `gambia` | `https://bpa.easybusiness.gov.gm` | `https://gdb.easybusiness.gov.gm` | `https://login.easybusiness.gov.gm` | `GM` |
+| `bhutan-staging` | `https://bpa.stagingibls.moea.gov.bt` | `https://gdb.stagingibls.moea.gov.bt` | `https://login.stagingibls.moea.gov.bt` | `BT` |
 
-Call `instance_add` with the corresponding `name`, `bpa_instance_url`, `keycloak_url`, and `keycloak_realm`.
+Call `instance_add` with `name`, `bpa_instance_url`, `gdb_url`, `keycloak_url`, and `keycloak_realm`.
 
 **Auto-login (optional):** After registering Keycloak instances, ask the user:
 
-> Would you like to set up auto-login for any instances? This stores your BPA credentials securely in the OS keyring so authentication happens transparently — no browser interaction needed.
+> Would you like to set up auto-login for any instances? This stores your credentials locally for silent auto-login on future sessions.
 
-If yes, for each instance the user wants auto-login on, call `instance_add` again with the same profile params plus `username` and `password`. The server will store the credentials in the system keyring (marked with a `__keyring__` sentinel — never stored in plain text).
+If yes, for each instance the user wants auto-login on, call `instance_add` again with the same profile params plus `username` and `password`. The server stores credentials in `~/.config/mcp-eregistrations-bpa/auth.json` for auto-login.
 
 #### CAS instances (Cuba)
 
 For Cuba instances, ask the user for the CAS client secret before registering:
 
-| Name | BPA URL | CAS URL | Client ID |
-|------|---------|---------|-----------|
-| `cuba-test` | `https://bpa.test.cuba.eregistrations.org` | `https://eid.test.cuba.eregistrations.org/cback/v1.0` | `mcp-bpa` |
-| `cuba` | `https://bpa.cuba.eregistrations.org` | `https://bpa.cuba.eregistrations.org/cback/v1.0` | `mcp-bpa` |
+| Name | BPA URL | GDB URL | CAS URL | Client ID |
+|------|---------|---------|---------|-----------|
+| `cuba-test` | `https://bpa.test.cuba.eregistrations.org` | `https://gdb.test.cuba.eregistrations.org` | `https://eid.test.cuba.eregistrations.org/cback/v1.0` | `mcp-bpa` |
+| `cuba` | `https://bpa.cuba.eregistrations.org` | `https://gdb.cuba.eregistrations.org` | `https://bpa.cuba.eregistrations.org/cback/v1.0` | `mcp-bpa` |
 
 If the user doesn't have Cuba credentials, skip those profiles.
 

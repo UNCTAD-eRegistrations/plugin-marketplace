@@ -1,13 +1,13 @@
 ---
-description: Authenticate to one or more BPA instances
+description: Authenticate to one or more eRegistrations instances
 argument-hint: <instance-name> [instance-name ...]
 effort: low
 allowed-tools: [Bash]
 ---
 
-# BPA Login
+# Login
 
-Authenticate to BPA instance(s): `$ARGUMENTS`
+Authenticate to eRegistrations instance(s): `$ARGUMENTS`
 
 ## Instructions
 
@@ -16,18 +16,18 @@ If no arguments, call `instance_list` and prompt the user to choose.
 
 For each instance, call `mcp__BPA__auth_login(instance="<name>")`.
 
-- **Keycloak instances**: opens a browser for PKCE login — no password needed
-- **CAS instances**: credentials were stored in the profile during `/bpa-mcp:install`
-- **Password grant**: If browser login is unavailable (headless, remote), the user can provide credentials directly: `mcp__BPA__auth_login(instance="<name>", username="...", password="...")`
+- **Stored credentials** (default): If the user has previously logged in, credentials are stored in `~/.config/mcp-eregistrations-bpa/auth.json` and used automatically via password grant. No browser, no prompts.
+- **First-time login**: Ask the user for username and password, then call `auth_login(instance="<name>", username="...", password="...")`. Credentials are stored for future auto-login.
+- **Browser login**: Falls back to OIDC browser login only if no credentials are available and no password is provided.
 
-Credentials are persisted in the OS keyring by default (`persist_credentials=True`), enabling auto-login in future sessions without re-authenticating. Refresh tokens also persist across sessions.
+Credentials are shared across all eRegistrations MCP servers (BPA, GDB, DS). Login once, everything works.
 
-After each login attempt, call `mcp__BPA__connection_status(instance="<name>")` to confirm success.
+After each login attempt, call `connection_status(instance="<name>")` to confirm success.
 
 Report result:
 ```
-jamaica  ✅ Authenticated as user@example.com (token expires in 2h)
-lesotho2 ❌ Login failed: browser timeout
+jamaica   Authenticated as user@example.com (token expires in 2h)
+lesotho2  Login failed: no credentials
 ```
 
 ## Usage

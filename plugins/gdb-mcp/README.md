@@ -46,7 +46,7 @@ Install the **bpa-mcp** plugin first — it provides authentication and instance
 ## Quick Start
 
 ```
-/bpa-mcp:login guatemala-dev    # authenticate (via BPA plugin)
+# Authentication happens automatically from stored credentials
 gdb_catalog_list()               # discover databases
 gdb_database_get(database_id=4)  # get schema details
 gdb_data_list(code="trade names") # list records

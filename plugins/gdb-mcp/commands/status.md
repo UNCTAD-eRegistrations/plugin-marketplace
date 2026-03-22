@@ -1,7 +1,7 @@
 ---
 description: Check GDB connection status and list available databases
 effort: low
-allowed-tools: [mcp__GDB__gdb_status, mcp__GDB__gdb_instance_list, mcp__GDB__gdb_catalog_list]
+allowed-tools: [mcp__GDB__gdb_status, mcp__GDB__gdb_instance_list, mcp__GDB__gdb_catalog_list, mcp__GDB__gdb_auth_login]
 ---
 
 # GDB Status
@@ -18,7 +18,7 @@ Arguments: `$ARGUMENTS`
 
 3. For each instance, call `gdb_status(instance="<name>")`.
    - If it succeeds, show version and status.
-   - If auth fails, tell the user to run `/bpa-mcp:login <instance>` first.
+   - If auth fails, call `gdb_auth_login(instance="<name>")` to authenticate, then retry.
    - If connection fails, report the error.
 
 4. Call `gdb_catalog_list(instance="<name>")` to show database count.

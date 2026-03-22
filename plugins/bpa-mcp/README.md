@@ -39,13 +39,13 @@ This registers deployments as named profiles. Run once — profiles persist acro
 
 ### 3. Authenticate
 
-Keycloak instances (most countries) use browser-based PKCE — no password needed:
+Provide credentials on first login. Auto-login on all subsequent sessions:
 
 ```
 /bpa-mcp:login jamaica
 ```
 
-**Auto-login (optional):** During `/bpa-mcp:install`, you can provide credentials to enable transparent auto-login — no browser interaction or explicit `/bpa-mcp:login` needed. Credentials are stored securely in the OS keyring. Refresh tokens also persist across sessions automatically.
+**Auto-login:** Credentials stored locally for silent password grant. No browser, no keychain. Shared across BPA, GDB, DS.
 
 CAS instances (Cuba) require providing client credentials during `/bpa-mcp:install`.
 
