@@ -1,0 +1,7 @@
+{
+  "Keycloak": {
+    "type": "stdio",
+    "command": "uvx",
+    "args": ["mcp-eregistrations-keycloak@latest"]
+  }
+}
