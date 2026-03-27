@@ -6,7 +6,7 @@ DevOps and deployment skills for eRegistrations infrastructure.
 
 | Skill | Description |
 |-------|-------------|
-| `docker-swarm-migration` | Convert Docker Compose files to Docker Swarm stack format |
+| `docker-swarm-migration` | Convert Docker Compose files to Docker Swarm stack format with env var replacement, secrets management, init-secrets.sh generation, reference validation, and dry-run preview |
 
 ## Related
 
