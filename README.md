@@ -52,6 +52,7 @@ Or browse via `/plugin > Discover`.
 |--------|----------|-------------|
 | `bpa-mcp` | integration | MCP connections for all BPA instances (install first) |
 | `service-documentation` | documentation | Citizen-facing HTML manuals and Excel exports |
+| `devops` | devops | Docker Swarm migration and deployment automation |
 
 ## Draft Plugins
 

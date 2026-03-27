@@ -50,6 +50,15 @@
       },
       "source": "./plugins/keycloak-mcp",
       "category": "integration"
+    },
+    {
+      "name": "devops",
+      "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, configuration management, and deployment automation.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/devops",
+      "category": "devops"
     }
   ]
 }
