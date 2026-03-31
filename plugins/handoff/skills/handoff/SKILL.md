@@ -7,7 +7,7 @@ description: >
   quick (minimal), and resume (continue from existing handoff).
 license: MIT
 compatibility: Any git repository
-allowed-tools: Read, Write, Edit, Bash(git *), Bash(date *), Bash(ls *), Bash(cat *), Glob, Grep
+allowed-tools: Read, Write, Edit, Bash(git *), Bash(date *), Bash(ls *), Glob, Grep
 metadata:
   version: "1.0.0"
   version-date: "2026-03-31"
@@ -160,9 +160,9 @@ Write `HANDOFF.md` with only these sections:
 
 > Commit this file to persist it across sessions, or leave it untracked for ephemeral use.
 
-**Generated**: [YYYY-MM-DD HH:MM]
-**Branch**: [branch name]
-**Commit**: [short hash]
+**Generated**: [YYYY-MM-DD HH:MM from `date "+%Y-%m-%d %H:%M"`]
+**Branch**: [from git branch]
+**Commit**: [short hash from git rev-parse --short HEAD]
 **Status**: In Progress
 
 ## Goal
@@ -190,9 +190,7 @@ Tell the user: "Quick handoff saved to `HANDOFF.md`."
 
 ### Step 1: Read HANDOFF.md
 
-```bash
-cat HANDOFF.md
-```
+Use the `Read` tool to read `HANDOFF.md` from the repo root.
 
 If the file does not exist, stop with: "No HANDOFF.md found in this directory. Create one with `/handoff:create` or `/handoff:quick`."
 
@@ -203,7 +201,10 @@ Compare the handoff metadata against current state:
 ```bash
 git branch --show-current
 git rev-parse --short HEAD
+git rev-list <handoff-commit>..HEAD --count
 ```
+
+Where `<handoff-commit>` is the **Commit** hash from the HANDOFF.md header.
 
 Check for drift:
 - **Branch changed** — handoff says `feature/auth` but current branch is `main`
