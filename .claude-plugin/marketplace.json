@@ -59,6 +59,15 @@
       },
       "source": "./plugins/devops",
       "category": "devops"
+    },
+    {
+      "name": "handoff",
+      "description": "Session handoff — capture state so any AI agent can continue your work. Auto-detects git state, plans, and environment context. Commands: /handoff:create, /handoff:quick, /handoff:resume.",
+      "author": {
+        "name": "Software Factory"
+      },
+      "source": "./plugins/handoff",
+      "category": "productivity"
     }
   ]
 }
