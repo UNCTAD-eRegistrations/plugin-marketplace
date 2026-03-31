@@ -1,0 +1,9 @@
+{
+  "name": "handoff",
+  "description": "Session handoff — capture state so any AI agent can continue your work",
+  "version": "1.0.0",
+  "category": "productivity",
+  "author": {
+    "name": "Software Factory"
+  }
+}
