@@ -144,14 +144,14 @@ if [ -n "$BRANCH" ]; then
     L1="${L1} ${GHOST}░${RST} "
     [ -n "$REMOTE" ] && L1="${L1}\e]8;;${REMOTE}\a${ICE}${REMOTE##*/}\e]8;;\a "
     L1="${L1}${LAVENDER}⎇ ${BRANCH}${RST}"
-    [ "$STAGED" -gt 0 ] 2>/dev/null && L1="${L1} ${LIME}●${STAGED}${RST}"
-    [ "$MODIFIED" -gt 0 ] 2>/dev/null && L1="${L1} ${GOLD}◌${MODIFIED}${RST}"
+    [ "$STAGED" -gt 0 ] 2>/dev/null && L1="${L1} ${LIME}●${STAGED} ${RST}${GHOST}staged${RST}"
+    [ "$MODIFIED" -gt 0 ] 2>/dev/null && L1="${L1} ${GOLD}◌${MODIFIED} ${RST}${GHOST}mod${RST}"
     if [ "$COMMIT_AGE" -gt 0 ] 2>/dev/null; then
         if   [ "$COMMIT_AGE" -lt 3600 ];   then A="$((COMMIT_AGE/60))m";    AC="${LIME}"
         elif [ "$COMMIT_AGE" -lt 86400 ];  then A="$((COMMIT_AGE/3600))h";  AC="${GOLD}"
         elif [ "$COMMIT_AGE" -lt 604800 ]; then A="$((COMMIT_AGE/86400))d"; AC="${TANGERINE}"
         else                                     A="$((COMMIT_AGE/604800))w"; AC="${CORAL}"; fi
-        L1="${L1} ${AC}${DM}◷ ${A}${RST}"
+        L1="${L1} ${AC}${DM}◷ ${A} ${RST}${GHOST}ago${RST}"
     fi
 fi
 [ -n "$VIM_MODE" ] && { [ "$VIM_MODE" = "NORMAL" ] && L1="${L1} ${GHOST}[N]${RST}" || L1="${L1} ${LIME}${BD}[I]${RST}"; }
