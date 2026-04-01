@@ -68,6 +68,15 @@
       },
       "source": "./plugins/handoff",
       "category": "productivity"
+    },
+    {
+      "name": "share-service",
+      "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs. Commands: /share <file>, /share list.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/share-service",
+      "category": "productivity"
     }
   ]
 }
