@@ -2,12 +2,14 @@
 name: mcp-issue
 effort: medium
 description: >
-  Report an MCP tool issue (BPA, DS, GDB, or Keycloak) that produced wrong results, failed
-  unexpectedly, or behaved differently from the web UI. Use when the user says something went
-  wrong, a tool gave incorrect output, the result doesn't match the UI, data was corrupted,
-  a mapping is wrong, or they want to file a bug against the MCP server. Also triggers on
-  phrases like "this is broken", "that's not right", "the tool did the wrong thing", "it
-  should have done X instead", or "report this bug".
+  Report an MCP tool issue (BPA, DS, GDB, or Keycloak).
+  TRIGGER when: an MCP tool returns an error, wrong data, or results inconsistent with what
+  the user expected — including when Claude observes a suspicious MCP tool response during
+  normal work (proactive). Also triggers on "this is broken", "that's not right", "the tool
+  did the wrong thing", "it should have done X instead", "report this bug".
+  DO NOT TRIGGER when: the error is clearly a user input mistake (wrong params, wrong tool),
+  auth is expired (suggest re-login instead), or the user is asking about MCP server
+  development/code (not tool usage).
 license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
