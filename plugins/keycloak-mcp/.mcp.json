@@ -1,7 +1,9 @@
 {
-  "Keycloak": {
-    "type": "stdio",
-    "command": "uvx",
-    "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-keycloak"]
+  "mcpServers": {
+    "Keycloak": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-keycloak"]
+    }
   }
 }

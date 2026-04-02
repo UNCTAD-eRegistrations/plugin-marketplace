@@ -1,7 +1,9 @@
 {
-  "GDB": {
-    "type": "stdio",
-    "command": "uvx",
-    "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-gdb"]
+  "mcpServers": {
+    "GDB": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-gdb"]
+    }
   }
 }
