@@ -2,40 +2,56 @@
 name: mcp-issue
 effort: medium
 description: >
-  Report a BPA MCP tool that produced wrong results, failed unexpectedly, or behaved
-  differently from the BPA web UI. Use when the user says something went wrong, a tool
-  gave incorrect output, the result doesn't match the UI, data was corrupted, a mapping
-  is wrong, or they want to file a bug against the MCP server. Also triggers on phrases
-  like "this is broken", "that's not right", "the tool did the wrong thing", "it should
-  have done X instead", or "report this bug".
+  Report an MCP tool issue (BPA, DS, GDB, or Keycloak) that produced wrong results, failed
+  unexpectedly, or behaved differently from the web UI. Use when the user says something went
+  wrong, a tool gave incorrect output, the result doesn't match the UI, data was corrupted,
+  a mapping is wrong, or they want to file a bug against the MCP server. Also triggers on
+  phrases like "this is broken", "that's not right", "the tool did the wrong thing", "it
+  should have done X instead", or "report this bug".
 license: UNCTAD-Internal
-compatibility: Works with or without an active BPA MCP server connection.
-allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), mcp__BPA__*, mcp__BPA-local-dev__*
+compatibility: Works with or without an active MCP server connection.
+allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "2.0.0"
-  version-date: "2026-03-12"
+  version: "3.0.0"
+  version-date: "2026-04-02"
   author: "UNCTAD Trade Facilitation Section"
 ---
 
-# Report a BPA MCP Issue
+# Report an MCP Issue
 
-You will help the user document a functional issue with the BPA MCP server, producing a structured markdown report that an MCP developer can use to reproduce and fix the problem.
+You will help the user document a functional issue with an eRegistrations MCP server, producing a structured markdown report that an MCP developer can use to reproduce and fix the problem.
 
 **Your role:** Be a patient but skeptical investigator. The user may be non-technical — guide them through describing what went wrong without jargon. But also verify claims before writing them up — AI agents (including you) can hallucinate issues, misread responses, or confuse expected behavior with actual bugs.
 
 **Core principle:** Every issue report must be _verified_, not just _transcribed_. A wrong bug report wastes more developer time than no report at all.
 
-## Step 1 — Understand what happened
+## Supported MCP servers
 
-Ask the user to describe the problem in their own words. Helpful prompts:
+| Server | Tool prefix | Config path | Source path |
+|--------|------------|-------------|-------------|
+| **BPA** | `mcp__BPA__` | `~/.config/mcp-eregistrations-bpa/` | `src/mcp_eregistrations_bpa/tools/` |
+| **DS** | `mcp__DS__` | `~/.config/mcp-eregistrations-ds/` | `src/mcp_eregistrations_ds/tools/` |
+| **GDB** | `mcp__GDB__` | `~/.config/mcp-eregistrations-gdb/` | `src/mcp_eregistrations_gdb/tools/` |
+| **Keycloak** | `mcp__Keycloak__` | `~/.config/mcp-eregistrations-keycloak/` | `src/mcp_eregistrations_keycloak/tools/` |
+
+Throughout this skill, `{SERVER}` refers to the identified server (BPA, DS, GDB, or Keycloak) and `{server}` to its lowercase form (bpa, ds, gdb, keycloak).
+
+## Step 1 — Identify the server & understand what happened
+
+First, determine which MCP server is involved. Look for:
+- The tool prefix in the failing call (`mcp__BPA__`, `mcp__DS__`, `mcp__GDB__`, `mcp__Keycloak__`)
+- Context clues (forms/determinants → BPA, files/payments → DS, databases/records → GDB, users/realms → Keycloak)
+- Ask the user if unclear
+
+Then ask the user to describe the problem in their own words. Helpful prompts:
 
 > What were you trying to do? What happened instead of what you expected?
 
 Listen for:
-- Which BPA tool was involved (or what action they were performing)
-- What instance and service they were working with
+- Which tool was involved (or what action they were performing)
+- What instance they were working with
 - Whether they saw an error message or just wrong data
-- Whether the same action works correctly in the BPA web UI
+- Whether the same action works correctly in the web UI
 
 If the problem is visible in the current conversation (a tool call that returned wrong data, an error), reference it directly — don't make the user repeat what's already in context.
 
@@ -43,7 +59,7 @@ If the problem is visible in the current conversation (a tool call that returned
 
 Collect these automatically (don't ask the user):
 
-1. **Server version and instances:** Call `mcp__BPA__connection_status(instance="<name>")` for the affected instance. The response includes `version`, `latest_version`, and `update_available` fields. Also call `mcp__BPA__instance_list()` to capture registered instances.
+1. **Server version and instances:** Call `mcp__{SERVER}__connection_status(instance="<name>")` for the affected instance. The response includes `version`, `latest_version`, and `update_available` fields. Also call `mcp__{SERVER}__instance_list()` to capture registered instances.
 
 2. **Today's date:** Run via Bash:
    ```
@@ -52,7 +68,7 @@ Collect these automatically (don't ask the user):
 
 3. **Recent server log errors** (if available). Run via Bash:
    ```
-   find ~/.config/mcp-eregistrations-bpa/instances -name 'server.log' -exec grep -E 'ERROR|CRITICAL' {} \; 2>/dev/null | tail -10
+   find ~/.config/mcp-eregistrations-{server}/instances -name 'server.log' -exec grep -E 'ERROR|CRITICAL' {} \; 2>/dev/null | tail -10
    ```
 
 ## Step 3 — Identify the root cause area
@@ -63,7 +79,7 @@ Based on what the user described, determine which category applies:
 |----------|----------|
 | **Wrong API call** | Tool sends incorrect HTTP method, path, or parameters |
 | **Data transformation** | Response data is mangled, fields missing, wrong format |
-| **UI mismatch** | Tool produces different result than the same action in BPA web UI |
+| **UI mismatch** | Tool produces different result than the same action in the web UI |
 | **Missing validation** | Tool accepts invalid input that the UI would reject |
 | **Auth/connection** | Token errors, timeouts, wrong instance targeted |
 | **Missing capability** | Tool doesn't support an operation that the UI does |
@@ -101,7 +117,7 @@ If the MCP server source code is available locally, check the tool implementatio
 
 ```
 # Find the tool source
-grep -r "def <tool_name>" src/mcp_eregistrations_bpa/tools/ 2>/dev/null
+grep -r "def <tool_name>" src/mcp_eregistrations_{server}/tools/ 2>/dev/null
 ```
 
 Read the relevant function to understand:
@@ -115,9 +131,9 @@ Read the relevant function to understand:
 
 This is where hallucinations hide. Before accepting any claim about what _should_ happen:
 
-- **Check the API reference** if available: `_bmad-output/implementation-artifacts/bpa-api-reference.md`
+- **Check the API reference** if available
 - **Check tool docstring**: Does it promise what the user expects?
-- **Check BPA UI** (if the user can confirm): Does the UI actually do what they claim?
+- **Check the web UI** (if the user can confirm): Does the UI actually do what they claim?
 
 **Never write "Expected: X" in a report unless you have evidence that X is correct.** If you're unsure, write "Expected behavior needs verification" and explain why.
 
@@ -129,7 +145,7 @@ If the failing tool call is in the current conversation, extract:
 - **Reproduction result** from Step 4 (confirmed / intermittent / not reproduced)
 - **Expected response** (from user description, UI comparison, or API docs — cite which)
 
-If the user can show what the BPA UI does for the same action (screenshot, network tab, or description), capture that as the "expected behavior" baseline.
+If the user can show what the web UI does for the same action (screenshot, network tab, or description), capture that as the "expected behavior" baseline.
 
 ## Step 6 — Adversarial Self-Review
 
@@ -158,6 +174,31 @@ Before concluding "this is a bug", consider each alternative:
 
 For each alternative, note whether you ruled it out and how. If you can't rule out an alternative, mention it in the report.
 
+### Claim classification (First Principles)
+
+Build this table for every factual claim that will appear in the report. This is not optional — it's the structural filter that prevents bad reports from being filed.
+
+| Claim | Type | Evidence |
+|-------|------|----------|
+| _"Tool returns X"_ | **Hard** (reproduced) | Re-ran call, got same result |
+| _"Should return Y"_ | **Assumption** (unverified) | User said so, no UI/doc confirmation |
+| _"Field Z is missing"_ | **Hard** (observed) | Compared response against UI screenshot |
+
+Type definitions:
+- **Hard** — You observed this directly (tool output, reproduction, source code, UI comparison)
+- **Soft** — Reasonable inference from docs or tool docstring, but not directly observed
+- **Assumption** — Claim from user report, your inference, or "how you think it should work" — no direct evidence
+
+**Any claim typed as "Assumption" must be marked "needs verification" in the report.** Do not present assumptions as facts.
+
+### Failure lens (Iterative Depth)
+
+Before proceeding, answer this honestly:
+
+> **If this report is wrong, what damage does it cause?** Would a developer waste hours reproducing a non-issue? Would they "fix" something that wasn't broken and introduce a real bug?
+
+If the answer is "significant damage" and you have any Assumption-typed claims, **stop and tell the user** what evidence is needed before proceeding.
+
 ### Assign confidence level
 
 Based on your verification work:
@@ -176,17 +217,18 @@ Based on your verification work:
 Create the report directory and file:
 
 ```
-mkdir -p ~/Desktop/bpa-mcp-reports
+mkdir -p ~/Desktop/mcp-issue-reports
 ```
 
-Write the report to `~/Desktop/bpa-mcp-reports/<date>-<slug>.md` where `<slug>` is a short kebab-case summary (e.g., `effect-create-wrong-format`).
+Write the report to `~/Desktop/mcp-issue-reports/<date>-<server>-<slug>.md` where `<server>` is the lowercase server name and `<slug>` is a short kebab-case summary (e.g., `2026-04-02-bpa-effect-create-wrong-format`).
 
 ### Report template
 
 ```markdown
-# BPA MCP Issue: <Short title>
+# {SERVER} MCP Issue: <Short title>
 
 **Date:** <YYYY-MM-DD>
+**Server:** <BPA | DS | GDB | Keycloak>
 **Reporter:** <user name if known, otherwise "via Claude">
 **Severity:** <critical | high | medium | low>
 **Confidence:** <verified | likely | suspected | unverified>
@@ -206,7 +248,7 @@ Write the report to `~/Desktop/bpa-mcp-reports/<date>-<slug>.md` where `<slug>` 
 - **Reproduced:** <yes — consistent | yes — intermittent | no — works on retry | not attempted>
 - **Reproduction tool call:**
 ```
-Tool: mcp__BPA__<tool_name>(param=value, ...)
+Tool: mcp__{SERVER}__<tool_name>(param=value, ...)
 Result: <same error | different result | success>
 ```
 
@@ -221,7 +263,7 @@ Result: <same error | different result | success>
 <What happened. Include the tool call, parameters, and response.>
 
 ```
-Tool: mcp__BPA__<tool_name>(param=value, ...)
+Tool: mcp__{SERVER}__<tool_name>(param=value, ...)
 Response: <summarized or full response>
 ```
 
@@ -229,14 +271,20 @@ Response: <summarized or full response>
 
 <What should have happened.>
 
-**Evidence source:** <BPA UI observation | API reference doc | tool docstring | user report only>
+**Evidence source:** <web UI observation | API reference doc | tool docstring | user report only>
 
-## BPA UI Comparison
+## Web UI Comparison
 
 <If available: what the UI sends/receives for the same operation.
 Include API endpoint, method, and payload if captured.>
 
 <If not available: "Not compared — user did not check UI behavior.">
+
+## Claim Classification
+
+| Claim | Type | Evidence |
+|-------|------|----------|
+| <claim> | <Hard / Soft / Assumption> | <evidence or "needs verification"> |
 
 ## Alternative Explanations Considered
 
@@ -259,7 +307,7 @@ in the MCP server if you can identify them.>
 
 ### Likely affected files
 
-- `src/mcp_eregistrations_bpa/tools/<file>.py`
+- `src/mcp_eregistrations_{server}/tools/<file>.py`
 
 ## Suggested Fix
 
@@ -270,16 +318,78 @@ in the MCP server if you can identify them.>
 
 Show the user the report path and a brief summary of what was captured:
 
-> Issue report saved to `~/Desktop/bpa-mcp-reports/<filename>.md`
+> Issue report saved to `~/Desktop/mcp-issue-reports/<filename>.md`
 >
 > **Summary:** <one line>
+> **Server:** <BPA | DS | GDB | Keycloak>
 > **Category:** <category>
 > **Severity:** <severity>
 > **Confidence:** <level> — <one-line justification>
 >
 > You can share this file with the MCP development team. Would you like me to adjust anything?
 
-If confidence is below "verified", explicitly tell the user what additional evidence would raise it (e.g., "If you can confirm the BPA UI behavior for this action, I can upgrade confidence to 'verified'").
+If confidence is below "verified", explicitly tell the user what additional evidence would raise it (e.g., "If you can confirm the web UI behavior for this action, I can upgrade confidence to 'verified'").
+
+## Step 9 — File on GitHub (optional)
+
+After the user confirms the report, offer to file it as a GitHub issue.
+
+### Hard gate — do NOT offer to file if:
+
+- Confidence is below **"likely"**
+- Any claim in the "Expected Behavior" section has type **"Assumption"** in the claim classification table
+- The report was classified as a **feature request**, not a bug
+
+If any gate fails, tell the user exactly what's blocking it and what evidence would unblock it:
+
+> I can't file this on GitHub yet — the expected behavior is based on your description only (no UI/doc confirmation). If you can verify what the web UI does for this action, I can upgrade the claim and file it.
+
+### Filing
+
+1. **Check prerequisites:**
+   ```
+   gh auth status
+   ```
+   If not authenticated, tell the user to run `! gh auth login` and stop.
+
+2. **Map labels** from the report:
+
+   | Report field | GitHub label |
+   |---|---|
+   | Server: BPA | `bpa` |
+   | Server: DS | `ds` |
+   | Server: GDB | `gdb` |
+   | Server: Keycloak | `keycloak` |
+   | Category: Wrong API call | `api` |
+   | Category: Data transformation | `data` |
+   | Category: UI mismatch | `ui-mismatch` |
+   | Category: Missing validation | `validation` |
+   | Category: Auth/connection | `auth` |
+   | Category: Missing capability | `enhancement` |
+   | Confidence: verified | `verified` |
+   | Confidence: likely | `likely` |
+   | Severity: critical | `critical` |
+   | Severity: high | `high` |
+
+3. **Ask the user for confirmation** before filing:
+
+   > Ready to file on **UNCTAD-eRegistrations/MCP_eRegistrations**:
+   > - **Title:** <title>
+   > - **Labels:** <labels>
+   >
+   > File it?
+
+4. **Create the issue** (only after explicit user approval):
+   ```
+   gh issue create --repo UNCTAD-eRegistrations/MCP_eRegistrations \
+     --title "<title>" \
+     --body-file ~/Desktop/mcp-issue-reports/<filename>.md \
+     --label "<label1>,<label2>"
+   ```
+
+5. **Show the issue URL** to the user.
+
+If any labels don't exist in the repo, omit them rather than failing. Use `--label` only for labels that exist.
 
 ## Guidelines
 

@@ -2,12 +2,12 @@
 description: Report a BPA MCP tool issue or unexpected behavior
 argument-hint: [description]
 effort: medium
-allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(uvx *), Bash(mcp-eregistrations-bpa *), Bash(mcp-eregistrations-gdb *)
+allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), Bash(uvx *), Bash(mcp-eregistrations-bpa *), Bash(mcp-eregistrations-gdb *)
 ---
 
 # MCP Issue
 
-Report an issue with a BPA MCP tool. Invoke the `mcp-issue` skill to guide the user through documenting the problem.
+Report an issue with a BPA MCP tool. Invoke the `mcp-issue` skill to guide the user through documenting the problem. The server is **BPA** — pass this context to the skill so it skips server identification.
 
 Arguments: `$ARGUMENTS`
 
