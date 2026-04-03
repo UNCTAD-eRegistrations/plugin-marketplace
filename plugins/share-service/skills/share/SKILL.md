@@ -62,7 +62,12 @@ Before any API call, ensure you have a publisher token:
 
    Wait for the user to confirm. If they say no, stop.
 
-5. Call the API:
+5. Detect metadata from context:
+   - **project**: Use the current git repo name or directory name as a project tag (e.g., `tz` for Tanzania, `rw` for Rwanda, `jm` for Jamaica). If unsure, leave empty.
+   - **doc_type**: Classify the content: `migration-analysis`, `service-audit`, `debug-report`, `implementation-plan`, `documentation`, `research`, or leave empty.
+   - **tags**: Extract 2-3 relevant comma-separated keywords from the content.
+
+6. Call the API:
 
 ```bash
 curl -s -X POST https://share.eregistrations.dev/api/documents \
@@ -72,11 +77,14 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
     "title": "<title>",
     "format": "<html|md>",
     "content": "<file-contents>",
-    "visibility": "private"
+    "visibility": "private",
+    "project": "<project-tag-if-known>",
+    "doc_type": "<type-if-known>",
+    "tags": "<comma-separated-tags>"
   }'
 ```
 
-6. Show the user:
+7. Show the user:
    - The shareable URL (from `url` in the response)
    - The management secret (from `secret`) — remind them to save it
    - The document ID
