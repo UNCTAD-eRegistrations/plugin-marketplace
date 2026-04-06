@@ -11,11 +11,10 @@ Set up the LCARS statusline for Claude Code.
 
 ### Step 1 — Copy the statusline script
 
-Copy the script to `~/.claude/statusline-command.sh`:
+Symlink the script to `~/.claude/statusline-command.sh` so it stays in sync with plugin updates:
 
 ```bash
-cp "${CLAUDE_PLUGIN_ROOT}/statusline-command.sh" ~/.claude/statusline-command.sh
-chmod +x ~/.claude/statusline-command.sh
+ln -sf "${CLAUDE_PLUGIN_ROOT}/statusline-command.sh" ~/.claude/statusline-command.sh
 ```
 
 ### Step 2 — Configure the statusline
