@@ -27,6 +27,9 @@ eval $(echo "$input" | jq -r '
 ' | tr ',' '\n')
 PCT=$(echo "$PCT" | cut -d. -f1)
 
+# ── Effort level (from settings) ──
+EFFORT=$(jq -r '.effortLevel // empty' ~/.claude/settings.json 2>/dev/null)
+
 # ── Primitives ──
 RST='\033[0m'; BD='\033[1m'; DM='\033[2m'
 fg() { printf '\033[38;2;%d;%d;%dm' "$1" "$2" "$3"; }
@@ -139,7 +142,9 @@ OPS_P=$(_pill 0 204 204 OPS)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # ── Panel SYS: system + workspace ──
-L1="${SYS_P} ${TEAL}${BD}◆ ${MODEL}${RST} ${GHOST}░${RST} ${PEACH}${BD}${DIR##*/}${RST}"
+EFFORT_TAG=""
+[ -n "$EFFORT" ] && EFFORT_TAG=" ${GHOST}${DM}(${EFFORT})${RST}"
+L1="${SYS_P} ${TEAL}${BD}◆ ${MODEL}${RST}${EFFORT_TAG} ${GHOST}░${RST} ${PEACH}${BD}${DIR##*/}${RST}"
 if [ -n "$BRANCH" ]; then
     L1="${L1} ${GHOST}░${RST} "
     [ -n "$REMOTE" ] && L1="${L1}\e]8;;${REMOTE}\a${ICE}${REMOTE##*/}\e]8;;\a "
