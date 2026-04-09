@@ -14,8 +14,8 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.0.0"
-  version-date: "2026-04-02"
+  version: "3.1.0"
+  version-date: "2026-04-09"
   author: "UNCTAD Trade Facilitation Section"
 ---
 
@@ -201,16 +201,84 @@ Before proceeding, answer this honestly:
 
 If the answer is "significant damage" and you have any Assumption-typed claims, **stop and tell the user** what evidence is needed before proceeding.
 
+### Dimensional confidence breakdown (pushback against overconfidence)
+
+A single global confidence score hides weak spots. When asked "how confident are you?", the natural instinct is to reach for the strongest dimension and round up. The dimensional breakdown exists specifically to stop that.
+
+**You MUST build this table before assigning an overall confidence level.** Do not skip it because the earlier sub-sections "already covered it" — hallucination checks, alternative explanations, and claim classification still let weak rows hide under strong ones. Breaking confidence apart axis-by-axis is what surfaces them.
+
+Assign a percentage (0–100%) to every dimension that applies. For each row, the justification must cite evidence or explicitly admit the gap.
+
+| Dimension | What to assess |
+|-----------|----------------|
+| Tool call reproduction | Did I actually re-run the failing call with the same parameters and observe the same result? |
+| Response interpretation | Did I read the actual tool response, or am I paraphrasing from memory? |
+| "Expected behavior" claim | Is this backed by the web UI, API docs, or just the user's description? |
+| Source code analysis | Did I read the tool implementation file, or am I guessing how it's written? |
+| Alternative explanations | Did I actually test each alternative, or did I only list them? |
+| Category assignment | Am I certain this is a bug vs a feature request vs user error? |
+| Severity assessment | Is the severity backed by what I observed (data loss, silent wrong result, error)? |
+| User intent | Do I actually understand what the user was trying to do? |
+| Server/instance identification | Am I sure which MCP server and which instance are involved? |
+
+Only include dimensions that apply. Add case-specific rows if the situation demands it (e.g., "classification field mapping" for a GDB issue, "token claim interpretation" for a Keycloak issue).
+
+**Format** — write this down before continuing:
+
+```
+| Dimension                     | Confidence | Justification                                                    |
+|-------------------------------|-----------:|------------------------------------------------------------------|
+| Tool call reproduction        |       95%  | Re-ran the call in this session, got identical error            |
+| Response interpretation       |       90%  | Read the raw JSON in context line-by-line                        |
+| "Expected behavior" claim     |       55%  | User said "it should return X", no UI screenshot, no docs cited  |
+| Source code analysis          |       40%  | Grepped for the function name but did not read the file         |
+| Alternative explanations      |       70%  | Ruled out auth and stale state; did not test a different instance|
+| Category assignment           |       80%  | Likely "wrong API call" but could also be "data transformation"  |
+| Severity assessment           |       75%  | User said "wrong data returned silently" → high                  |
+| User intent                   |       85%  | User explained clearly and confirmed                             |
+```
+
+**Hard rules:**
+
+1. **The weakest dimension caps the overall confidence level.** Do not average — a 40% row is not erased by a 95% row. See the level table below for exact thresholds.
+2. **For each dimension below 80%, you MUST do one of these before writing the report:**
+   - **Verify it now** — re-run the call, read the file, ask the user, consult the docs. Bump the percentage only after actual verification.
+   - **Downgrade the related claim** to "Assumption — needs verification" in the Claim Classification table, and carry that downgrade through to the Expected Behavior section of the report.
+3. **If you cannot estimate a percentage, assign 50%.** Not knowing how confident you are IS low confidence. Do not skip the row.
+4. **Every follow-up that can be done right now must be done before Step 7.** Re-running a tool call or reading a source file takes seconds. List the follow-ups explicitly:
+
+   > **What I'd verify before filing:**
+   > 1. <concrete action>
+   > 2. <concrete action>
+   > 3. <concrete action>
+
+**Rationalizations to reject:**
+
+| Rationalization | Reality |
+|-----------------|---------|
+| "The earlier sub-sections already covered this" | They let weak spots hide under strong ones. The breakdown is what surfaces them. |
+| "My overall confidence feels high" | That's exactly the overconfidence pattern. Break it down anyway. |
+| "I don't know the exact percentages" | Assign 50% and explain. Not knowing IS low confidence. |
+| "This is tedious" | 5 minutes here saves hours of developer time chasing a phantom bug. |
+| "The report will flag the weak parts implicitly" | Flagging only happens if you see the gap. The table is what makes you see it. |
+| "Step 6 is already long enough" | The length of the checklist is not the bar. An honest confidence floor is. |
+
+If any of those thoughts appear, stop and build the table.
+
+**Carry the breakdown into the report.** The dimensional table must appear in the final report under a "Confidence Breakdown" section (see the template in Step 7). The reviewer benefits from seeing exactly where you were confident and where you were guessing — it tells them where to start investigating.
+
 ### Assign confidence level
 
-Based on your verification work:
+Derive the overall level from the dimensional breakdown above — specifically from the **weakest dimension**.
 
 | Level | Criteria |
 |-------|----------|
-| **Verified** | Reproduced the issue, confirmed expected behavior from UI/docs, ruled out alternatives |
-| **Likely** | Reproduced or have strong evidence, but couldn't fully verify expected behavior |
-| **Suspected** | User report is credible and consistent, but couldn't reproduce or verify independently |
-| **Unverified** | Couldn't reproduce, expected behavior is unclear, or significant alternative explanations remain |
+| **Verified** | Every dimension ≥ 80%, issue reproduced, expected behavior confirmed from UI/docs, alternatives ruled out |
+| **Likely** | Weakest dimension ≥ 70%, reproduced or strong evidence, couldn't fully verify expected behavior |
+| **Suspected** | Weakest dimension ≥ 50%, user report is credible but couldn't reproduce or verify independently |
+| **Unverified** | Any dimension below 50%, couldn't reproduce, or significant alternative explanations remain |
+
+**Do not assign a level higher than what the weakest dimension allows.** A single 40% row caps the report at "Unverified" regardless of how strong the other dimensions are.
 
 **If confidence is "Unverified", tell the user before writing the report.** They may want to gather more evidence first.
 
@@ -287,6 +355,16 @@ Include API endpoint, method, and payload if captured.>
 | Claim | Type | Evidence |
 |-------|------|----------|
 | <claim> | <Hard / Soft / Assumption> | <evidence or "needs verification"> |
+
+## Confidence Breakdown
+
+| Dimension | Confidence | Justification |
+|-----------|-----------:|---------------|
+| <dimension> | <%> | <evidence or admitted gap> |
+
+**Weakest dimension:** <name> at <%> — <what would need to be verified to raise it>
+
+**Overall confidence ceiling (set by the weakest dimension):** <verified | likely | suspected | unverified>
 
 ## Alternative Explanations Considered
 
