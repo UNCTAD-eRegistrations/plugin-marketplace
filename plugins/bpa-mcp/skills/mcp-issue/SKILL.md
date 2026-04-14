@@ -14,9 +14,14 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.1.0"
-  version-date: "2026-04-09"
+  version: "3.4.1"
+  version-date: "2026-04-14"
   author: "UNCTAD Trade Facilitation Section"
+  changelog:
+    - "3.4.1 (2026-04-14): Clarified consumer-project routing — consumers (e.g. SmartRules / SR) may integrate with eRegistrations directly via REST (not via MCP). The earlier wording 'a consumer project that calls the MCP' wrongly excluded SR, which is the actual origin of #58/#68/#69. Added the SR alias everywhere, listed SR's concrete internal surfaces (procedures-api, gdb-sync.js, hash files) as examples."
+    - "3.4.0 (2026-04-14): Added the 'Production repositories (routing reference)' table listing the exact GitHub repo names under `UNCTAD-eRegistrations` for MCP, the BPA/DS/GDB/Keycloak backends, and consumer projects (SmartRules). Step 5.5c now references these by exact name instead of asking the user to recall them. The rule 'do not invent a repo name; verify with `gh repo view` and do not fall back to the MCP repo' is explicit."
+    - "3.3.0 (2026-04-14): Step 5.5c reframed as a ROUTING decision, not a phrasing rule. Issues whose fix lives in the backend (GDB/BPA/DS/Keycloak) must be filed in that backend's repository, not the MCP repo. MCP-repo tickets are reserved for MCP-tool-layer bugs: wrong API call, response transformation, validation, auth handling, or exposing a backend capability that already exists. Backend source citations remain welcome as EVIDENCE in whichever repo the ticket lands in — the distinction is evidence (allowed) vs. prescription in the wrong repo (not allowed). Step 9 now branches by filing destination."
+    - "3.2.0 (2026-04-14): Added Step 5.5 — Scope & Sanitization gate. Reports must not cite local filesystem paths or couple to out-of-scope caller projects (e.g. SmartRules/procedures-api). New confidence dimension 'Scope hygiene'."
 ---
 
 # Report an MCP Issue
@@ -37,6 +42,27 @@ You will help the user document a functional issue with an eRegistrations MCP se
 | **Keycloak** | `mcp__Keycloak__` | `~/.config/mcp-eregistrations-keycloak/` | `src/mcp_eregistrations_keycloak/tools/` |
 
 Throughout this skill, `{SERVER}` refers to the identified server (BPA, DS, GDB, or Keycloak) and `{server}` to its lowercase form (bpa, ds, gdb, keycloak).
+
+## Production repositories (routing reference)
+
+The MCP repo and every backend it wraps live under the **`UNCTAD-eRegistrations`** GitHub organization. Use this table when making the routing decision in Step 5.5c.
+
+| Layer | Project | GitHub repository | What belongs here |
+|-------|---------|------------------|-------------------|
+| MCP tools | MCP server suite | `UNCTAD-eRegistrations/MCP_eRegistrations` | MCP-tool-layer bugs: wrong API call, response transformation, validation, auth handling, exposing an already-supported backend capability |
+| Backend (BPA) | BPA backend (Spring Boot / Java) | `UNCTAD-eRegistrations/BPA-backend` | New endpoints, fields, validations, or persistence changes in BPA itself |
+| Backend (BPA, frontend) | BPA admin UI (legacy) | `UNCTAD-eRegistrations/BPA-frontend` | BPA admin-UI-side changes (rarely a target for MCP-originated tickets) |
+| Backend (BPA, frontend) | BPA admin UI (next) | `UNCTAD-eRegistrations/BPA-frontend-Next` | Same as above for the next-gen admin UI |
+| Backend (DS) | DS backend (Django) | `UNCTAD-eRegistrations/DS-Backend` | New endpoints/fields, file lifecycle logic, payments, KYC, process-state in DS |
+| Backend (DS, frontend) | DS frontend (Angular) | `UNCTAD-eRegistrations/DS-Frontend` | DS public-facing UI changes |
+| Backend (GDB) | GDB backend (Django / DRF) | `UNCTAD-eRegistrations/GDB` | New/changed Django models, serializers, views, versioning, dedup, metadata columns |
+| Backend (Keycloak) | Keycloak customizations | `UNCTAD-eRegistrations/Keycloak` | Custom providers, themes, SPI extensions; upstream Keycloak issues go upstream, not here |
+| Backend (Keycloak, MCP-side server) | Keycloak MCP server | `UNCTAD-eRegistrations/keycloak-mcp-server` | The MCP bridge for Keycloak (when the issue is specifically in this MCP bridge, not in core Keycloak) |
+| Consumer | SmartRules (a.k.a. **SR**) — visual rules editor, integrates directly with the GDB REST API (not via MCP) | `UNCTAD-eRegistrations/SmartRules` | Changes inside SR itself: `procedures-api`, `gdb-sync.js`, hash-file logic, UI. **Do not** surface SR internals inside MCP or backend tickets beyond a one-sentence acknowledgment that a known consumer hit the issue. |
+
+Additional adjacent repos that can be ticket destinations depending on scope: `SmartLink` (API gateway), `GovBridge` (integration platform), `Camunda`, `Cashier`, `Publisher`, `Graylog`, `Translation-Service`. If the routing decision points to one of these, the same rule applies — file there, not in MCP.
+
+**Verifying a repo before filing:** run `gh repo view <org>/<name>` or browse to `https://github.com/UNCTAD-eRegistrations/<name>`. If the repo doesn't exist or you're unsure, stop and ask the user — do not invent a repo name and do not fall back to the MCP repo.
 
 ## Step 1 — Identify the server & understand what happened
 
@@ -149,6 +175,82 @@ If the failing tool call is in the current conversation, extract:
 
 If the user can show what the web UI does for the same action (screenshot, network tab, or description), capture that as the "expected behavior" baseline.
 
+## Step 5.5 — Scope & Sanitization
+
+**This step prevents the single most common failure mode of this skill: dumping unreachable or out-of-scope context into a ticket.** The receiving maintainer only has access to the public MCP repository. Anything that references the reporter's local machine, a separate consumer project, or prescribes changes to a production backend codebase is either unusable or out-of-scope.
+
+Run these filters **before** writing the report. Each one has a concrete rewrite rule.
+
+### 5.5a — Strip local filesystem references
+
+No path beginning with `/Users/`, `/home/`, `~/`, `C:\`, or any host-specific directory may appear in the report. Common offenders this skill has produced in the past:
+
+- Handover notes (`5 - Handovers/*.md`, `~/Desktop/*.md`)
+- Spec documents on the reporter's laptop (`/Users/<name>/Claude/...`, `/Users/<name>/OpenGov/...`)
+- Session-feedback logs (`gdb-mcp-session-feedback-*.md`)
+
+**Rewrite rule:** replace the path with a *description of what the document contains* only if that description is itself useful. Otherwise, delete the reference. Example:
+
+| Before | After |
+|--------|-------|
+| `See /Users/unctad/Claude/0 - OpenGov/specs/gdb-integration/04-sr-gdb-ui-spec.md` | _(deleted — receiver can't access it)_ |
+| `Full batch context: gdb-mcp-session-feedback-2026-04-11-ui-spec-complement.md` | _(deleted)_ |
+| `Per the UI spec's "reviewer check #1"` | `An external consumer that writes to GDB and maintains its own local sync log can drift if the consumer crashes between the GDB write and the local log write.` |
+
+If the evidence only exists in a local file, it is **not evidence the receiver can verify**. Either re-express it as a reproducible MCP-tool observation, or drop the claim.
+
+### 5.5b — Decouple from caller / out-of-scope projects
+
+The MCP repository's concern is the MCP tool surface. Other eRegistrations projects that *use* MCP tools (SmartRules, procedures-api, bot runners, migration scripts) are **out-of-scope** as context providers. Their internal file names, hash-file locations, and implementation quirks must not drive the ticket narrative.
+
+**Rewrite rule:** re-frame the motivation at the MCP-tool level.
+
+| Anti-pattern | Correct frame |
+|--------------|---------------|
+| "The SR↔GDB sync (`procedures-api/gdb-sync.js`) ships a SHA-256 hash file (`/data/gdb-sync-hashes.json`) to avoid duplicates." | "Any MCP client that calls `gdb_database_modify` repeatedly with an identical schema creates duplicate versions unless it implements its own hashing. This forces every client to re-invent the same logic." |
+| "The SR Registry UI spec proposes writing `/data/gdb-sync-log/{procedureId}.json`." | _(deleted — describe the generic problem of missing structured provenance on write)_ |
+
+You may *mention* that "one known consumer encountered this" in a single neutral sentence, but do not quote file paths, internal variable names, or spec-document paragraphs from that consumer project.
+
+### 5.5c — Routing decision: which repository is this ticket for?
+
+This is the **single most important filter** in the skill. Every issue must be routed to the repository that owns the fix. GDB, BPA, DS, and Keycloak are production eRegistrations backends with their **own repositories and release trains** — separate from the MCP repo. The MCP repo only owns the MCP tool layer.
+
+Decide the destination **before** drafting the ticket:
+
+| The fix requires… | File in | Representative examples |
+|---|---|---|
+| A change to how the MCP tool calls the backend (wrong endpoint, wrong params, bad response transformation, missing validation, auth handling) | **MCP repo** (`UNCTAD-eRegistrations/MCP_eRegistrations`) | Tool maps `service_id` to the wrong URL segment; tool drops a field the backend did return; tool accepts inputs the backend rejects |
+| A change to the MCP tool to expose a backend capability **that already exists** in the backend | **MCP repo** | Backend's REST response already includes `created_at`; MCP tool's output shape omits it |
+| A new field, column, endpoint, dedup guard, serializer change, migration, or any other modification **inside** the backend itself | **Backend repo** (see the "Production repositories" table above — e.g. `UNCTAD-eRegistrations/GDB`, `.../BPA-backend`, `.../DS-Backend`, `.../Keycloak`) | "Backend should accept a `metadata` JSONB column on write"; "backend should dedup no-op versions"; "backend should add `created_by_user_id`" |
+| A change in a consumer project that integrates with an eRegistrations system (directly via REST, or via the MCP) — e.g. `UNCTAD-eRegistrations/SmartRules` (a.k.a. **SR**), migration scripts, bot runners | **That consumer's repo** | SR's `gdb-sync.js` / `procedures-api` sync logic; a migration script's retry policy; a bot runner's field-mapping shim |
+
+**If the fix lives in a backend or consumer repo, do NOT file it in the MCP repo.** Pause and tell the user:
+
+> The fix you're describing requires a change in the {SERVER} backend itself — not in the MCP tool. MCP repo issues can't drive backend changes, and the MCP tool can't expose the capability until the backend supports it. I'll draft the report so it's useful to the {SERVER} team, and you should file it in the {SERVER} repository. Do you want to share the repo URL, or should I save the report locally and skip the filing step?
+
+**Backend source citations are welcome as evidence**, independent of destination. A well-grounded backend-repo ticket benefits from file/line references — that's the maintainer's starting point. The distinction is:
+
+| ✅ Evidence (any repo) | ❌ Prescription in the wrong repo |
+|---|---|
+| "The `Database` model already has `auto_now_add=True` on a `created_at` column (`models.py:438`), but the serializer (`serializers.py:199`) does not expose it." → fine in an MCP-repo ticket (explaining why the tool can't return it today) AND fine in a backend-repo ticket (pointing at the one-line fix). | "Add `'created_at'` to `DatabaseSerializer.Meta.fields` at `serializers.py:199`" inside an **MCP-repo** ticket — wrong repo for a prescription of a backend change. |
+
+Same file/line, different legitimacy, depending on (a) whether it's framed as evidence vs. prescription and (b) which repo the ticket is filed in.
+
+**Applied to the currently-open examples (#58, #68, #69):** all three ask for Django-layer changes (new metadata column, server-side dedup, new `created_at`/`created_by_user_id` exposure). None of them can be satisfied by changing MCP tool code alone. The correct destination for all three is the backend repository that owns GDB — they are mis-filed today and should be re-opened there (with the sanitization from 5.5a and 5.5b applied in the process).
+
+### 5.5d — Scope checklist (must all pass before Step 6)
+
+Run through this list explicitly. Answer each one:
+
+- [ ] **Filing destination is decided and written into the draft** (MCP repo, specific backend repo, or specific consumer repo).
+- [ ] If destination is MCP repo: the fix is plausibly implementable by changing MCP tool code alone (no backend model/endpoint change required).
+- [ ] No path beginning with `/Users/`, `/home/`, `~/`, `C:\` anywhere in the draft.
+- [ ] No reference to consumer-project files (`procedures-api/...`, `gdb-sync.js`, `gdb-sync-hashes.json`, SR spec documents, etc.) unless the destination *is* that consumer's repo.
+- [ ] Backend source citations, if any, are framed as **evidence** (what the code currently does) rather than **prescription** if the destination is the MCP repo.
+
+If any row is unchecked, rewrite or re-route before continuing to Step 6. Mis-routing costs more than two extra minutes of reframing.
+
 ## Step 6 — Adversarial Self-Review
 
 Before writing the report, run through this checklist **honestly**. Write your answers down (internally, not in the report) for each question:
@@ -220,6 +322,7 @@ Assign a percentage (0–100%) to every dimension that applies. For each row, th
 | Severity assessment | Is the severity backed by what I observed (data loss, silent wrong result, error)? |
 | User intent | Do I actually understand what the user was trying to do? |
 | Server/instance identification | Am I sure which MCP server and which instance are involved? |
+| Scope hygiene | Is the report free of local filesystem paths, consumer-project context, and backend-code prescriptions? (Step 5.5) |
 
 Only include dimensions that apply. Add case-specific rows if the situation demands it (e.g., "classification field mapping" for a GDB issue, "token claim interpretation" for a Keycloak issue).
 
@@ -389,10 +492,27 @@ in the MCP server if you can identify them.>
 
 - `src/mcp_eregistrations_{server}/tools/<file>.py`
 
-## Suggested Fix
+## Filing Destination
 
-<Concrete suggestion for the MCP developer, if you have one.>
+- **Target repository:** <UNCTAD-eRegistrations/MCP_eRegistrations | backend repo (name to be confirmed) | consumer repo (name to be confirmed)>
+- **Why this repo:** <which layer owns the fix — MCP tool layer, backend, or consumer>
+
+## Requested Outcome
+
+<Describe the observable behavior that should change, phrased for the chosen destination:
+
+- **If MCP repo:** describe the tool's input/output/behavior that needs to change. The backend capability needed must already exist — if it doesn't, this ticket belongs in the backend repo instead.
+- **If backend repo:** describe the capability the backend should expose (field, endpoint, guard, response shape). File and line references are welcome as evidence; the backend team owns the implementation choice.
+- **If consumer repo:** describe what the caller should do differently.
+
+Do not prescribe implementation details across repository boundaries. Evidence from another repo (e.g. citing a backend source line in a ticket about the MCP tool) is welcome when it explains the current state — just don't ask the wrong repo's maintainers to change it.>
 ```
+
+### Scope rules for the report body
+
+- Do NOT include paths beginning with `/Users/`, `/home/`, `~/`, `C:\` or any host-local directory. If the only source of a claim is a local document, rewrite the claim into a reproducible observation or drop it.
+- Do NOT cite files or spec documents from consumer projects (e.g. `procedures-api/gdb-sync.js`, SmartRules specs, migration scripts) unless the destination **is** that consumer's repo. One neutral sentence acknowledging "a known consumer hit this" is the ceiling otherwise.
+- Backend source citations (`views.py`, `models.py`, `serializers.py`, line numbers) are **allowed** as evidence — they help the reader locate the current behavior. They are **not allowed** as prescriptions when the destination is the MCP repo, because the MCP repo's maintainers don't merge into the backend.
 
 ## Step 8 — Confirm with the user
 
@@ -414,11 +534,28 @@ If confidence is below "verified", explicitly tell the user what additional evid
 
 After the user confirms the report, offer to file it as a GitHub issue.
 
-### Hard gate — do NOT offer to file if:
+### 9a — Resolve the filing destination first
+
+From Step 5.5c's routing decision:
+
+- **MCP-repo ticket** → continue to 9b and file in `UNCTAD-eRegistrations/MCP_eRegistrations`.
+- **Backend-repo ticket** → do **not** use the MCP repo. Ask the user:
+
+  > This ticket belongs in the backend repository for {SERVER}, not the MCP repo. What's the repo (e.g. `UNCTAD-eRegistrations/<name>`)? I can file it there, or save the report locally if you'd prefer to file it manually.
+
+  If the user confirms a backend repo, substitute it into the `gh issue create --repo` call. If they don't know it, save the report and stop — filing in the wrong repo is worse than not filing.
+
+- **Consumer-repo ticket** → same pattern. Ask for the repo; file there or save locally.
+
+Never auto-select the MCP repo as a fallback.
+
+### 9b — Hard gate — do NOT offer to file if:
 
 - Confidence is below **"likely"**
 - Any claim in the "Expected Behavior" section has type **"Assumption"** in the claim classification table
 - The report was classified as a **feature request**, not a bug
+- The **Scope hygiene** confidence dimension is below 90%
+- The filing destination is unresolved, or the target repo is not the one the routing decision selected
 
 If any gate fails, tell the user exactly what's blocking it and what evidence would unblock it:
 
@@ -459,9 +596,9 @@ If any gate fails, tell the user exactly what's blocking it and what evidence wo
    >
    > File it?
 
-4. **Create the issue** (only after explicit user approval):
+4. **Create the issue** (only after explicit user approval — use the repo from 9a, not a hardcoded default):
    ```
-   gh issue create --repo UNCTAD-eRegistrations/MCP_eRegistrations \
+   gh issue create --repo <destination-repo-from-9a> \
      --title "<title>" \
      --body-file ~/Desktop/mcp-issue-reports/<filename>.md \
      --label "<label1>,<label2>"
