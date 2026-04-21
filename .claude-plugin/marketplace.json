@@ -43,6 +43,15 @@
       "category": "integration"
     },
     {
+      "name": "translations-mcp",
+      "description": "Translations MCP server — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids) plus one-command recovery from missing Global Translation bootstrap (translation_global_status / translation_global_reload). Requires bpa-mcp plugin for authentication.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/translations-mcp",
+      "category": "integration"
+    },
+    {
       "name": "service-documentation",
       "description": "Generate citizen-facing HTML service manuals (single and batch) and export structured Excel documentation covering fields, determinants, roles, bots, costs, and document requirements.",
       "author": {

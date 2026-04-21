@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "Translations": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-translations"]
+    }
+  }
+}
