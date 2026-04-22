@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), AskUserQuestion
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
   version-date: "2026-04-22"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -26,13 +26,38 @@ metadata:
    2. `Dockerfile` present (and no compose file) → `dockerfile`.
    3. `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, etc. → `auto-detect`. Default port: `3000` for Node/Next, `5173` for Vite, `8000` for Python/Django, otherwise ask.
    4. Only static HTML/CSS/JS → `static`, port `80`.
-3. Propose defaults:
+3. **`dockercompose` only — pre-flight the compose file.** This check applies **only when** build type is `dockercompose`. Other build types (`dockerfile`, `auto-detect`, `static`) don't hit the host-port collision class because Coolify controls the container's host-side networking itself — in those cases, skip this step entirely.
+
+   Read `docker-compose.yml` (or whichever compose file matched in step 2) and scan each service for a top-level `ports:` key. If any service publishes a host port, warn the user with the exact remediation:
+
+   ```
+   ⚠  docker-compose.yml publishes host ports:
+        service 'app' → ports: ["3000:3000"]
+        service 'db'  → ports: ["5432:5432"]
+
+      Coolify runs many apps on one host. Two containers can't both bind the
+      same host port — your deploy will fail at `docker compose up` with
+      "Bind for 0.0.0.0:<port> failed: port is already allocated".
+
+      Fix before submitting: replace `ports:` with `expose:` (or remove
+      entirely). Coolify/Traefik routes the domain to the service's internal
+      port using the name you'll give in the form.
+
+      Example:
+        services:
+          app:
+            expose: ["3000"]   # was: ports: ["3000:3000"]
+   ```
+
+   Offer to abort so they can fix the repo, or proceed anyway (their risk). Do **not** auto-edit the compose file — it's their repo, not ours.
+
+4. Propose defaults:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
    - **Branch** = current branch (or `main`).
    - **Domain** = `<slug-of-name>.eregistrations.dev`.
-4. Show the user what you'll submit and ask for confirmation.
-5. Ask about env vars (optional — "none" is fine).
-6. Post the issue. Show the URL. Done.
+5. Show the user what you'll submit and ask for confirmation.
+6. Ask about env vars (optional — "none" is fine).
+7. Post the issue. Show the URL. Done.
 
 The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override.
 
