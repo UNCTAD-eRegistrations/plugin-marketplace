@@ -79,6 +79,15 @@
       "category": "devops"
     },
     {
+      "name": "deploy",
+      "description": "Self-service deployment requests on the singlewindow Coolify server. Invoke from the repo you want to deploy; the skill opens a well-formed issue on unctad-ai/deploy and GitHub Actions handles onboarding. Commands: /request-deploy.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/deploy",
+      "category": "devops"
+    },
+    {
       "name": "handoff",
       "description": "Session handoff — capture state so any AI agent can continue your work. Auto-detects git state, plans, and environment context. Commands: /handoff:create, /handoff:quick, /handoff:resume.",
       "author": {
