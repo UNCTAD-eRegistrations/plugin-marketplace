@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), AskUserQuestion
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   version-date: "2026-04-22"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -21,11 +21,11 @@ metadata:
 ## The quick path
 
 1. `git remote get-url origin` to detect the repo. The repo must live under `unctad-ai` or `UNCTAD-eRegistrations` — those are the orgs where the Coolify GitHub App is installed. For any other namespace, tell the user to open a maintainer request on `unctad-ai/deploy` first.
-2. Sniff the repo to guess the build type + port:
-   - `Dockerfile` present → `dockerfile`.
-   - `docker-compose.yml` present → `dockercompose`.
-   - `package.json` with Next/Vite/Node → `auto-detect`, port `3000` (or `5173` for Vite).
-   - Otherwise → `auto-detect`, ask for the port.
+2. Sniff the repo to guess the build type + port. **Check in this exact order and stop on the first match** (compose wins over Dockerfile because compose orchestrates Dockerfile builds):
+   1. `docker-compose.yml` (or `docker-compose.yaml`, or `compose.yml`, or `compose.yaml`) present → `dockercompose`.
+   2. `Dockerfile` present (and no compose file) → `dockerfile`.
+   3. `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, etc. → `auto-detect`. Default port: `3000` for Node/Next, `5173` for Vite, `8000` for Python/Django, otherwise ask.
+   4. Only static HTML/CSS/JS → `static`, port `80`.
 3. Propose defaults:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
    - **Branch** = current branch (or `main`).
