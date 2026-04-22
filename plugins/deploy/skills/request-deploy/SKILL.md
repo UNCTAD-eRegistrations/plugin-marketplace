@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), AskUserQuestion
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   version-date: "2026-04-22"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -26,30 +26,33 @@ metadata:
    2. `Dockerfile` present (and no compose file) → `dockerfile`.
    3. `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, etc. → `auto-detect`. Default port: `3000` for Node/Next, `5173` for Vite, `8000` for Python/Django, otherwise ask.
    4. Only static HTML/CSS/JS → `static`, port `80`.
-3. **`dockercompose` only — pre-flight the compose file.** This check applies **only when** build type is `dockercompose`. Other build types (`dockerfile`, `auto-detect`, `static`) don't hit the host-port collision class because Coolify controls the container's host-side networking itself — in those cases, skip this step entirely.
+3. **`dockercompose` only — pre-flight the compose file.** Skip this step entirely for `dockerfile`, `auto-detect`, and `static` — Coolify controls the container's host-side networking itself in those cases.
 
-   Read `docker-compose.yml` (or whichever compose file matched in step 2) and scan each service for a top-level `ports:` key. If any service publishes a host port, warn the user with the exact remediation:
+   Read the compose file matched in step 2 and collect two things:
+
+   **a. Services with `ports:` (host-published)** — these will collide on Coolify's multi-tenant host and the deploy will fail at `docker compose up` with `"Bind for 0.0.0.0:<port> failed: port is already allocated"`.
+
+   **b. The primary service's name** — the onboarder's `set_domain_compose` call hard-codes the Coolify `docker_compose_domains[].name` to `"app"`. If the first service in the user's compose file is named something else (e.g. `web`, `frontend`, `server`), Coolify will not route the domain to any running service and the deploy will silently produce a 404 or self-signed cert.
+
+   If either condition applies, **MUST use `AskUserQuestion`** to gate — do not ask in free text (an LLM running this skill will otherwise auto-accept "proceed anyway"):
 
    ```
-   ⚠  docker-compose.yml publishes host ports:
-        service 'app' → ports: ["3000:3000"]
-        service 'db'  → ports: ["5432:5432"]
-
-      Coolify runs many apps on one host. Two containers can't both bind the
-      same host port — your deploy will fail at `docker compose up` with
-      "Bind for 0.0.0.0:<port> failed: port is already allocated".
-
-      Fix before submitting: replace `ports:` with `expose:` (or remove
-      entirely). Coolify/Traefik routes the domain to the service's internal
-      port using the name you'll give in the form.
-
-      Example:
-        services:
-          app:
-            expose: ["3000"]   # was: ports: ["3000:3000"]
+   question: "docker-compose.yml has issues that will break the deploy. How to proceed?"
+   header: "Compose pre-flight"
+   multiSelect: false
+   options:
+     - label: "Abort — I'll fix the repo first (recommended)"
+       description: |
+         Apply these fixes in the app's repo:
+           • service 'app' uses ports: ["3000:3000"] → replace with expose: ["3000"]
+           • service 'db' uses ports: ["5432:5432"] → remove entirely (internal-only)
+           • primary service is named 'web' → rename to 'app' OR the domain
+             won't be routed by Coolify's Traefik labels
+     - label: "Proceed anyway"
+       description: "Deploy will likely fail. You'll need to fix the compose file and retry."
    ```
 
-   Offer to abort so they can fix the repo, or proceed anyway (their risk). Do **not** auto-edit the compose file — it's their repo, not ours.
+   Do **not** auto-edit the compose file — it's the user's repo, not ours. Only abort or proceed.
 
 4. Propose defaults:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
