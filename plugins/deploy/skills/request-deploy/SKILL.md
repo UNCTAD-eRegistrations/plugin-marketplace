@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   version-date: "2026-04-22"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -28,16 +28,34 @@ metadata:
    4. Only static HTML/CSS/JS → `static`, port `80`.
 3. **`dockercompose` only — pre-flight the compose file.** Skip this step entirely for `dockerfile`, `auto-detect`, and `static` — Coolify controls the container's host-side networking itself in those cases.
 
-   Read the compose file matched in step 2 and collect two things:
+   Parse the compose file matched in step 2 (prefer `python3 -c "import yaml,json,sys; print(json.dumps(yaml.safe_load(open('docker-compose.yml'))))"` so anchors/merge-keys resolve; fall back to regex if PyYAML isn't available). Run **all** rules below in a single pass and collect every finding — do not prompt per-rule. One bundled `AskUserQuestion` at the end beats N round-trips of "fix → redeploy → fix → redeploy".
 
-   **a. Services with `ports:` (host-published)** — these will collide on Coolify's multi-tenant host and the deploy will fail at `docker compose up` with `"Bind for 0.0.0.0:<port> failed: port is already allocated"`.
+   **Rule A — Host-published `ports:`** (BLOCKER, auto-fixable).
+   Services with a `ports:` key will collide on Coolify's multi-tenant host. The deploy fails at `docker compose up` with `"Bind for 0.0.0.0:<port> failed: port is already allocated"`.
+   - *Fix:* replace `ports: - '<host>:<container>'` with `expose: - '<container>'`. For bare `'<port>'` entries, expose the same port. Preserve protocol suffix (`3000/tcp` → `"3000"`).
 
-   **b. The primary service's name** — the onboarder's `set_domain_compose` call hard-codes the Coolify `docker_compose_domains[].name` to `"app"`. If the first service in the user's compose file is named something else (e.g. `web`, `frontend`, `server`), Coolify will not route the domain to any running service and the deploy will silently produce a 404 or self-signed cert.
+   **Rule B — Primary service not named `app`** (BLOCKER, auto-fixable).
+   The onboarder's `set_domain_compose` call hard-codes `docker_compose_domains[].name` to `"app"`. If the first service key is something else (`web`, `frontend`, `server`, …), Coolify will route the domain to no running service and the deploy will silently produce a 404 or self-signed cert.
+   - *Fix:* rename the top-level service key to `app`. Also update any `depends_on`, `links`, `network_aliases` or other string references elsewhere in the file.
 
-   If either condition applies, **MUST use `AskUserQuestion`** with three options — never free text:
+   **Rule C — Healthcheck with no `start_period` on a `depends_on: service_healthy` target** (BLOCKER, auto-fixable).
+   If service X has `depends_on.<Y>.condition: service_healthy` and service Y has a `healthcheck:` but no `start_period:`, first-time init (especially for DB images: `postgres`, `mysql`, `mariadb`, `mongo`, `redis` with persistence) can exceed `retries × interval` and the dependent service aborts with `"dependency failed to start: container <Y> is unhealthy"`. Historical incident (2026-04-22, my-account-next): `postgres:18-alpine` first-init on a fresh volume took longer than 5 × 5s, breaking `app.depends_on.db`.
+   - *Fix:* insert `start_period: 30s` (use `40s` if the target image name matches `^(postgres|mysql|mariadb|mongo)`) into the target's `healthcheck:` block, and raise `retries` to `10` if it's currently `< 10`. Also prefer `pg_isready -U postgres -d <db>` over bare `pg_isready` if a `POSTGRES_DB` env is present — more precise readiness signal.
+
+   **Rule D — Undeclared `${VAR}` references** (BLOCKER, requires user input).
+   Regex the whole compose for `\${([A-Z_][A-Z0-9_]*)(?::-[^}]*)?}` and extract variable names. A reference is **declared** if any of these apply:
+   - it has an inline default (`${VAR:-some-value}`),
+   - it's a Coolify magic var (`COOLIFY_URL`, `COOLIFY_FQDN`, `COOLIFY_BRANCH`, `COOLIFY_RESOURCE_UUID`),
+   - the user will submit it in the issue's env-vars block (you'll collect these in step 6).
+
+   Anything left is **undeclared** and will interpolate to an empty string at compose parse time. Empty `POSTGRES_PASSWORD` → postgres refuses to init; empty `NEXTAUTH_SECRET` → app crashes on boot; etc.
+   - *Fix:* during the bundled AskUserQuestion, list each undeclared var and, for each, either (a) add it to the env-vars the user will submit (offer `<GENERATE>` for anything matching `(PASSWORD|SECRET|TOKEN|KEY)$`, plain value otherwise), or (b) declare an inline default in the compose file.
+
+   **Bundled confirmation — one `AskUserQuestion`, never free text.**
+   After running all four rules, if any finding exists, show a single question whose body enumerates every finding. The "Fix it for me" description must list the concrete edits/additions the skill will apply; the user reviews the full batch before any change is made.
 
    ```
-   question: "docker-compose.yml needs fixes before deploy. How to proceed?"
+   question: "docker-compose.yml has <N> issues that will fail the deploy. How to proceed?"
    header: "Compose pre-flight"
    multiSelect: false
    options:
@@ -45,12 +63,15 @@ metadata:
        description: |
          I'll edit docker-compose.yml, show you the diff, commit+push the fix, then file the deploy issue.
          Edits I'll make:
-           • replace `ports:` with `expose:` (keeping the container port)
-           • [if primary service isn't 'app'] rename it to 'app'
+           • [Rule A] replace `ports:` with `expose:` on <service> (port <N>)
+           • [Rule B] rename top-level service `<old>` → `app` (and update refs)
+           • [Rule C] add `start_period: 30s` to `<service>.healthcheck` (+ bump retries to 10)
+           • [Rule D] record env vars <FOO>, <BAR> to submit in the deploy issue
+         (Only the rules that fired are listed — skip the others.)
      - label: "I'll fix it manually"
        description: "Abort. Apply the listed fixes yourself, commit+push, then re-run /request-deploy."
      - label: "Proceed anyway (will fail)"
-       description: "File the issue as-is. Deploy will fail at `docker compose up`. Use only if you know what you're doing."
+       description: "File the issue as-is. Deploy will fail. Use only if you know what you're doing."
    ```
 
 ### Auto-fix path (when user picks "Fix it for me")
@@ -63,15 +84,21 @@ This path modifies the **user's app repo** — move carefully:
    - The user must be on a non-default branch **or** confirm pushing to `main`. Default to refusing a direct push to `main`; ask if they want to proceed on `main` or create a fix branch.
 
 2. **Build the edits in memory, compute a unified diff, show it:**
-   - For each service with `ports:`, replace with `expose:` using the container port (right side of `host:container` or the bare value if no colon). Preserve protocol suffix handling (`3000:3000/tcp` → `"3000"` exposed).
-   - For service rename (only if asked): change the top-level service key and update any `depends_on`, `links`, and other service references elsewhere in the file.
-   - Construct the modified file. Run `diff -u <old> <new>` to produce a unified diff string.
+   - **Rule A (`ports:` → `expose:`):** replace `ports:` with `expose:` using the container port (right side of `host:container` or the bare value if no colon). Preserve protocol suffix handling (`3000:3000/tcp` → `"3000"` exposed).
+   - **Rule B (service rename):** change the top-level service key and update any `depends_on`, `links`, and other service references elsewhere in the file.
+   - **Rule C (healthcheck `start_period`):** insert `start_period: 30s` (or `40s` for `postgres|mysql|mariadb|mongo` images) into the affected `healthcheck:` block. If `retries:` is present and `< 10`, bump it to `10`. Only add — never reduce existing values. If the healthcheck `test:` uses bare `pg_isready`, also extend it to `pg_isready -U postgres -d <db>` where `<db>` is the service's `POSTGRES_DB` (from its env block).
+   - **Rule D (undeclared env vars):** this rule does NOT edit docker-compose.yml. Instead, the collected var names get appended to the env-var block the skill posts in the deploy issue (step 6 of the main flow). During the batch confirmation, show the user the proposed KEY=VALUE lines so they can override before submission.
+   - Bundle all file edits into one combined diff. Run `diff -u <old> <new>` to produce a unified diff string.
    - Show the diff to the user inline before writing. Use a second `AskUserQuestion` with `{Apply this diff / Cancel}`. Only write on explicit Apply.
 
 3. **Apply + commit + push:**
-   - Use the Edit tool to apply the change.
+   - Use the Edit tool to apply each change. Prefer multiple small Edit calls over a single Write to preserve comments and surrounding formatting.
    - `git add docker-compose.yml`
-   - `git commit -m "fix(compose): expose ports instead of publishing (Coolify deploy)"`
+   - Commit subject reflects whichever rules actually fired, e.g.:
+     - `fix(compose): make deploy-ready for Coolify (expose, healthcheck, service name)`
+     - `fix(compose): expose ports instead of publishing` (Rule A only)
+     - `fix(compose): add healthcheck start_period for DB dependency` (Rule C only)
+   - Commit body: one line per applied rule, code + short description (self-documenting git log).
    - `git push`
    - If push fails (permission, protected branch), roll back: `git reset --hard HEAD~1`, tell the user, offer to fall through to "I'll fix it manually."
 
