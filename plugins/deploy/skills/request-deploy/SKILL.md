@@ -7,9 +7,9 @@ description: >
   defaults, asks only what's needed, posts via `gh`.
 license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
-allowed-tools: Read, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), AskUserQuestion
+allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   version-date: "2026-04-22"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -34,25 +34,55 @@ metadata:
 
    **b. The primary service's name** — the onboarder's `set_domain_compose` call hard-codes the Coolify `docker_compose_domains[].name` to `"app"`. If the first service in the user's compose file is named something else (e.g. `web`, `frontend`, `server`), Coolify will not route the domain to any running service and the deploy will silently produce a 404 or self-signed cert.
 
-   If either condition applies, **MUST use `AskUserQuestion`** to gate — do not ask in free text (an LLM running this skill will otherwise auto-accept "proceed anyway"):
+   If either condition applies, **MUST use `AskUserQuestion`** with three options — never free text:
 
    ```
-   question: "docker-compose.yml has issues that will break the deploy. How to proceed?"
+   question: "docker-compose.yml needs fixes before deploy. How to proceed?"
    header: "Compose pre-flight"
    multiSelect: false
    options:
-     - label: "Abort — I'll fix the repo first (recommended)"
+     - label: "Fix it for me (recommended)"
        description: |
-         Apply these fixes in the app's repo:
-           • service 'app' uses ports: ["3000:3000"] → replace with expose: ["3000"]
-           • service 'db' uses ports: ["5432:5432"] → remove entirely (internal-only)
-           • primary service is named 'web' → rename to 'app' OR the domain
-             won't be routed by Coolify's Traefik labels
-     - label: "Proceed anyway"
-       description: "Deploy will likely fail. You'll need to fix the compose file and retry."
+         I'll edit docker-compose.yml, show you the diff, commit+push the fix, then file the deploy issue.
+         Edits I'll make:
+           • replace `ports:` with `expose:` (keeping the container port)
+           • [if primary service isn't 'app'] rename it to 'app'
+     - label: "I'll fix it manually"
+       description: "Abort. Apply the listed fixes yourself, commit+push, then re-run /request-deploy."
+     - label: "Proceed anyway (will fail)"
+       description: "File the issue as-is. Deploy will fail at `docker compose up`. Use only if you know what you're doing."
    ```
 
-   Do **not** auto-edit the compose file — it's the user's repo, not ours. Only abort or proceed.
+### Auto-fix path (when user picks "Fix it for me")
+
+This path modifies the **user's app repo** — move carefully:
+
+1. **Guardrails — bail out early if any fails** (don't try to fix; offer only "I'll fix it manually" or "Proceed anyway"):
+   - `git status --porcelain` must be empty (clean working tree). If not: "I can't auto-fix with uncommitted changes — commit or stash them first."
+   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` must return a remote-tracking branch (so `git push` has a target). If not: bail with a clear message.
+   - The user must be on a non-default branch **or** confirm pushing to `main`. Default to refusing a direct push to `main`; ask if they want to proceed on `main` or create a fix branch.
+
+2. **Build the edits in memory, compute a unified diff, show it:**
+   - For each service with `ports:`, replace with `expose:` using the container port (right side of `host:container` or the bare value if no colon). Preserve protocol suffix handling (`3000:3000/tcp` → `"3000"` exposed).
+   - For service rename (only if asked): change the top-level service key and update any `depends_on`, `links`, and other service references elsewhere in the file.
+   - Construct the modified file. Run `diff -u <old> <new>` to produce a unified diff string.
+   - Show the diff to the user inline before writing. Use a second `AskUserQuestion` with `{Apply this diff / Cancel}`. Only write on explicit Apply.
+
+3. **Apply + commit + push:**
+   - Use the Edit tool to apply the change.
+   - `git add docker-compose.yml`
+   - `git commit -m "fix(compose): expose ports instead of publishing (Coolify deploy)"`
+   - `git push`
+   - If push fails (permission, protected branch), roll back: `git reset --hard HEAD~1`, tell the user, offer to fall through to "I'll fix it manually."
+
+4. **Continue to the normal flow** (propose slug/branch/domain, env vars, submit the deploy issue).
+
+### What the skill must NOT do
+
+- **Never edit without showing the diff first** and getting explicit Apply from the user. No silent modifications.
+- **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
+- **Never push to `main` without explicit consent** even if the user is currently on it.
+- If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
 
 4. Propose defaults:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
