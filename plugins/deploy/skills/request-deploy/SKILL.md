@@ -9,8 +9,8 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.5.0"
-  version-date: "2026-04-22"
+  version: "1.6.0"
+  version-date: "2026-04-24"
   author: "UNCTAD Trade Facilitation Section"
 ---
 
@@ -24,8 +24,63 @@ metadata:
 2. Sniff the repo to guess the build type + port. **Check in this exact order and stop on the first match** (compose wins over Dockerfile because compose orchestrates Dockerfile builds):
    1. `docker-compose.yml` (or `docker-compose.yaml`, or `compose.yml`, or `compose.yaml`) present → `dockercompose`.
    2. `Dockerfile` present (and no compose file) → `dockerfile`.
-   3. `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, etc. → `auto-detect`. Default port: `3000` for Node/Next, `5173` for Vite, `8000` for Python/Django, otherwise ask.
+   3. `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `Gemfile`, etc. → `auto-detect`. Default port: `3000` for Node/Next, `8000` for Python/Django, otherwise ask. **Before accepting `auto-detect` for Node**, check the static-SPA shape in step 2.bis — if it matches, reclassify and apply Rule E before filing.
    4. Only static HTML/CSS/JS → `static`, port `80`.
+
+2.bis. **Node static-SPA detection — run before accepting `auto-detect` from step 2.3.** A frontend-only Node project builds a `dist/` (or `build/` / `out/`) but has no runtime server. Nixpacks has no `start` command to run, so the container crashloops with `bash: -c: option requires an argument`. Coolify's `static` build pack doesn't help either — it copies the repo verbatim without running `npm run build`, so the served page ends up referencing `/src/main.tsx` instead of the built assets.
+
+   Trigger when **all** apply:
+   - `package.json.scripts.build` is defined
+   - `package.json.scripts.start` is **not** defined
+   - no `Dockerfile` and no compose file
+   - any of the framework signals below is true:
+
+   | Framework | Signal | Output dir |
+   |---|---|---|
+   | Vite | `vite` in deps, OR `vite.config.{ts,js,mjs,cjs}` present | `dist` |
+   | Astro (static) | `astro` in deps and astro.config.* has no `output: 'server'` | `dist` |
+   | SvelteKit static | `@sveltejs/adapter-static` in deps | `build` |
+   | CRA | `react-scripts` in deps | `build` |
+   | Next.js export | `next` in deps and next.config.* has `output: 'export'` | `out` |
+
+   If matched → apply Rule E below **before** filing the deploy issue. Port becomes `3000` (what `serve` binds to). Build type stays `auto-detect` (the added `start` script makes Nixpacks work out of the box).
+
+   **Rule E — Static SPA has no runtime server** (BLOCKER, auto-fixable).
+   Add a one-line `start` script to `package.json` that serves the built output via `serve`. No Dockerfile, no nginx config, no extra dependency — `npx -y serve@14` fetches on container start and caches in the container layer.
+
+   - *Fix:* insert into `package.json.scripts` (exact line, with `<OUTPUT_DIR>` replaced per the table above):
+
+     ```
+     "start": "npx -y serve@14 -s <OUTPUT_DIR> -l ${PORT:-3000}"
+     ```
+
+     The `-s` flag enables SPA fallback (unknown routes → `index.html`). `$PORT` is injected by Coolify from `ports_exposes`.
+
+   **Non-technical framing** — this is a self-service deploy for non-technical users. Never show the user a diff or explain the line. The single question they see is:
+
+   ```
+   question: "Your <framework> app needs one line added to package.json so it can be served after building. Can I add it?"
+   header: "Quick setup"
+   multiSelect: false
+   options:
+     - label: "Yes, add it and deploy (recommended)"
+       description: |
+         I'll add a 'start' script to package.json that serves your built site.
+         It's a standard line used by most web apps — safe to ignore once added.
+     - label: "No — open a help issue instead"
+       description: "Abort. A maintainer will help you deploy this app manually."
+   ```
+
+   On "Yes": reuse the **same guardrails as the compose auto-fix** (clean tree, upstream branch, no silent push to `main` — see the Auto-fix path section below). Apply the edit with the `Edit` tool on `package.json`, commit with subject `chore: add deploy start script`, push, then fall through to step 4 of the main flow with `Build type: auto-detect`, `Port: 3000`.
+
+   **Final success message must mention the added script, plain-language:**
+
+   ```
+   Deployed ✓ https://<domain>/   (SSL cert provisions in ~2 min)
+
+   I added one line to your package.json so the deploy system knows how to serve
+   your app. You can ignore it — future pushes will redeploy the same way.
+   ```
 3. **`dockercompose` only — pre-flight the compose file.** Skip this step entirely for `dockerfile`, `auto-detect`, and `static` — Coolify controls the container's host-side networking itself in those cases.
 
    Parse the compose file matched in step 2 (prefer `python3 -c "import yaml,json,sys; print(json.dumps(yaml.safe_load(open('docker-compose.yml'))))"` so anchors/merge-keys resolve; fall back to regex if PyYAML isn't available). Run **all** rules below in a single pass and collect every finding — do not prompt per-rule. One bundled `AskUserQuestion` at the end beats N round-trips of "fix → redeploy → fix → redeploy".
