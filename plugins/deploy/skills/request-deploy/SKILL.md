@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.6.0"
+  version: "1.6.1"
   version-date: "2026-04-24"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -46,15 +46,18 @@ metadata:
    If matched → apply Rule E below **before** filing the deploy issue. Port becomes `3000` (what `serve` binds to). Build type stays `auto-detect` (the added `start` script makes Nixpacks work out of the box).
 
    **Rule E — Static SPA has no runtime server** (BLOCKER, auto-fixable).
-   Add a one-line `start` script to `package.json` that serves the built output via `serve`. No Dockerfile, no nginx config, no extra dependency — `npx -y serve@14` fetches on container start and caches in the container layer.
+   Add a `start` script that serves the built output via `serve`, and install `serve` as a `devDependency` so Nixpacks bakes it into the image during `npm ci`. No Dockerfile, no nginx config — just two package.json additions and a synced lockfile.
 
-   - *Fix:* insert into `package.json.scripts` (exact line, with `<OUTPUT_DIR>` replaced per the table above):
+   **Why devDependency, not `npx -y`:** an earlier version of this rule used `"start": "npx -y serve@14 …"` to avoid touching dependencies. That works, but `npx` downloads `serve` at *container-start* time, adding ~60-90s of cold-start latency on **every deploy**, **every restart**, **every rolling update** — Coolify's auto-redeploy on `git push` means this hits users repeatedly. Installing `serve` as a devDependency makes `npm ci` fetch it once at build time; `serve` binds port 3000 instantly on container boot.
 
-     ```
-     "start": "npx -y serve@14 -s <OUTPUT_DIR> -l ${PORT:-3000}"
-     ```
+   - *Fix:* three edits, applied atomically:
+     1. `package.json.scripts.start` = `"serve -s <OUTPUT_DIR> -l ${PORT:-3000}"` (with `<OUTPUT_DIR>` from the table above).
+     2. `package.json.devDependencies.serve` = `"^14.2.4"` (merge into existing devDependencies object, preserving other entries).
+     3. Regenerate `package-lock.json` via `npm install serve@14 --save-dev --package-lock-only` — this updates the lockfile without writing `node_modules` (fast, no disk churn), so subsequent `npm ci` in Nixpacks resolves `serve` reproducibly.
 
      The `-s` flag enables SPA fallback (unknown routes → `index.html`). `$PORT` is injected by Coolify from `ports_exposes`.
+
+   **Pre-check:** `command -v npm` must succeed on the skill-runner's machine. If `npm` is missing, bail to "open a help issue" option with a one-line explanation — the skill can't regenerate the lockfile without it. Most machines running Claude Code on a Node repo already have `npm`; this guard prevents a broken commit in the rare case they don't.
 
    **Non-technical framing** — this is a self-service deploy for non-technical users. Never show the user a diff or explain the line. The single question they see is:
 
@@ -65,21 +68,22 @@ metadata:
    options:
      - label: "Yes, add it and deploy (recommended)"
        description: |
-         I'll add a 'start' script to package.json that serves your built site.
-         It's a standard line used by most web apps — safe to ignore once added.
+         I'll add a 'start' script to package.json (plus a small dev dependency called 'serve')
+         that hosts your built site. It's a standard setup used by most web apps —
+         safe to ignore once added.
      - label: "No — open a help issue instead"
        description: "Abort. A maintainer will help you deploy this app manually."
    ```
 
-   On "Yes": reuse the **same guardrails as the compose auto-fix** (clean tree, upstream branch, no silent push to `main` — see the Auto-fix path section below). Apply the edit with the `Edit` tool on `package.json`, commit with subject `chore: add deploy start script`, push, then fall through to step 4 of the main flow with `Build type: auto-detect`, `Port: 3000`.
+   On "Yes": reuse the **same guardrails as the compose auto-fix** (clean tree, upstream branch, no silent push to `main` — see the Auto-fix path section below). Apply edits 1–2 with the `Edit` tool on `package.json`, then run `npm install serve@14 --save-dev --package-lock-only` to sync `package-lock.json`. `git add package.json package-lock.json`, commit with subject `chore: add deploy start script`, push. Then fall through to step 4 of the main flow with `Build type: auto-detect`, `Port: 3000`.
 
    **Final success message must mention the added script, plain-language:**
 
    ```
    Deployed ✓ https://<domain>/   (SSL cert provisions in ~2 min)
 
-   I added one line to your package.json so the deploy system knows how to serve
-   your app. You can ignore it — future pushes will redeploy the same way.
+   I added a 'start' script to your package.json so the deploy system knows how to
+   serve your app. You can ignore it — future pushes will redeploy the same way.
    ```
 3. **`dockercompose` only — pre-flight the compose file.** Skip this step entirely for `dockerfile`, `auto-detect`, and `static` — Coolify controls the container's host-side networking itself in those cases.
 
