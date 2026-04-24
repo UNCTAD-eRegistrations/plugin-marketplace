@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.6.1"
+  version: "1.6.2"
   version-date: "2026-04-24"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -138,9 +138,10 @@ metadata:
 This path modifies the **user's app repo** — move carefully:
 
 1. **Guardrails — bail out early if any fails** (don't try to fix; offer only "I'll fix it manually" or "Proceed anyway"):
-   - `git status --porcelain` must be empty (clean working tree). If not: "I can't auto-fix with uncommitted changes — commit or stash them first."
-   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` must return a remote-tracking branch (so `git push` has a target). If not: bail with a clear message.
-   - The user must be on a non-default branch **or** confirm pushing to `main`. Default to refusing a direct push to `main`; ask if they want to proceed on `main` or create a fix branch.
+   - `git status --porcelain` must be empty (clean working tree). If not: "I can't auto-fix with uncommitted changes — commit or stash them first." This is a safety guard, not a workflow nit: it prevents the skill from sweeping the user's in-progress work into our commit.
+   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` must return a remote-tracking branch (so `git push` has a target). If not: bail with "this branch has no upstream — please push it to GitHub first."
+
+   **Do not ask the user about branches.** Non-technical users don't master git branching; the skill must commit to **whatever branch the user is currently on** and push there. If they're on `main`, push to `main`. If they're on a feature branch, push to that. Branch strategy is the user's choice by virtue of their current `HEAD` — asking them to pick between "main" and "a new branch" is a developer ergonomic that has no place in a self-service deploy flow. The protected-branch concern is handled at step 3: if the push fails (protected branch, missing permission, stale upstream), the skill rolls back the local commit and offers the fallback options — no branching decision required from the user.
 
 2. **Build the edits in memory, compute a unified diff, show it:**
    - **Rule A (`ports:` → `expose:`):** replace `ports:` with `expose:` using the container port (right side of `host:container` or the bare value if no colon). Preserve protocol suffix handling (`3000:3000/tcp` → `"3000"` exposed).
@@ -158,8 +159,8 @@ This path modifies the **user's app repo** — move carefully:
      - `fix(compose): expose ports instead of publishing` (Rule A only)
      - `fix(compose): add healthcheck start_period for DB dependency` (Rule C only)
    - Commit body: one line per applied rule, code + short description (self-documenting git log).
-   - `git push`
-   - If push fails (permission, protected branch), roll back: `git reset --hard HEAD~1`, tell the user, offer to fall through to "I'll fix it manually."
+   - `git push` to the current branch's upstream (no `-u`, no branch-name argument — the upstream was verified in the guardrail step).
+   - If push fails (permission, protected branch, rejected fast-forward), roll back the local commit with `git reset --hard HEAD~1`, then show the user a plain-language message: *"I made the fix locally but couldn't push it to GitHub — this branch may be protected, or a maintainer needs to let this project through. I've undone the local change. Options below."* Offer only two options: (a) "Open a help issue — a maintainer will set it up for me" and (b) "Cancel." Never ask the user to change branches or push manually.
 
 4. **Continue to the normal flow** (propose slug/branch/domain, env vars, submit the deploy issue).
 
@@ -167,7 +168,7 @@ This path modifies the **user's app repo** — move carefully:
 
 - **Never edit without showing the diff first** and getting explicit Apply from the user. No silent modifications.
 - **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
-- **Never push to `main` without explicit consent** even if the user is currently on it.
+- **Never ask the user about branches.** The user's current `HEAD` is their branch choice — commit and push there. Pushing to `main` is fine when the user is on `main`; the push-failure rollback path handles the protected-branch case without ever exposing the word "branch" to the user.
 - If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
 
 4. Propose defaults:
