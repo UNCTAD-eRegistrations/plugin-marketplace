@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.7.0"
+  version: "1.8.0"
   version-date: "2026-04-24"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -207,23 +207,73 @@ The user should need to answer **at most** a couple of questions to get a deploy
 
 ## Gathering env vars
 
-Ask once: "Any environment variables? Reply with one `KEY=VALUE` per line, or 'none'."
+**Detect first, ask only if needed.** Non-technical users have no way to answer "any environment variables?" — they don't know what their app reads. Showing the `<GENERATE>` / `<SET-IN-COOLIFY>` sentinel list as a prompt is technical-user jargon. The skill must infer the answer from the repo first, and only surface a question when there's something concrete to ask.
 
-Supported value forms (pass-through unchanged — resolved server-side):
+### Step 1 — Scan the repo for actual env-var references
 
-- `KEY=<GENERATE>` — 64-char hex secret
-- `KEY=<GENERATE:hex:N>` / `<GENERATE:base64:N>` / `<GENERATE:uuid>`
-- `KEY=<SET-IN-COOLIFY>` — placeholder; user fills later in Coolify UI
+Run these greps (each is cheap, one pass; bundle them in a single `Bash` call per family):
 
-**Handle secret-shaped literals helpfully, not defensively.** If a literal value looks like a real secret (common prefixes like `sk_live_`, `ghp_`, `xox[bp]-`, `AKIA…`, or PEM headers, or a JWT-shape, or length > 200 chars), auto-swap to `<SET-IN-COOLIFY>` and tell the user once:
+| Language / framework | Detection pattern | Notes |
+|---|---|---|
+| Vite SPA | `grep -rnE "import\.meta\.env\.[A-Z]" src/` | Only `VITE_`-prefixed vars are exposed to the browser; other `import.meta.env.*` refs are build-time only. |
+| Next.js | `grep -rnE "process\.env\.[A-Z]" app/ pages/ lib/ src/` | `NEXT_PUBLIC_*` → client-side; everything else → server-side. |
+| Node server (Express/Fastify/Nest) | `grep -rnE "process\.env\.[A-Z]" src/ server/ api/` | Server-side; all need to be set. |
+| Python (Django/Flask/FastAPI) | `grep -rnE "os\.(environ\.get\|getenv)\(['\"][A-Z]" .` | Any hit. |
+| Go | `grep -rnE "os\.Getenv\(['\"][A-Z]" .` | Any hit. |
+| Ruby (Rails) | `grep -rnE "ENV\[['\"][A-Z]" app/ config/` | Any hit. |
+| Any language | Check for `.env.example`, `.env.template`, `.env.sample`, `.env.dist` at repo root | These enumerate the *intended* env vars — treat as authoritative if present. |
+| docker-compose (when build type is `dockercompose`) | Rule D already handles `${VAR}` extraction; feed those names into this flow so the env-var question is the same regardless of build type. |
+
+Also inspect `package.json.dependencies` for clear signals: `@supabase/*`, `firebase`, `stripe`, `@auth0/*`, `next-auth`, `mongoose`, `pg`, `mysql2`, `@prisma/client` — each is a strong hint that a specific env var is required even if the user hasn't wired it yet. Add those to the candidate list with a plain-language description (e.g., `DATABASE_URL` → "connection string for your database").
+
+### Step 2 — Classify what you found
+
+After the scan, partition the candidate list into one of three buckets:
+
+- **Empty bucket — no env vars needed.** Skip the question entirely. Tell the user in one line: *"Your app doesn't read any environment variables at runtime — skipping that step."* This is the common case for static SPAs (Figma exports, CRA demos, Astro static, etc.). Do **not** ask the question "just to be safe."
+- **Non-secret bucket** — vars that clearly aren't secrets (e.g., `VITE_API_URL`, `NEXT_PUBLIC_SITE_URL`, `PORT`, `NODE_ENV`). These are safe to ask about in plain text; offer a default derived from context when possible (e.g., `VITE_API_URL` → suggest `https://<same-subdomain>-api.eregistrations.dev` or similar, let the user override).
+- **Secret-shaped bucket** — anything matching `(PASSWORD|SECRET|TOKEN|KEY|DSN)$` or the specific var names `DATABASE_URL`, `REDIS_URL`, `MONGO_URL`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, etc. Offer three options per var: (a) "Generate one for me" (expands to `<GENERATE>` or `<GENERATE:hex:32>` depending on expected shape — JWT secrets → hex 64, session secrets → hex 32, etc.), (b) "I'll set it in Coolify after deploy" (expands to `<SET-IN-COOLIFY>`), (c) "I have a value — I'll paste it" (free text; if it's pasted literal matches a real-secret shape, auto-swap to `<SET-IN-COOLIFY>` per the rule below).
+
+### Step 3 — Ask once, in plain language, only for the actionable vars
+
+Bundle all remaining questions into **one** `AskUserQuestion` (not one-per-var). Headings are plain-language, not sentinel syntax. Example for a small Next.js app with `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`:
 
 ```
-⚠  STRIPE_SECRET_KEY looks like a real secret. I've set it to <SET-IN-COOLIFY>.
-   After deploy, set the real value in Coolify (https://coolify.singlewindow.dev)
-   and redeploy.
+question: "Your app needs a few settings before it can run. Here's what I found:"
+header:   "App settings"
+multiSelect: false
+options:
+  - label: "Configure them now"
+    description: |
+      • DATABASE_URL — connection string for your database.
+        I don't know this yet — can you set it in Coolify after deploy?  [default]
+        Paste it now (I'll redact it from the issue):  [free text]
+      • NEXTAUTH_SECRET — session-signing secret.
+        Generate one for me.  [default]
+        I have one to paste.  [free text]
+      • NEXT_PUBLIC_SITE_URL — your app's public URL.
+        Default: https://<your-domain>/  [editable]
+  - label: "Skip — I'll fill them in Coolify later"
+    description: "All settings default to placeholders. Deploy will still build, but the app may not work until you set them in Coolify (https://coolify.singlewindow.dev)."
+```
+
+(The question shape is illustrative — the actual `AskUserQuestion` tool only supports simple options, so render the per-var breakdown in the question body, then use two outer options: "Configure now (show me the form)" vs "Set up later in Coolify." On "Configure now," follow up with a single free-text prompt where the user pastes values, and parse those into KEY=VALUE lines. Resist the urge to ask N sequential questions — batch everything into one round-trip.)
+
+### Step 4 — Safety net: secret-shaped literals
+
+**Handle secret-shaped literals helpfully, not defensively.** If a literal value the user pastes looks like a real secret (common prefixes like `sk_live_`, `ghp_`, `xox[bp]-`, `AKIA…`, or PEM headers, or a JWT-shape, or length > 200 chars), auto-swap to `<SET-IN-COOLIFY>` and tell the user once:
+
+```
+⚠  STRIPE_SECRET_KEY looks like a real secret. Posting it in a public GitHub issue
+   would expose it. I've set it to <SET-IN-COOLIFY> instead. After deploy, paste
+   the real value in Coolify (https://coolify.singlewindow.dev) and redeploy.
 ```
 
 Do NOT interrogate every value. Do NOT refuse to post. The `<SET-IN-COOLIFY>` path is designed exactly for this; swap and move on.
+
+### Why this shape
+
+The screenshot-driven improvement: asking a non-technical user "any environment variables?" and showing them `<GENERATE:base64:N>` sentinels is a UX failure twice — first because they can't answer, second because the answer is almost always "no" for the static SPAs this skill most often handles. A single grep pass over `src/` determines that 80% of the time nobody needs to be asked anything. The remaining 20%, the skill asks a focused question about the specific vars it found, with defaults picked per variable-shape — and never mentions the word "sentinel" or a `<>` token in the user-facing copy.
 
 ## Building the issue body
 
