@@ -1,7 +1,7 @@
 {
   "name": "deploy",
   "description": "Self-service deployment requests on the singlewindow Coolify server. Invoke from the repo you want to deploy; the skill opens a well-formed issue on unctad-ai/deploy and GitHub Actions handles the rest.",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }

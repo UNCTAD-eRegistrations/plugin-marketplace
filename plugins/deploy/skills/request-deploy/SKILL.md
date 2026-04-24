@@ -9,7 +9,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
 metadata:
-  version: "1.6.2"
+  version: "1.7.0"
   version-date: "2026-04-24"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -75,7 +75,16 @@ metadata:
        description: "Abort. A maintainer will help you deploy this app manually."
    ```
 
-   On "Yes": reuse the **same guardrails as the compose auto-fix** (clean tree, upstream branch, no silent push to `main` — see the Auto-fix path section below). Apply edits 1–2 with the `Edit` tool on `package.json`, then run `npm install serve@14 --save-dev --package-lock-only` to sync `package-lock.json`. `git add package.json package-lock.json`, commit with subject `chore: add deploy start script`, push. Then fall through to step 4 of the main flow with `Build type: auto-detect`, `Port: 3000`.
+   On "Yes":
+   1. Reuse the **same guardrails as the compose auto-fix** (clean tree, upstream branch — see the Auto-fix path section below).
+   2. Apply edits 1–2 with the `Edit` tool on `package.json` (add `start` script, add `serve` devDependency).
+   3. Run `npm install serve@14 --save-dev --package-lock-only` to sync `package-lock.json`.
+   4. **Verify the build locally before committing anything.** Run `npm ci && npm run build` in the repo (pipe stderr, save stdout to a file so we can surface errors). The build is the same command Nixpacks will run in the deploy container; running it here catches broken deps, TypeScript errors, missing env vars, etc. *before* we commit and push. If it fails: show the user a plain-language message — *"I tried to prepare your project for deployment, but the build failed on my end. This means the deploy would fail too. No changes were committed."* — then surface the last 20 lines of build output as context and offer only "Open a help issue" or "Cancel." `git restore package.json package-lock.json` to undo the edits.
+   5. Only if the build succeeded: verify the expected output directory exists (e.g., `dist/` for Vite). If it doesn't, bail with the same "build failed on my end" message — the `start` script would point at a non-existent directory.
+   6. `git add package.json package-lock.json`, commit with subject `chore: add deploy start script`, push.
+   7. Fall through to step 4 of the main flow with `Build type: auto-detect`, `Port: 3000`.
+
+   **Why verify locally:** the whole point of the non-technical flow is that the user clicks "Yes" and trusts the skill. If the skill pushes a broken commit and the deploy fails server-side, the user sees a cryptic red × from the onboarder — exactly the outcome we're trying to prevent. Running the build client-side takes 10–60 seconds and confirms the diff actually works end-to-end before anything leaves the laptop.
 
    **Final success message must mention the added script, plain-language:**
 
@@ -151,8 +160,9 @@ This path modifies the **user's app repo** — move carefully:
    - Bundle all file edits into one combined diff. Run `diff -u <old> <new>` to produce a unified diff string.
    - Show the diff to the user inline before writing. Use a second `AskUserQuestion` with `{Apply this diff / Cancel}`. Only write on explicit Apply.
 
-3. **Apply + commit + push:**
+3. **Apply + verify locally + commit + push:**
    - Use the Edit tool to apply each change. Prefer multiple small Edit calls over a single Write to preserve comments and surrounding formatting.
+   - **Verify the edited compose file parses and resolves before committing.** Run `docker compose config -q` (quiet mode: exits 0 on success, non-zero + stderr diagnostics on failure). If `docker` isn't installed on the user's machine, fall back to `python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"` which catches syntax errors but not compose-level issues (missing required keys, unresolved env refs). If either validation fails: **revert the working-tree edits with `git restore docker-compose.yml` — do not commit.** Show the user a plain-language error: *"I tried to fix your docker-compose.yml, but the result didn't validate. No changes were committed."* Surface the last 20 lines of validator output. Offer only "Open a help issue" or "Cancel."
    - `git add docker-compose.yml`
    - Commit subject reflects whichever rules actually fired, e.g.:
      - `fix(compose): make deploy-ready for Coolify (expose, healthcheck, service name)`
@@ -169,17 +179,31 @@ This path modifies the **user's app repo** — move carefully:
 - **Never edit without showing the diff first** and getting explicit Apply from the user. No silent modifications.
 - **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
 - **Never ask the user about branches.** The user's current `HEAD` is their branch choice — commit and push there. Pushing to `main` is fine when the user is on `main`; the push-failure rollback path handles the protected-branch case without ever exposing the word "branch" to the user.
+- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D run `docker compose config -q` (or a YAML parse fallback). If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
 - If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
 
-4. Propose defaults:
+4. Propose defaults, but treat **domain** as special — it's the public URL, user-facing forever, and deserves its own focused question:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
    - **Branch** = current branch (or `main`).
-   - **Domain** = `<slug-of-name>.eregistrations.dev`.
+   - **Domain** — **do NOT pre-fill the repo-slug as a "recommended" checkbox.** The repo slug (e.g., `sw-cuba` from a repo named `SW-CUBA`) is often a mechanical, unfriendly name; non-technical users tend to click "✓ recommended" without realizing the string will be visible in every URL users share for the rest of the app's life. Instead, ask the domain question *standalone*, in plain language, with the repo slug offered as a *suggestion* rather than a pre-selected default:
+
+     ```
+     question: "What public web address (domain) do you want for this app?"
+     header: "Public URL"
+     multiSelect: false
+     options:
+       - label: "<slug-of-repo>.eregistrations.dev"
+         description: "Uses your repo name. Works fine but may not be the friendliest URL."
+       - label: "Let me type a custom one"
+         description: "Pick a short, friendly subdomain (e.g. 'cuba-home.eregistrations.dev'). Must end with .eregistrations.dev."
+     ```
+
+     If the user picks "Let me type a custom one," prompt for the subdomain with a second question, validate it matches `^[a-z0-9][a-z0-9.-]*[a-z0-9]\.eregistrations\.dev$`, and retry the prompt on invalid input with a plain-language hint about lowercase letters/digits/hyphens. **The `Name` field in the deploy issue is independent of the domain** — derive `Name` from the slug the onboarder will use internally (repo-slug by default, or user's explicit choice if they override Name too), and set `Domain` from the user's domain answer. The two can differ without confusion: `Name` is a Coolify-internal identifier, `Domain` is the public URL.
 5. Show the user what you'll submit and ask for confirmation.
 6. Ask about env vars (optional — "none" is fine).
 7. Post the issue. Show the URL. Done.
 
-The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override.
+The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override — **except** for the domain, which is user-facing forever and should never be auto-accepted via a checkbox-style "recommended" nudge.
 
 ## Gathering env vars
 
