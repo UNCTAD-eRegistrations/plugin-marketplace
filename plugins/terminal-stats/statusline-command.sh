@@ -23,12 +23,10 @@ eval $(echo "$input" | jq -r '
   @sh "CACHE_READ=\(.context_window.current_usage.cache_read_input_tokens // 0)",
   @sh "RL_5H=\(.rate_limits.five_hour.used_percentage // -1)",
   @sh "RL_5H_RESET=\(.rate_limits.five_hour.resets_at // "")",
-  @sh "RL_7D=\(.rate_limits.seven_day.used_percentage // -1)"
+  @sh "RL_7D=\(.rate_limits.seven_day.used_percentage // -1)",
+  @sh "EFFORT=\(.effort.level // "")"
 ' | tr ',' '\n')
 PCT=$(echo "$PCT" | cut -d. -f1)
-
-# ── Effort level (from settings) ──
-EFFORT=$(jq -r '.effortLevel // empty' ~/.claude/settings.json 2>/dev/null)
 
 # ── Primitives ──
 RST='\033[0m'; BD='\033[1m'; DM='\033[2m'
