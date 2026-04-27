@@ -429,6 +429,17 @@ fi
 
 ## Phase 3: CI/CD Migration (Interactive)
 
+### Reference Migrations
+
+**Pick the closest-precedent migration and read its `ci-cd.yml` BEFORE generating a new one. Copy patterns verbatim — custom patterns are the #1 source of CI failure (see `reference/lessons-learned.md` Critical Failure #4).**
+
+| Migration | Closest match for | Workflow |
+|-----------|-------------------|----------|
+| **Mule4** | Mule3 — same Maven `mule-application` shape + identical `standard-version`/`xml-js` tooling; runtime differs (CE 4.7 vs CE 3.9). **Mule4 has no helm chart — for the helm-chart-update job, reference ActiveMQ instead.** | [`UNCTAD-eRegistrations/Mule4` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) |
+| DS-Backend | Python (Django) project with `package.json` + `standard-version` version-bump tooling | [`UNCTAD-eRegistrations/DS-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/DS-Backend/blob/develop/.github/workflows/ci-cd.yml) |
+| BPA-Backend | Java / Spring Boot (Maven build); `standard-version` bump tooling syncs to `pom.xml` via `xml-js` | [`UNCTAD-eRegistrations/BPA-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml) |
+| ActiveMQ | Helm-chart-update job pattern | [`UNCTAD-eRegistrations/ActiveMQ` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) |
+
 ### CRITICAL WARNINGS CHECKLIST
 
 **Before generating or reviewing any workflow, verify these patterns:**
@@ -824,7 +835,7 @@ grep -A 5 "post {" Jenkinsfile
 9. **Push retry (5 attempts)** with index.yaml merge conflict resolution via regeneration
 10. **Commit message format** -- `helm: update $CHART_NAME chart with $TGZ_FILE`
 
-**Reference implementation:** `IdeaProjects/activemq/.github/workflows/ci-cd.yml`
+**Reference implementation:** [`UNCTAD-eRegistrations/ActiveMQ` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml)
 
 ### Step 3.3: GitHub Actions Updates
 
@@ -855,9 +866,10 @@ If .github/workflows/ exists, for EACH workflow file:
 **Before proceeding to Phase 4, validate the generated workflow:**
 
 ```bash
-# GitHub Actions workflow validation (actionlint installed locally)
+# GitHub Actions workflow validation (actionlint must be on PATH;
+# install: go install github.com/rhysd/actionlint/cmd/actionlint@latest)
 # Use config file for custom runner labels: ~/.config/actionlint.yaml
-~/go/bin/actionlint -config-file ~/.config/actionlint.yaml .github/workflows/ci-cd.yml
+actionlint -config-file ~/.config/actionlint.yaml .github/workflows/ci-cd.yml
 
 # Required sections check
 grep -q "permissions:" .github/workflows/ci-cd.yml && echo "Permissions: Found"
@@ -882,7 +894,7 @@ Then use: `actionlint -config-file ~/.config/actionlint.yaml <workflow.yml>`
 
 Optionally add a shell alias:
 ```bash
-alias actionlint='~/go/bin/actionlint -config-file ~/.config/actionlint.yaml'
+alias actionlint='actionlint -config-file ~/.config/actionlint.yaml'
 ```
 
 **If invalid:**

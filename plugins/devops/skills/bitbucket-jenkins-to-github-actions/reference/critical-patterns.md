@@ -16,7 +16,7 @@ This document contains detailed explanations of critical patterns for GitHub Act
 10. [Docker BuildKit SSH Agent](#10-docker-buildkit-ssh-agent)
 11. [GITHUB_STEP_SUMMARY Required](#11-github_step_summary-required)
 12. [Job Dependency Ordering](#12-job-dependency-ordering)
-13. [fetch-depth: 0 Breaks git pull](#13-fetch-depth-0-breaks-git-pull-in-downstream-jobs)
+13. [Checkout Configuration for Jobs After Version Bump](#13-checkout-configuration-for-jobs-after-version-bump)
 14. [npm Version Scripts Must Include git push](#14-npm-version-scripts-must-include-git-push)
 15. [BRANCH_NAME Environment Variable](#15-branch_name-environment-variable)
 16. [Summary Style Guidelines](#16-summary-style-guidelines)
@@ -110,7 +110,7 @@ bump-version:
 
 - Without it, checkout may reset uncommitted changes
 - Can interfere with version bump retry logic
-- Working examples (eregbpabackend, camunda-boot) all use `clean: false`
+- Working examples (BPA-Backend, camunda-boot) all use `clean: false`
 
 ---
 
@@ -726,7 +726,7 @@ grep -A 3 "trigger-jenkins-deploy:" .github/workflows/ci-cd.yml | grep -q "tag-p
 
 Jobs that run after version bump need to pull the latest commit. The checkout configuration must include both `fetch-depth: 0` AND `clean: false` for `git pull` to work correctly.
 
-### CORRECT Pattern (from eregcms - proven working)
+### CORRECT Pattern (from DS-Backend - proven working)
 
 ```yaml
 build-and-push-docker:
@@ -760,7 +760,7 @@ build-and-push-docker:
 
 ### Working Examples
 
-**eregcms** (build-docker-images job):
+**DS-Backend** (build-docker-images job):
 ```yaml
 - name: Checkout code
   uses: actions/checkout@v4
@@ -996,9 +996,10 @@ GitHub Action job summaries should follow a consistent style for readability and
 
 ### Reference Implementations
 
-See existing workflows for correct style:
-- `PycharmProjects/eregcms/.github/workflows/ci-cd.yml`
-- `IdeaProjects/eregbpabackend/.github/workflows/ci-cd.yml`
+See existing workflows for correct style. Pick the closest-precedent for the project being migrated:
+- [`UNCTAD-eRegistrations/Mule4` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) — closest precedent for **Mule3** (same Maven `mule-application` shape + identical `standard-version`/`xml-js` tooling; runtime differs CE 4.7 vs CE 3.9, and Mule4 has no helm chart — for the helm-chart-update job reference ActiveMQ)
+- [`UNCTAD-eRegistrations/DS-Backend` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/DS-Backend/blob/develop/.github/workflows/ci-cd.yml) — Python (Django) project; `package.json` + `standard-version` for version-bump tooling
+- [`UNCTAD-eRegistrations/BPA-Backend` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml) — Java / Spring Boot (Maven build); `standard-version` bump tooling syncs version to `pom.xml` via `xml-js`
 
 ---
 
@@ -1074,9 +1075,10 @@ grep "runs-on:" .github/workflows/ci-cd.yml | sort | uniq -c
 
 ### Reference
 
-See working examples:
-- `PycharmProjects/eregcms/.github/workflows/ci-cd.yml`
-- `IdeaProjects/eregbpabackend/.github/workflows/ci-cd.yml`
+See working examples. Pick the closest-precedent for the project being migrated:
+- [`UNCTAD-eRegistrations/Mule4` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) — closest precedent for **Mule3** toolchain shape (runtime differs; no helm chart in Mule4)
+- [`UNCTAD-eRegistrations/DS-Backend` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/DS-Backend/blob/develop/.github/workflows/ci-cd.yml)
+- [`UNCTAD-eRegistrations/BPA-Backend` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml)
 
 ---
 
@@ -1746,4 +1748,4 @@ grep -A 2 "notify-failure:" .github/workflows/ci-cd.yml | grep -q "helm-chart-up
 
 ### Reference Implementation
 
-See: `IdeaProjects/activemq/.github/workflows/ci-cd.yml`
+See: [`UNCTAD-eRegistrations/ActiveMQ` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml)

@@ -4,6 +4,21 @@ This document captures critical failures encountered during migrations and their
 
 ---
 
+## Reference Migrations
+
+When migrating a new repository, **pick the closest-precedent migration and read its `ci-cd.yml` first.** Copy patterns verbatim — custom patterns are the #1 source of failure (see Critical Failure #4 below).
+
+| Migration | Closest match for | Workflow |
+|-----------|-------------------|----------|
+| **Mule4** | **Mule3** — same Maven `mule-application` shape + identical `standard-version`/`xml-js` tooling; **runtime differs** (CE 4.7 vs CE 3.9), and **Mule4 has no helm chart** (use ActiveMQ for the helm-chart-update job pattern) | [`UNCTAD-eRegistrations/Mule4` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) |
+| DS-Backend | Python (Django) project with `package.json` + `standard-version` version-bump tooling | [`UNCTAD-eRegistrations/DS-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/DS-Backend/blob/develop/.github/workflows/ci-cd.yml) |
+| BPA-Backend | Java / Spring Boot (Maven build); `standard-version` bump tooling syncs to `pom.xml` via `xml-js` | [`UNCTAD-eRegistrations/BPA-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml) |
+| ActiveMQ | Helm-chart-update job pattern | [`UNCTAD-eRegistrations/ActiveMQ` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) |
+
+> Mule3 is the next planned use case. **Mule4 is the primary reference for the toolchain shape** (Maven Mule-application packaging, `package.json` with identical `standard-version` + `xml-js` devDependencies, Jenkinsfile→Actions conversion already proven). **Two important caveats for Mule3:** (a) the Mule runtime itself differs — Mule3 is CE 3.9.6 with `mule-maven-plugin` 3.7.1 and Java 8, whereas Mule4 targets CE 4.7.4 with `mule-maven-plugin` 4.5.1 and Java 11; expect runtime-specific changes that Mule4's workflow won't preview. (b) Mule3 has a `helm/` directory and Mule4 does not — for the helm-chart-update job, reference [`UNCTAD-eRegistrations/ActiveMQ`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) instead.
+
+---
+
 ## Critical Failure #1: Skipped BLOCKING Step 3.2.0 (Feature Parity Verification)
 
 ### What SKILL.md says (Phase 3, Step 3.2.0 — Feature Parity Verification):
@@ -89,9 +104,10 @@ Version bump succeeded but downstream jobs didn't get the bumped version.
 
 ### What critical-patterns.md says (§16 Reference Implementations):
 ```
-See existing workflows for correct style:
-- PycharmProjects/eregcms/.github/workflows/ci-cd.yml
-- IdeaProjects/eregbpabackend/.github/workflows/ci-cd.yml
+See existing workflows for correct style (pick closest precedent):
+- UNCTAD-eRegistrations/Mule4       → .github/workflows/ci-cd.yml  (closest for Mule3 toolchain shape; runtime + helm differ)
+- UNCTAD-eRegistrations/DS-Backend  → .github/workflows/ci-cd.yml  (Python/Django + standard-version bump)
+- UNCTAD-eRegistrations/BPA-Backend → .github/workflows/ci-cd.yml  (Java/Spring Boot Maven build; xml-js syncs version to pom.xml)
 ```
 
 ### What went wrong:
@@ -101,7 +117,7 @@ Created custom patterns instead of copying from working references.
 Every pattern deviation caused a different failure.
 
 ### Prevention:
-**ALWAYS read eregcms ci-cd.yml first. Copy patterns verbatim.**
+**ALWAYS read DS-Backend ci-cd.yml first. Copy patterns verbatim.**
 
 ---
 
@@ -236,7 +252,7 @@ This means: if version bump is enabled, Docker build is disabled. But we want BO
 ### The difference from Jenkins:
 In Jenkins, the pushed `chore(release):` commit would trigger a NEW pipeline where `SHOULD_BUMP=false`, so Docker builds in the second run. GitHub Actions doesn't trigger new runs from GITHUB_TOKEN commits (anti-loop protection), so Docker never builds.
 
-### The correct pattern (from eregbpabackend):
+### The correct pattern (from BPA-Backend):
 `SHOULD_BUILD` and `SHOULD_BUMP` must be **independent flags**:
 ```bash
 develop|feature/*)
@@ -343,14 +359,15 @@ grep -E "sh\s+['\"]" Jenkinsfile | head -30
 
 ```bash
 # READ the reference first
-Read the eregcms ci-cd.yml reference (clone UNCTAD-eRegistrations/eregcms locally, then read .github/workflows/ci-cd.yml)
+Read the DS-Backend ci-cd.yml reference (clone UNCTAD-eRegistrations/DS-Backend locally, then read .github/workflows/ci-cd.yml)
 ```
 
 ### Measure 5: After ANY Change
 
 ```bash
-# Verify it works (actionlint is installed locally)
-~/go/bin/actionlint .github/workflows/ci-cd.yml
+# Verify it works (actionlint must be on PATH;
+# install: go install github.com/rhysd/actionlint/cmd/actionlint@latest)
+actionlint .github/workflows/ci-cd.yml
 ```
 
 ### The Rule
@@ -405,7 +422,8 @@ Run these after EVERY ci-cd.yml generation:
 
 ```bash
 # GitHub Actions workflow validation (PREFERRED - use actionlint)
-~/go/bin/actionlint .github/workflows/ci-cd.yml
+# Install: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+actionlint .github/workflows/ci-cd.yml
 
 # Fallback YAML syntax check (if actionlint unavailable)
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci-cd.yml'))"
@@ -430,7 +448,7 @@ grep "runs-on:" .github/workflows/ci-cd.yml | sort | uniq -c
 
 ### Technical Rules (SECONDARY)
 5. **NEVER generate ci-cd.yml without Feature Parity Table**
-6. **NEVER use custom patterns - always copy from eregcms reference**
+6. **NEVER use custom patterns - always copy from DS-Backend reference**
 7. **ALWAYS run verification commands after each phase**
 8. **ALWAYS use the exact 13-item TodoWrite checklist (canonical: SKILL.md Progress Tracking table)**
 9. **If a pattern is in critical-patterns.md, use it EXACTLY**
@@ -526,7 +544,7 @@ Before any action, ask: "Have I READ the relevant state/docs/diffs?"
 To verify these measures are being followed in future migrations:
 
 1. Check that Feature Parity Table was created before ci-cd.yml
-2. Diff generated workflow against eregcms reference for pattern consistency
+2. Diff generated workflow against DS-Backend reference for pattern consistency
 3. Verify all verification commands were run and passed
 4. Confirm TodoWrite shows all 13 checkpoints marked complete (including Phase 0.5 snapshot, Phase 4.5 ruleset, Phase 5.5 validation)
 
@@ -536,4 +554,7 @@ To verify these measures are being followed in future migrations:
 
 - `plugins/devops/skills/bitbucket-jenkins-to-github-actions/SKILL.md` - Main procedure
 - `plugins/devops/skills/bitbucket-jenkins-to-github-actions/reference/critical-patterns.md` - Pattern reference
-- UNCTAD-eRegistrations/eregcms repo: `.github/workflows/ci-cd.yml` - Working reference implementation
+- [`UNCTAD-eRegistrations/Mule4`](https://github.com/UNCTAD-eRegistrations/Mule4) — `.github/workflows/ci-cd.yml` (closest precedent for Mule3 toolchain shape; runtime differs CE 4.7 vs CE 3.9, and Mule4 has no helm chart)
+- [`UNCTAD-eRegistrations/DS-Backend`](https://github.com/UNCTAD-eRegistrations/DS-Backend) — `.github/workflows/ci-cd.yml` (Python/Django; `package.json` + `standard-version` for version-bump)
+- [`UNCTAD-eRegistrations/BPA-Backend`](https://github.com/UNCTAD-eRegistrations/BPA-Backend) — `.github/workflows/ci-cd.yml` (Java / Spring Boot Maven build; `standard-version` bump tooling syncs version to `pom.xml` via `xml-js`)
+- [`UNCTAD-eRegistrations/ActiveMQ`](https://github.com/UNCTAD-eRegistrations/ActiveMQ) — `.github/workflows/ci-cd.yml` (helm-chart-update job pattern)

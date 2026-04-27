@@ -57,8 +57,9 @@ If migration fails, see SKILL.md Phase 6 (Rollback Procedure).
 Run these after EVERY ci-cd.yml generation:
 
 ```bash
-# GitHub Actions workflow validation (actionlint installed locally)
-~/go/bin/actionlint .github/workflows/ci-cd.yml
+# GitHub Actions workflow validation (actionlint must be on PATH;
+# install: go install github.com/rhysd/actionlint/cmd/actionlint@latest)
+actionlint .github/workflows/ci-cd.yml
 
 # Required sections check
 grep -q "permissions:" .github/workflows/ci-cd.yml && echo "✅ permissions" || echo "❌ MISSING: permissions"
@@ -172,8 +173,9 @@ git remote add github <TARGET_GITHUB_URL>
 #### 1. GitHub Actions Workflow Validation
 
 ```bash
-# Use actionlint (installed locally at ~/go/bin/actionlint)
-~/go/bin/actionlint .github/workflows/ci-cd.yml
+# Use actionlint (assumed on PATH; install:
+# go install github.com/rhysd/actionlint/cmd/actionlint@latest)
+actionlint .github/workflows/ci-cd.yml
 ```
 
 #### 2. Alternative Validation Methods
@@ -433,5 +435,5 @@ If you encounter issues not covered here:
 
 1. Check GitHub Actions documentation: https://docs.github.com/en/actions
 2. Review the original Jenkinsfile for expected behavior
-3. Compare with working migrations (eregbpabackend, camunda-boot)
+3. Compare with working migrations (BPA-Backend, camunda-boot)
 4. Ask in team chat for similar migration experiences
