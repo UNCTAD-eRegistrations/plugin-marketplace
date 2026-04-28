@@ -478,10 +478,13 @@ jobs:
           fi
 
           # Close superseded propagator PRs (only those WE created — never close human PRs).
-          # Filter: open + author = us + title prefix `chore: bump <ARTIFACT_ID> to `.
-          ACTOR=$(gh api /user --jq '.login')
-          gh pr list --repo "$CONSUMER" --state open --author "$ACTOR" \
-            --search "in:title chore: bump ${{ env.ARTIFACT_ID }} to" \
+          # Filter: open + author = unctad-dependency-propagator App + title prefix
+          # `chore: bump <ARTIFACT_ID> to `. We can't query `gh api /user` from an
+          # App token (App tokens aren't user-scoped → 403). Instead, filter by
+          # `author:app/<slug>` directly in the search query.
+          APP_SLUG="unctad-dependency-propagator"
+          gh pr list --repo "$CONSUMER" --state open \
+            --search "in:title chore: bump ${{ env.ARTIFACT_ID }} to author:app/${APP_SLUG}" \
             --json number,title \
             | jq -r ".[] | select(.title | startswith(\"chore: bump ${{ env.ARTIFACT_ID }} to \")) | .number" \
             | while read -r pr_num; do
