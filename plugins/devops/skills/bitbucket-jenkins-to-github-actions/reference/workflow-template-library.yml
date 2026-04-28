@@ -425,11 +425,13 @@ jobs:
           fi
 
           # Bump <version> of matching <artifactId> in consumer's pom.xml.
-          # sed lookahead trick: when the artifactId line matches, advance to next
-          # line and substitute the <version> there. Works for the standard
-          # multi-line dependency block layout used across UNCTAD-eRegistrations
-          # poms (artifactId followed by version on the very next non-empty line).
-          sed -i -E "/<artifactId>${{ env.ARTIFACT_ID }}<\/artifactId>/{n;s|<version>[^<]*</version>|<version>${NEW_VERSION}</version>|;}" pom.xml
+          # Use a sed RANGE from the artifactId line to the closing </dependency>,
+          # substituting the <version> anywhere inside that range. This is robust
+          # to comment blocks, <scope>, <classifier>, etc. between artifactId and
+          # version (the prior `n;s|...|` lookahead trick silently no-op'd when a
+          # comment block sat between artifactId and version — which is the layout
+          # used across many UNCTAD-eRegistrations poms).
+          sed -i -E "/<artifactId>${{ env.ARTIFACT_ID }}<\/artifactId>/,/<\/dependency>/{s|<version>[^<]*</version>|<version>${NEW_VERSION}</version>|;}" pom.xml
 
           if git diff --quiet pom.xml; then
             echo "${CONSUMER} already at ${{ env.ARTIFACT_ID }} ${NEW_VERSION} — no PR needed"
