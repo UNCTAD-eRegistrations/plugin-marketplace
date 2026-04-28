@@ -2271,9 +2271,27 @@ gh pr list --repo "$CONSUMER" --state open --author "$ACTOR" \
 
 The `--author "$ACTOR"` filter is **mandatory** — without it, a human's manual bump PR could be closed accidentally. The author-and-title-prefix combo guarantees we only close PRs we created.
 
-### `PROPAGATOR_TOKEN` requirement
+### Authentication: org-installed GitHub App
 
-Cross-repo `gh pr create` / `merge` / `close` need a token with `repo` + `pull_requests` write scopes on EACH consumer. `secrets.GITHUB_TOKEN` is implicitly scoped to the same repo and won't work cross-repo. Provision a fine-grained PAT (or org-level GitHub App) per library with access to the matrix consumers, store as `PROPAGATOR_TOKEN`.
+Cross-repo `gh pr create` / `merge` / `close` need `contents:write` + `pull_requests:write` on each consumer. `secrets.GITHUB_TOKEN` is implicitly scoped to the same repo, so it won't work cross-repo.
+
+The library template uses an **org-installed GitHub App** (`unctad-dependency-propagator`) instead of a per-library PAT. The App's credentials live as org-level Actions config:
+- `vars.DEPENDENCY_PROPAGATOR_ID` (App ID — not secret)
+- `secrets.DEPENDENCY_PROPAGATOR_SECRET` (App private key)
+
+Both are inherited by every repo in the org with no per-library wiring. The `propagate-version` job exchanges them for a 1-hour scoped token via `actions/create-github-app-token@v1`:
+
+```yaml
+- uses: actions/create-github-app-token@v1
+  id: propagator-token
+  with:
+    app-id: ${{ vars.DEPENDENCY_PROPAGATOR_ID }}
+    private-key: ${{ secrets.DEPENDENCY_PROPAGATOR_SECRET }}
+    owner: UNCTAD-eRegistrations
+    repositories: ${{ matrix.consumer }}   # repo name only — narrows token scope to this consumer
+```
+
+Per-library setup: install the App on (a) the library repo (where the workflow runs) and (b) each consumer in the matrix. One-time clicks in App settings; no token rotation, no per-library secret provisioning.
 
 ### Verification
 
