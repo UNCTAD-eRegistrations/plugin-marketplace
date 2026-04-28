@@ -262,7 +262,7 @@ Apply these conditional behaviors in downstream phases based on detection:
 
 | Detection | Required Action |
 |-----------|-----------------|
-| `HAS_LFS=yes` | Verify `git lfs version` works. After Phase 2.3, run `git lfs push --all github`. After remote rename, run `git lfs ls-files \| head` and compare against bitbucket. |
+| `HAS_LFS=yes` | LFS push is now enforced as a mandatory sub-step in Phase 2.3 (`git lfs push --all github`) and Phase 2.4 (verification via `git lfs fetch github --all`). For the consumer-side (workflow checkout + smudge), see [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Git LFS handling". For background, see [`reference/critical-patterns.md`](reference/critical-patterns.md) §34. |
 | `HAS_SUBMODULES=yes` | After Phase 2, edit `.gitmodules` URLs from Bitbucket → GitHub. Run `git submodule sync && git submodule update --init --recursive`. Commit the `.gitmodules` change. |
 | `JENKINSFILE_COUNT>1` | Phase 3 must iterate over each Jenkinsfile. Either generate one workflow per Jenkinsfile OR a single matrix workflow. Ask user which approach. |
 | `REPO_SIZE_MB>1000` | Phase 2.3 push may hit GitHub's 2GB push limit. Push branches in chunks rather than refspec — iterate per branch. |
@@ -407,6 +407,9 @@ git fetch origin --tags
 
 ### Step 2.3: Push All Content to GitHub
 ```bash
+# Restore migration state — required for $HAS_LFS (see Phase 0.5.1 CRITICAL note)
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+
 # Push all branches using refspec (faster than iterating)
 git push github 'refs/remotes/origin/*:refs/heads/*'
 
@@ -415,10 +418,22 @@ git push github --delete HEAD 2>/dev/null || true
 
 # Push all tags
 git push github --tags
+
+# MANDATORY when HAS_LFS=yes: push LFS objects.
+# Plain `git push` only transfers LFS POINTER files; the actual binary content
+# lives in LFS object storage and must be explicitly pushed. Without this step,
+# every consumer (CI runners, developer clones with LFS) gets the pointer but
+# cannot smudge it to real content. See critical-patterns.md §34.
+if [ "$HAS_LFS" = "yes" ]; then
+  echo "HAS_LFS=yes — pushing LFS objects to github"
+  git lfs push --all github
+fi
 ```
 
 ### Step 2.4: Verify Migration
 ```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+
 ORIGIN_BRANCHES=$(git ls-remote --heads origin | wc -l)
 GITHUB_BRANCHES=$(git ls-remote --heads github | wc -l)
 ORIGIN_TAGS=$(git ls-remote --tags origin | wc -l)
@@ -426,6 +441,18 @@ GITHUB_TAGS=$(git ls-remote --tags github | wc -l)
 
 echo "Branches: origin=$ORIGIN_BRANCHES, github=$GITHUB_BRANCHES"
 echo "Tags: origin=$ORIGIN_TAGS, github=$GITHUB_TAGS"
+
+# Verify LFS object parity if applicable. `git lfs ls-files` shows LFS-tracked
+# files at the current commit; the count + oids should match across remotes.
+# A mismatch here means the push above was skipped or partial — fix before Phase 3.
+if [ "$HAS_LFS" = "yes" ]; then
+  LFS_LOCAL_COUNT=$(git lfs ls-files | wc -l)
+  echo "LFS-tracked files at HEAD: $LFS_LOCAL_COUNT"
+  # Sanity check that the LFS objects referenced at HEAD are reachable on github.
+  # `git lfs fsck --pointers` is local-only; a remote check is to fetch+verify.
+  git lfs fetch github --all 2>&1 | tail -5
+  echo "If 'git lfs fetch github --all' completes without error, all referenced LFS objects exist on github."
+fi
 ```
 
 ### Step 2.5: Update Remotes

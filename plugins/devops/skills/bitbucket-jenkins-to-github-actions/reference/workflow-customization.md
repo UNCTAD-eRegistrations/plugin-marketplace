@@ -279,10 +279,154 @@ Expected: clean output (only the standard custom-runner-label warnings if you fo
 
 Then run the gap self-audit grep loop from SKILL.md GATE 3-4 to confirm canonical patterns are present (different patterns for app vs library mode — see GATE 3-4).
 
+## 9. Git LFS handling (cross-cutting; both app and library mode)
+
+If Phase 0.5.2 detected `HAS_LFS=yes`, the migrated repo has binaries tracked via Git LFS (e.g. `mule-distribution/*.tar.gz` in mule3-benin). The library/app template's checkout steps don't ship LFS-aware by default — the additions below are required for any job that consumes LFS-tracked files (typically `build-docker-image` or `build-and-publish`).
+
+### What's needed
+
+1. **Ensure `git-lfs` is on the runner** before the checkout. Self-hosted runners often lack it. Install on demand:
+
+   ```yaml
+       - name: Ensure git-lfs is available
+         run: |
+           if command -v git-lfs >/dev/null 2>&1; then
+             echo "git-lfs already on PATH: $(command -v git-lfs)"
+             git-lfs --version | head -1
+             exit 0
+           fi
+           LFS_VERSION="3.7.0"
+           ARCH="$(uname -m)"
+           case "$ARCH" in
+             x86_64)         LFS_ARCH="amd64" ;;
+             aarch64|arm64)  LFS_ARCH="arm64" ;;
+             *) echo "::error::Unsupported arch: $ARCH"; exit 1 ;;
+           esac
+           TARBALL="git-lfs-linux-${LFS_ARCH}-v${LFS_VERSION}.tar.gz"
+           curl -fsSL "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/${TARBALL}" -o "/tmp/${TARBALL}"
+           tar -xzf "/tmp/${TARBALL}" -C /tmp
+           mkdir -p "$HOME/.local/bin"
+           ln -sf "/tmp/git-lfs-${LFS_VERSION}/git-lfs" "$HOME/.local/bin/git-lfs"
+           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+   ```
+
+2. **Set `lfs: true`** on the checkout AND **drop `clean: false`** (default `clean: true`). Self-hosted runners reuse workspaces; a stale LFS pointer file from a prior run that didn't have git-lfs may not be re-smudged unless the workspace is clean.
+
+   ```yaml
+       - name: Checkout code
+         uses: actions/checkout@v4
+         with:
+           ref: ${{ github.ref_name }}
+           fetch-depth: 0
+           lfs: true
+           # Drop `clean: false` for LFS jobs — stale pointer files persist otherwise.
+   ```
+
+3. **Defensive `git lfs pull` + MD5 sanity check** after the existing "Pull latest changes" step. `actions/checkout@v4` with `lfs: true` is supposed to smudge automatically, but on reused workspaces it occasionally leaves the pointer file in place. The explicit pull guarantees smudging; the MD5 check fails fast (saves the multi-minute mvn run otherwise wasted on a broken artifact):
+
+   ```yaml
+       - name: Pull latest + LFS smudge + sanity check
+         run: |
+           git pull origin ${{ github.ref_name }} || true
+           git lfs install --local
+           git lfs pull
+           # OPTIONAL: per-file MD5 verification. Uncomment + set EXPECTED_MD5 if
+           # the binary has a known checksum (e.g. mule-standalone-3.9.5.tar.gz).
+           # if [ -f path/to/binary ]; then
+           #   ACTUAL=$(md5sum path/to/binary | awk '{print $1}')
+           #   EXPECTED="0a307cd20fce11426750b8f5d6dae730"
+           #   [ "$ACTUAL" = "$EXPECTED" ] || { echo "::error::MD5 mismatch — LFS smudge failed"; exit 1; }
+           # fi
+   ```
+
+### Why all three are needed
+
+| Symptom | Without fix |
+|---|---|
+| `Unable to locate executable: git-lfs` | actions/checkout@v4 errors before the workflow does anything useful |
+| Pointer file checked out instead of binary (Dockerfile MD5 fail / "is ASCII text" surprises) | Build silently consumes the 100-byte text pointer instead of the actual artifact |
+| First-time-on-clean-runner works, second run fails | Reused workspace + stale pointer + `clean: false` = LFS doesn't re-smudge |
+
+### Source-side reminder (Phase 2)
+
+The skill's Phase 2.3/2.4 enforces `git lfs push --all github` + verification when `HAS_LFS=yes`. Without that, the LFS objects never reach GitHub even if pointer files do. **Verify Phase 2 succeeded** (Migration Validation report from Phase 5.5) before fighting consumer-side smudge issues.
+
+## 10. Cross-repo private-read via the unctad-dependency-propagator App
+
+When an app consumes a library that publishes via the packages-branch trick (e.g. mule3-benin reading from mule3-datamapping-connector's `packages` branch), the consumer's CI needs to clone the library repo. Two complications:
+
+1. **The runner's `SSH_PRIVATE_KEY` only authenticates to bitbucket.org** (the standard org SSH key). It does NOT have GitHub access.
+2. **`secrets.GITHUB_TOKEN` is implicitly scoped to the running repo** — won't authenticate to other private GitHub repos.
+
+The org standard solution: reuse the **`unctad-dependency-propagator` App**. It's already installed (the App that powers library propagator PRs) and has `contents:write` on the libraries it propagates from. Generate a per-job, scoped App token and HTTPS-clone with it.
+
+### Recipe (for `<BUILD_STEP>` in app template's `build-docker-image`)
+
+Place these two steps after the JDK setup, before the `mvn` build:
+
+```yaml
+      - name: Generate token for <library> access
+        id: <library>-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.DEPENDENCY_PROPAGATOR_ID }}
+          private-key: ${{ secrets.DEPENDENCY_PROPAGATOR_SECRET }}
+          owner: UNCTAD-eRegistrations
+          repositories: <library-repo-name>   # e.g. mule3-datamapping-connector
+
+      - name: Fetch <library> from GitHub packages branch
+        env:
+          GH_TOKEN: ${{ steps.<library>-token.outputs.token }}
+        run: |
+          LIB_VERSION=$(grep -A 20 '<artifactId><artifactId-here></artifactId>' pom.xml \
+            | grep -m 1 '<version>' \
+            | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          if [ -z "$LIB_VERSION" ]; then
+            echo "::error::Could not extract <library> version from pom.xml"
+            exit 1
+          fi
+
+          TARGET=~/.m2/repository/<groupId-as-path>/<artifactId>/${LIB_VERSION}
+          if [ -f "$TARGET/<artifactId>-${LIB_VERSION}.jar" ]; then
+            echo "<library> ${LIB_VERSION} already cached, skipping fetch"
+            exit 0
+          fi
+
+          PKG_DIR=$(mktemp -d)
+          # HTTPS + App token. The runner's SSH key only authenticates to bitbucket.org.
+          git clone --depth 1 -b packages \
+            "https://x-access-token:${GH_TOKEN}@github.com/UNCTAD-eRegistrations/<library-repo-name>.git" \
+            "$PKG_DIR"
+
+          SRC="$PKG_DIR/<groupId-as-path>/<artifactId>/${LIB_VERSION}"
+          if [ ! -d "$SRC" ]; then
+            echo "::error::<library> ${LIB_VERSION} not found in packages branch (looked at $SRC)"
+            exit 1
+          fi
+
+          mkdir -p "$TARGET"
+          cp "$SRC"/* "$TARGET/"
+```
+
+### Prerequisites (one-time per consumer + library pair)
+
+- The `unctad-dependency-propagator` App must be installed on **both** the consumer repo (so `actions/create-github-app-token@v1` can issue tokens from the consumer's workflow) and the library repo (so the issued token can read it).
+- Org-level vars/secrets `DEPENDENCY_PROPAGATOR_ID` + `DEPENDENCY_PROPAGATOR_SECRET` exist (already provisioned for the propagator).
+
+### Why not SSH
+
+Adding a GitHub deploy key per consumer-library pair works but doesn't scale — N×M keys to rotate. The org App is one-time setup with auto-rotating tokens.
+
+### Why not `secrets.GITHUB_TOKEN`
+
+`GITHUB_TOKEN` is repo-scoped and can only access the running repo, never other private repos in the org. A 403 / "Not Found" cross-repo clone is the symptom.
+
 ## Reference
 
 - App template: [`workflow-template.yml`](workflow-template.yml)
 - Library template: [`workflow-template-library.yml`](workflow-template-library.yml)
 - App patterns and rationale: [`critical-patterns.md`](critical-patterns.md) §§ 24–31
 - Library patterns and rationale: [`critical-patterns.md`](critical-patterns.md) §§ 32–33
+- Cross-cutting LFS handling: [`critical-patterns.md`](critical-patterns.md) §34
+- Cross-cutting App-token cross-repo fetch: [`critical-patterns.md`](critical-patterns.md) §35
 - Incident driving the app-template design: [`lessons-learned.md`](lessons-learned.md) "Critical Failure #9: Heavy Runner Missing Node + 12 Structural Gaps (mule3-benin migration, 2026-04)"
