@@ -2,26 +2,28 @@
 name: create-theme
 description: >
   Scaffold a new country/deployment Keycloak theme that inherits from `unctad-next` in the
-  eRegistrations Keycloak repo (the one with `themes/unctad-next/`). Creates the login + email
-  theme directories, `theme.properties`, a `variables.css` keyed off a chosen primary RGB color,
-  and `.gitkeep`'d directories for the logo images.
+  eRegistrations Keycloak repo (https://github.com/UNCTAD-eRegistrations/Keycloak, branch `develop`).
+  Creates the login + email theme directories, `theme.properties`, a `variables.css` keyed off a
+  chosen primary RGB color, and `.gitkeep`'d directories for the logo images. Offers to clone the
+  repo if missing, and ensures we're working on `develop`.
   TRIGGER when: the user asks to create / add / scaffold / bootstrap a new Keycloak theme for a
   country or deployment (e.g. "create a tanzania theme", "add a new theme for rwanda", "bootstrap
-  a theme for the new colombia deployment"), AND the working directory contains
-  `themes/unctad-next/`.
+  a theme for the new colombia deployment").
   DO NOT TRIGGER when: the user wants to edit/customize an EXISTING theme (just edit the files);
-  asks to ASSIGN an existing theme to a realm (use `kc_set_realm_theme` directly); or is not
-  inside the eRegistrations Keycloak repo.
+  asks to ASSIGN an existing theme to a realm (use `kc_set_realm_theme` directly); or wants to
+  PORT/PROPAGATE an existing theme to other branches (use `propagate-theme`).
 license: UNCTAD-Internal
-compatibility: Pure file scaffolding — does not require an active Keycloak MCP connection.
-allowed-tools: Read, Write, Bash(mkdir -p *), Bash(test *), Bash(ls *)
+compatibility: File scaffolding + git ops — does not require an active Keycloak MCP connection.
+allowed-tools: Read, Write, Bash(mkdir -p *), Bash(test *), Bash(ls *), Bash(git *)
 metadata:
-  version: "1.0.1"
+  version: "1.2.0"
   version-date: "2026-04-28"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<theme-name> [primary-color-rgb] [locales]"
   disable-model-invocation: "false"
   changelog:
+    - "1.2.0 (2026-04-28): Added optional step 7 — after file scaffolding, ask the user whether they want to configure custom user-profile attributes for the deployment via the new `add-user-attributes` skill. Clarified in step 6 that overriding `register.ftl` is NOT the right way to add registration fields — the parent unctad-next theme renders user-profile attributes dynamically, so attribute work belongs on the realm, not in the theme."
+    - "1.1.0 (2026-04-28): Added handling for the canonical repo location (https://github.com/UNCTAD-eRegistrations/Keycloak) — the skill now offers to clone the repo when invoked outside it, and ensures work happens on the `develop` branch (with a safety check for uncommitted changes)."
     - "1.0.1 (2026-04-28): Clarified that `css/styles.css` and `js/conditional-fields.js` referenced by `login/theme.properties` are inherited from `unctad-next` and must NOT be scaffolded — surfaced by pressure-testing where two subagents independently flagged it as ambiguous."
     - "1.0.0 (2026-04-28): Initial port from `Keycloak/.claude/skills/create-theme.md`. Scaffolds login + email theme inheriting from `unctad-next` with parameterized primary color (RGB) and locales. Adds explicit working-directory verification, RGB→hex conversion guidance, and a post-deployment hand-off to `mcp__Keycloak__kc_set_realm_theme`."
 ---
@@ -29,6 +31,9 @@ metadata:
 # Create Keycloak Theme
 
 Scaffold a new country/deployment theme that inherits from `unctad-next` in the eRegistrations Keycloak repo (the one whose Docker image bakes `/opt/keycloak/themes/`).
+
+**Canonical repo:** https://github.com/UNCTAD-eRegistrations/Keycloak
+**Working branch:** `develop`
 
 ## When to Use
 
@@ -57,15 +62,48 @@ If no theme name is given, ask the user — don't guess.
 
 ## Verify the working directory
 
-Before touching anything, confirm we're in the right repo and the target name is free:
+### 1. Are we in the Keycloak repo?
 
 ```bash
-test -d themes/unctad-next && echo OK || echo "NOT_IN_KEYCLOAK_REPO"
+test -d themes/unctad-next && echo IN_REPO || echo "NOT_IN_KEYCLOAK_REPO"
+```
+
+**If not in the repo**, the canonical home is https://github.com/UNCTAD-eRegistrations/Keycloak. Offer to clone:
+
+> "I don't see `themes/unctad-next/` here. The Keycloak repo lives at https://github.com/UNCTAD-eRegistrations/Keycloak. Want me to clone it into `./Keycloak/` and `cd` in? (yes/no)"
+
+If yes:
+
+```bash
+git clone https://github.com/UNCTAD-eRegistrations/Keycloak.git
+cd Keycloak
+git checkout develop
+```
+
+If no, stop — the user can clone it themselves and re-invoke from the repo root.
+
+### 2. Are we on `develop`?
+
+Theme work happens on `develop`, not `main`:
+
+```bash
+git rev-parse --abbrev-ref HEAD     # current branch
+git status --porcelain               # uncommitted changes?
+```
+
+- If **already on `develop`**: `git pull --ff-only origin develop` to sync. (If the pull fails because of diverged history, stop and ask the user how to proceed — don't force.)
+- If on another branch with **no uncommitted changes**: `git checkout develop && git pull --ff-only origin develop`.
+- If on another branch **WITH uncommitted changes**: stop. Show the user `git status` and ask whether to commit/stash first or invoke from `develop` directly. Don't risk their work.
+
+If the user prefers to scaffold on a feature branch off `develop` (recommended for a PR-based flow), ask whether to `git checkout -b feature/<theme-name>-theme` first.
+
+### 3. Is the target name free?
+
+```bash
 test ! -d themes/<theme-name> && echo OK || echo "ALREADY_EXISTS"
 ```
 
-- If `themes/unctad-next/` is missing → stop. Tell the user this skill must be run from the Keycloak repo root.
-- If `themes/<theme-name>/` already exists → stop. Don't overwrite. Ask whether they want to delete it first or pick a different name.
+- If `themes/<theme-name>/` already exists → stop. Don't overwrite. Ask whether to abort, pick a different name, or delete first.
 
 ## Steps
 
@@ -139,8 +177,8 @@ List every file created. Then remind them to:
   - `themes/<name>/email/resources/images/logo.png` — email template logo
 - **Optional further customization:**
   - Add `css/custom.css` and update `styles=` in `login/theme.properties` to `css/variables.css css/styles.css css/custom.css`.
-  - Override messages: `login/messages/messages_<locale>.properties`.
-  - Override FTL templates (e.g. `register.ftl`) for custom form fields.
+  - Override messages: `login/messages/messages_<locale>.properties` (e.g. for new attribute labels — see step 7 below).
+  - **Don't** override `register.ftl` — the parent `unctad-next` template renders user-profile attributes dynamically, so new registration fields are configured at the realm level (step 7), not in theme files.
 - **After Docker image rebuild + deploy**, assign the theme to a realm via the Keycloak MCP server:
 
   ```
@@ -153,6 +191,18 @@ List every file created. Then remind them to:
   ```
 
   (See `/keycloak-mcp:login <instance>` if not yet authenticated. The authenticated user must have `realm-management` roles.)
+
+### 7. (Optional) Configure custom user attributes for this deployment
+
+After the file scaffolding, ask the user:
+
+> "The theme files are scaffolded. Want to also configure custom user-profile attributes on the Keycloak realm for this deployment? (yes/no)
+> — yes if this country needs registration fields beyond the unctad-next defaults (e.g. national ID number, nationality, tax ID).
+> — no if you'll use the standard fields, or want to do it later (`/keycloak-mcp:add-user-attributes`)."
+
+If **yes** → hand off to `/keycloak-mcp:add-user-attributes`. That skill will prompt for the instance + realm and walk through attribute definitions interactively (or accept a `--spec <file>`). Because the unctad-next parent theme's `register.ftl` renders user-profile attributes dynamically, simply declaring them on the realm is enough for the new fields to appear on the registration page — no further file changes in this theme.
+
+If **no** → done. The user can run the attribute setup later, independently.
 
 ## RGB → Hex Conversion
 
