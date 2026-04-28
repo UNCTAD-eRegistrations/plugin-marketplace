@@ -383,25 +383,34 @@ jobs:
         # CUSTOMIZATION POINT: list this library's consumer repos.
         # Each adopting library populates its OWN list — different libraries
         # have different downstream consumers.
-        # Format: org-prefixed repo names (UNCTAD-eRegistrations/<repo>).
+        # Format: REPO NAME ONLY (no org prefix). The org is hardcoded as
+        # UNCTAD-eRegistrations below in the token-generation step + CONSUMER env.
         #
         # The placeholder below MUST be replaced before first master CI run.
         # If this library has no consumers, delete the entire propagate-version
         # job AND remove `propagate-version` from notify-failure's `needs:` list.
         # ===================================================================
         consumer:
-          - UNCTAD-eRegistrations/REPLACE-WITH-CONSUMER-OR-REMOVE-THIS-JOB
+          - REPLACE-WITH-CONSUMER-OR-REMOVE-THIS-JOB
     steps:
+      - name: Generate propagator token
+        id: propagator-token
+        uses: actions/create-github-app-token@v1
+        with:
+          # Org-installed App "unctad-dependency-propagator" — credentials are
+          # org-level (var + secret) so every library inherits them automatically.
+          # Permissions on the App: contents:write + pull_requests:write.
+          # The App must be installed on this library AND each consumer in the matrix.
+          app-id: ${{ vars.DEPENDENCY_PROPAGATOR_ID }}
+          private-key: ${{ secrets.DEPENDENCY_PROPAGATOR_SECRET }}
+          owner: UNCTAD-eRegistrations
+          repositories: ${{ matrix.consumer }}
+
       - name: Open bump PR in ${{ matrix.consumer }}
         env:
-          # PROPAGATOR_TOKEN: PAT or GitHub App token with `repo` + `pull_requests`
-          # write scopes on EACH consumer. Falls back to GITHUB_TOKEN, which only
-          # works for same-repo operations — cross-repo propagation requires the
-          # custom token. Document this in the migration summary so it's added
-          # to repo secrets before first master push.
-          GH_TOKEN: ${{ secrets.PROPAGATOR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.propagator-token.outputs.token }}
           NEW_VERSION: ${{ needs.build-and-publish.outputs.published_version }}
-          CONSUMER: ${{ matrix.consumer }}
+          CONSUMER: UNCTAD-eRegistrations/${{ matrix.consumer }}
         run: |
           BRANCH="chore/bump-${{ env.ARTIFACT_ID }}-${NEW_VERSION}"
           WORKDIR=$(mktemp -d)

@@ -224,15 +224,18 @@ The library template ships with an **empty** consumer matrix — each adopting l
 
 ### Adding a consumer
 
-In the `propagate-version` job's `strategy.matrix.consumer` list, add a YAML list item:
+In the `propagate-version` job's `strategy.matrix.consumer` list, add a YAML list item — **repo name only** (no org prefix). The org is hardcoded as `UNCTAD-eRegistrations` in the token-generation step and the `CONSUMER` env. Format:
+
 ```yaml
         consumer:
-          - UNCTAD-eRegistrations/mule3-benin
-          - UNCTAD-eRegistrations/mule3-togo
+          - mule3-benin
+          - mule3-togo
           # ...
 ```
 
-Next master push CI run will start propagating to it.
+Next master push CI run will start propagating to each. Two prerequisites for a new consumer:
+1. The `unctad-dependency-propagator` GitHub App must be installed on the consumer repo (one-time, in App settings)
+2. The consumer must have a `pom.xml` with the matching `<artifactId>` (Maven only — non-Maven consumers need extension; see below)
 
 ### Removing a consumer
 
@@ -246,14 +249,19 @@ Comment out or delete the matrix entry. No state cleanup needed — already-merg
 4. Opens a new PR `chore: bump <ARTIFACT_ID> to <NEW_VERSION>` against the consumer's `develop`.
 5. Calls `gh pr merge --merge` to merge immediately. With current org branch-protection state (no required checks), this succeeds. If consumers later add protections, the merge attempt errors and the PR is left open for human handling — the propagator surfaces this as a `::warning::`.
 
-### `PROPAGATOR_TOKEN` provisioning
+### Authentication: the `unctad-dependency-propagator` GitHub App
 
-Cross-repo `gh pr create`/`merge`/`close` calls need a token with `repo` + `pull_requests` write scopes on EACH consumer. `secrets.GITHUB_TOKEN` only works for same-repo — cross-repo requires a custom secret. Recommended setup once per library:
+Cross-repo `gh pr create`/`merge`/`close`/`list` calls need a token with `contents:write` + `pull_requests:write` on each consumer. `secrets.GITHUB_TOKEN` only works same-repo — cross-repo requires a custom token.
 
-1. Create a fine-grained PAT (or org-level GitHub App) with the listed scopes
-2. Add as `PROPAGATOR_TOKEN` to the library repo's secrets (Settings → Secrets and variables → Actions)
+The org has a long-lived solution: the **`unctad-dependency-propagator` GitHub App** (org-installed, slug `unctad-dependency-propagator`). The library template uses `actions/create-github-app-token@v1` to exchange the App's credentials for a 1-hour scoped token at runtime. **No PAT, no rotation.**
 
-If the secret is missing, the job falls back to `GITHUB_TOKEN`, propagation fails on the cross-repo clone, and the job emits a clear error pointing at this section.
+Org-level config (already provisioned, inherited by every library repo):
+- Variable: `DEPENDENCY_PROPAGATOR_ID` — the App's numeric ID
+- Secret: `DEPENDENCY_PROPAGATOR_SECRET` — the App's private key
+
+What new libraries need to do: **install the App** on (a) the library itself and (b) each consumer in the matrix. App settings → Configure → Repository access → Add repos. Permissions are inherited from the App (currently `contents:write` + `pull_requests:write`).
+
+If the App isn't installed on a consumer, `actions/create-github-app-token@v1` fails with a clear error pointing at the missing installation. The propagator step doesn't fall back to `GITHUB_TOKEN` (would silently fail cross-repo). Surface the failure, fix the App installation, re-run the workflow.
 
 ### Custom bump logic for non-Maven consumers
 
