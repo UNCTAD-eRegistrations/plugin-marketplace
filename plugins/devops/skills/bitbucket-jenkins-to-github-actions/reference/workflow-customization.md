@@ -1,6 +1,20 @@
 # Workflow customization guide
 
-This guide accompanies [`workflow-template.yml`](workflow-template.yml). After copying the canonical template into the target repo's `.github/workflows/ci-cd.yml`, work through the four sections below in order.
+This guide accompanies the canonical templates. Two templates exist:
+
+- [`workflow-template.yml`](workflow-template.yml) — for **deployable Docker apps** (mule3-benin, ds-backend, BPA-backend)
+- [`workflow-template-library.yml`](workflow-template-library.yml) — for **Maven libraries** that publish artifacts via the `packages` branch (mule-common, mule3-datamapping-connector)
+
+After copying the matching template into the target repo's `.github/workflows/ci-cd.yml`, work through the sections below.
+
+## 0. Choose template: app or library
+
+| Signal in the source repo | Use this template |
+|---|---|
+| Has Dockerfile + produces a runnable image | `workflow-template.yml` (app) |
+| `pom.xml` has `<packaging>` of `jar`, `mule-module`, `maven-plugin`, or `pom`; **no Dockerfile** | `workflow-template-library.yml` (library) |
+
+SKILL.md Step 3.2.0's library detection automates the heuristic; sections 1–4 below cover **app-mode** customization, sections 5–7 cover **library-mode** specifics.
 
 ## 1. Replace placeholders
 
@@ -145,8 +159,122 @@ done
 
 Any `MISSING:` line means a placeholder wasn't replaced, an optional section wasn't uncommented when it should have been, or a customization step accidentally removed required content. Fix and re-run before pushing.
 
+## 5. Library-mode placeholders (workflow-template-library.yml)
+
+For library repos, two additional placeholders appear in the `env:` block:
+
+| Placeholder | Meaning | How to find |
+|---|---|---|
+| `<ARTIFACT_GROUP_ID>` | Maven coordinates groupId. Used to compute the path inside `packages/` (dots → slashes) | First `<groupId>` element in `pom.xml`, e.g. `org.unctad.eregistrations.mule.modules` |
+| `<ARTIFACT_ID>` | Maven artifactId — also used as the JAR filename prefix and the title pattern in propagator PR searches | First `<artifactId>` element in `pom.xml`, e.g. `datamapping` |
+| `<REPO_NAME>` | (same as app mode) — short repo identifier for the npm cache key | The Bitbucket/GitHub repo name |
+
+Also no `<DOCKER_IMAGE_NAME>` placeholder — libraries don't push Docker images.
+
+Recommended sed pass:
+```bash
+sed -i \
+  -e 's|<ARTIFACT_GROUP_ID>|org.unctad.eregistrations.mule.modules|g' \
+  -e 's|<ARTIFACT_ID>|datamapping|g' \
+  -e 's|<REPO_NAME>|mule3-datamapping-connector|g' \
+  .github/workflows/ci-cd.yml
+```
+
+## 6. Library `<BUILD_STEP>` recipes
+
+The library template marks the build sequence as a comment block in `build-and-publish`. Pick the recipe that matches the repo:
+
+### Mule 3 module / connector (mule-devkit-parent)
+
+```yaml
+      - name: Build Maven artifact
+        run: |
+          mvn -DskipTests -Dfile.encoding=UTF-8 clean package
+```
+
+The packages-branch publish step expects the artifact at `target/${ARTIFACT_ID}-${VERSION}.jar` — the standard Maven default. The encoding flag is required for some Mule 3 plugins that mishandle non-UTF-8 sources.
+
+### Plain Java/Maven library
+
+```yaml
+      - name: Build Maven artifact
+        run: |
+          mvn -DskipTests clean package
+```
+
+Drop `-Dfile.encoding=UTF-8` if there's no specific reason to set it.
+
+### Multi-module Maven (build a single sub-module)
+
+```yaml
+      - name: Build Maven artifact
+        run: |
+          mvn -DskipTests -pl <module-name> -am clean package
+```
+
+`-pl` selects the module; `-am` builds its dependencies first. The publish step still expects `target/${ARTIFACT_ID}-${VERSION}.jar`, so the selected module's artifactId must match `<ARTIFACT_ID>`.
+
+### Library with cross-repo build dependencies (e.g. mule-common)
+
+If the library being built depends on ANOTHER UNCTAD-internal artifact (e.g. mule3-datamapping-connector itself depends on mule-common), the build step needs the same packages-branch fetch we apply in app-mode `<BUILD_STEP>`. Stage upstream UNCTAD artifacts into `~/.m2/repository` BEFORE the `mvn` call. See `mule3-benin/.github/workflows/ci-cd.yml`'s "Fetch mule-common from Bitbucket packages branch" step as a reference pattern.
+
+## 7. Propagate-version: managing the consumer matrix
+
+The library template ships with an **empty** consumer matrix — each adopting library populates its own list. There is no org-wide default; different libraries have different downstream consumers.
+
+### Adding a consumer
+
+In the `propagate-version` job's `strategy.matrix.consumer` list, add a YAML list item:
+```yaml
+        consumer:
+          - UNCTAD-eRegistrations/mule3-benin
+          - UNCTAD-eRegistrations/mule3-togo
+          # ...
+```
+
+Next master push CI run will start propagating to it.
+
+### Removing a consumer
+
+Comment out or delete the matrix entry. No state cleanup needed — already-merged bumps stay in place.
+
+### What the propagator does, per consumer
+
+1. Clones consumer's `develop` (depth 1) using `secrets.PROPAGATOR_TOKEN` (or falls back to `GITHUB_TOKEN`, which only works same-repo).
+2. Updates the matching `<artifactId>` block's `<version>` in `pom.xml` via sed.
+3. **Closes superseded propagator PRs first** — only PRs (a) authored by the propagator's actor AND (b) titled `chore: bump <ARTIFACT_ID> to *`. Human-authored PRs touching the same dep are NEVER closed.
+4. Opens a new PR `chore: bump <ARTIFACT_ID> to <NEW_VERSION>` against the consumer's `develop`.
+5. Calls `gh pr merge --merge` to merge immediately. With current org branch-protection state (no required checks), this succeeds. If consumers later add protections, the merge attempt errors and the PR is left open for human handling — the propagator surfaces this as a `::warning::`.
+
+### `PROPAGATOR_TOKEN` provisioning
+
+Cross-repo `gh pr create`/`merge`/`close` calls need a token with `repo` + `pull_requests` write scopes on EACH consumer. `secrets.GITHUB_TOKEN` only works for same-repo — cross-repo requires a custom secret. Recommended setup once per library:
+
+1. Create a fine-grained PAT (or org-level GitHub App) with the listed scopes
+2. Add as `PROPAGATOR_TOKEN` to the library repo's secrets (Settings → Secrets and variables → Actions)
+
+If the secret is missing, the job falls back to `GITHUB_TOKEN`, propagation fails on the cross-repo clone, and the job emits a clear error pointing at this section.
+
+### Custom bump logic for non-Maven consumers
+
+Out of scope for v1. The propagator's pom.xml-bump path assumes Maven consumers. For npm/pnpm/poetry/etc. consumers, extend the propagator step with per-matrix-entry conditional logic (e.g., a `bump_command:` matrix dimension). Document in a follow-up.
+
+## 8. Validation
+
+Run actionlint with the org's runner-label config (see SKILL.md GATE 3-4):
+
+```bash
+actionlint -config-file ~/.config/actionlint.yaml .github/workflows/ci-cd.yml
+```
+
+Expected: clean output (only the standard custom-runner-label warnings if you forget the config file).
+
+Then run the gap self-audit grep loop from SKILL.md GATE 3-4 to confirm canonical patterns are present (different patterns for app vs library mode — see GATE 3-4).
+
 ## Reference
 
-- Canonical template: [`workflow-template.yml`](workflow-template.yml)
-- Patterns and rationale: [`critical-patterns.md`](critical-patterns.md) §§ 24–31
-- Incident driving this design: [`lessons-learned.md`](lessons-learned.md) "mule3-benin migration (2026-04)"
+- App template: [`workflow-template.yml`](workflow-template.yml)
+- Library template: [`workflow-template-library.yml`](workflow-template-library.yml)
+- App patterns and rationale: [`critical-patterns.md`](critical-patterns.md) §§ 24–31
+- Library patterns and rationale: [`critical-patterns.md`](critical-patterns.md) §§ 32–33
+- Incident driving the app-template design: [`lessons-learned.md`](lessons-learned.md) "Critical Failure #9: Heavy Runner Missing Node + 12 Structural Gaps (mule3-benin migration, 2026-04)"

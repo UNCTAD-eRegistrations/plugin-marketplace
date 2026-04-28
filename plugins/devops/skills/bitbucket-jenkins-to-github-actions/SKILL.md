@@ -106,6 +106,13 @@ which git || echo "MISSING: git"
 which ssh || echo "MISSING: ssh"
 which gh  || echo "MISSING: gh (required for Phase 4.5 rulesets and Phase 4.6 team grants)"
 
+# Org admin role probe (advisory). Needed for: Phase 1 repo creation,
+# Phase 4.5 ruleset application, and Phase 4.6 team grants. Non-admins may
+# still complete the migration if the target repo already exists and they
+# have admin role on that single repo.
+gh api /user/memberships/orgs/UNCTAD-eRegistrations --jq '.role' 2>/dev/null \
+  | grep -q admin || echo "WARNING: not an org admin on UNCTAD-eRegistrations — Phase 1 repo creation, Phase 4.5 ruleset, and Phase 4.6 team grant may fail"
+
 # Optional (for specific project types)
 which npm 2>/dev/null && echo "Found: npm (Node.js)"
 which mvn 2>/dev/null && echo "Found: mvn (Java/Maven)"
@@ -292,6 +299,51 @@ Use AskUserQuestion to gather migration preferences:
 If not provided as argument, ask:
 - "What is the target GitHub repository URL?"
 - Format: `git@github.com:ORGANIZATION/REPOSITORY.git`
+
+**Question 1a: Verify target repo exists, create if missing**
+
+Parse `<owner>/<name>` from the answer to Question 1, then check whether the target repo already exists on GitHub:
+
+```bash
+# Parse owner/name from the URL (handles git@github.com:org/name.git or https://github.com/org/name)
+TARGET_URL="$ANSWER_FROM_QUESTION_1"
+TARGET_REPO=$(echo "$TARGET_URL" | sed -E 's|.*github.com[:/](.+)\.git$|\1|; s|.*github.com[:/](.+)$|\1|')
+
+if gh repo view "$TARGET_REPO" >/dev/null 2>&1; then
+  echo "Target repo $TARGET_REPO exists — proceeding with migration"
+else
+  echo "Target repo $TARGET_REPO does NOT exist on GitHub yet"
+  # Continue to creation sub-flow below
+fi
+```
+
+If the repo doesn't exist, ask:
+- "Repo `$TARGET_REPO` doesn't exist on GitHub yet. Create it now?"
+- Options: "Yes, create it" | "No, abort migration"
+
+If "Yes, create it", ask follow-up:
+- "Visibility?" — Options: "Private (recommended for UNCTAD-eRegistrations)" | "Internal" | "Public"
+- "Description (optional)?" — free-text, defaults to empty
+
+Then create the repo with org-default settings (matches the broader UNCTAD-eRegistrations repo settings):
+
+```bash
+VISIBILITY_FLAG="--private"   # or --internal / --public based on answer
+gh repo create "$TARGET_REPO" $VISIBILITY_FLAG \
+  --description "$DESCRIPTION" \
+  --add-readme=false \
+  --disable-wiki \
+  --disable-projects
+
+# Verify creation
+gh repo view "$TARGET_REPO" --json name,visibility,defaultBranchRef \
+  --jq '{repo: .name, visibility, default_branch: .defaultBranchRef.name}'
+```
+
+The newly-created repo defaults to `main` as the default branch — Phase 2.6 (Set Default Branch on GitHub) will override it to `develop` after the git push.
+
+If "No, abort migration", emit a clear instruction:
+- "Create the target repo manually first (e.g. via GitHub UI or `gh repo create`), then re-run this skill."
 
 **Question 2: External Dependencies**
 Scan for external Bitbucket repo references in CI/CD files, then ask:
@@ -492,6 +544,47 @@ If Jenkinsfile exists, ask user:
 
 **THIS STEP IS MANDATORY BEFORE GENERATING ANY WORKFLOW**
 
+#### Step 3.2.0a: Library vs app detection
+
+The skill ships **two** canonical templates. Pick the right one before proceeding:
+
+```bash
+# Detect repo type — Dockerfile presence dominates; pom.xml <packaging> is the secondary signal
+HAS_DOCKERFILE="no"
+[ -f Dockerfile ] && HAS_DOCKERFILE="yes"
+
+PACKAGING=""
+if [ -f pom.xml ]; then
+  PACKAGING=$(grep -m 1 '<packaging>' pom.xml | sed 's/.*<packaging>\(.*\)<\/packaging>.*/\1/' || echo "")
+fi
+
+REPO_TYPE="app"   # default
+if [ "$HAS_DOCKERFILE" = "no" ] && [ -n "$PACKAGING" ] && \
+   echo "$PACKAGING" | grep -qE '^(jar|mule-module|maven-plugin|pom)$'; then
+  REPO_TYPE="library"
+fi
+
+echo "Detected repo type: $REPO_TYPE  (Dockerfile=$HAS_DOCKERFILE  packaging=$PACKAGING)"
+
+# Persist for Step 3.2.1
+cat >> /tmp/migration-state.sh <<EOF
+export REPO_TYPE="$REPO_TYPE"
+export HAS_DOCKERFILE="$HAS_DOCKERFILE"
+export PACKAGING="$PACKAGING"
+EOF
+```
+
+The detection is a **heuristic** — confirm with the user before routing in Step 3.2.1:
+
+- "Detected repo type: **$REPO_TYPE** (Dockerfile=$HAS_DOCKERFILE, packaging=$PACKAGING). Use the matching canonical template?"
+- Options: "Yes — use $REPO_TYPE template" | "No — override to the other"
+
+Edge cases to flag:
+- Dockerfile + library `<packaging>` together (rare but possible — e.g. a library that ships a sidecar Docker image): the heuristic chooses "app". Override to "library" only if the Docker image is genuinely incidental.
+- No Dockerfile + no `pom.xml`: heuristic falls back to "app". For pure-Node libraries, override to "library" and choose a non-Maven `<BUILD_STEP>` (out of scope for v1 — manual customization needed).
+
+#### Step 3.2.0b: Jenkinsfile feature extraction
+
 Before writing ANY ci-cd.yml, you MUST perform a complete feature extraction from the Jenkinsfile:
 
 ```bash
@@ -534,28 +627,46 @@ grep -A 5 "post {" Jenkinsfile
 
 ### Step 3.2.1: Generate GitHub Actions Workflow
 
-**If user selected "Convert to GitHub Actions", you MUST create `.github/workflows/ci-cd.yml` from the canonical template bundled with this skill.**
+**If user selected "Convert to GitHub Actions", you MUST create `.github/workflows/ci-cd.yml` from the canonical template matching the `REPO_TYPE` detected in Step 3.2.0a.**
 
-The canonical template at [`reference/workflow-template.yml`](reference/workflow-template.yml) is a parameterized 7-job workflow that closes the 12 known alignment gaps with `ds-backend`'s gold-standard CI/CD (build/push split via ephemeral tags + `imagetools` promotion, sanitized `feature/*` tags, ds-backend release/* convention, mandatory `actions/setup-node@v4`, npm cache, `vX.Y.Z` master tags, ephemeral tag cleanup on failure, and trigger-jenkins-deploy releases support). **Do NOT hand-author the workflow** — the template is the authoritative source.
+Two templates ship with this skill — **do NOT hand-author the workflow**, and do NOT mix the two:
 
-1. **Analyze Jenkinsfile structure** (continues from Step 3.2.0):
+| `REPO_TYPE` | Template | Coverage |
+|---|---|---|
+| `app` | [`reference/workflow-template.yml`](reference/workflow-template.yml) | 7 jobs (set-build-variables, bump-version, build-docker-image, push-docker-image, tag-release, trigger-jenkins-deploy, notify-failure) — closes the 12 known ds-backend alignment gaps |
+| `library` | [`reference/workflow-template-library.yml`](reference/workflow-template-library.yml) | 6 jobs (set-build-variables, bump-version, build-and-publish, tag-release, propagate-version, notify-failure) — packages-branch publish, cross-repo version propagation |
+
+Common steps (both types):
+
+1. **Analyze Jenkinsfile structure** (continues from Step 3.2.0b):
    ```bash
    cat Jenkinsfile
    ```
-   Map every stage, environment variable, branch condition, and credential to the corresponding section of the canonical template using the feature-parity table built in Step 3.2.0.
+   Map every stage, environment variable, branch condition, and credential to the corresponding section of the chosen template using the feature-parity table built in Step 3.2.0b.
 
-2. **Ask for project-specific values** needed to fill placeholders:
+2. **Source migration state**:
+   ```bash
+   [ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+   ```
+
+3. **Copy the matching canonical template**:
+   ```bash
+   mkdir -p .github/workflows
+   if [ "$REPO_TYPE" = "library" ]; then
+     cp <skill-dir>/reference/workflow-template-library.yml .github/workflows/ci-cd.yml
+   else
+     cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
+   fi
+   ```
+
+#### App-mode (REPO_TYPE=app) flow
+
+4. **Ask for project-specific values**:
    - "What is the Docker image name?" (becomes `<DOCKER_IMAGE_NAME>`, e.g. `unctad/mule3-benin`)
    - "What is the short repo name for the npm cache key?" (becomes `<REPO_NAME>`, e.g. `mule3-benin`)
    - "Which optional add-on jobs apply?" (helm-chart-update if `helm/Chart.yaml` exists; run-tests if test runner present; qodana-analysis if `.qodana.yaml` present; etc.)
 
-3. **Copy the canonical template**:
-   ```bash
-   mkdir -p .github/workflows
-   cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
-   ```
-
-4. **Replace placeholders** (see [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Replace placeholders"):
+5. **Replace placeholders**:
    ```bash
    sed -i \
      -e 's|<DOCKER_IMAGE_NAME>|<docker_image_value>|g' \
@@ -563,22 +674,54 @@ The canonical template at [`reference/workflow-template.yml`](reference/workflow
      .github/workflows/ci-cd.yml
    ```
 
-5. **Fill the `<BUILD_STEP>` block in `build-docker-image`** based on repo type — Java/Maven, Python, Frontend/Node, or Mule3 ESB. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Fill the `<BUILD_STEP>` block in `build-docker-image`" for per-type recipes.
+6. **Fill the `<BUILD_STEP>` block in `build-docker-image`** — Java/Maven, Python, Frontend/Node, or Mule3 ESB. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § 2 "Fill the `<BUILD_STEP>` block in `build-docker-image`".
 
-6. **Uncomment optional jobs** that apply to this repo (helm-chart-update, run-tests, run-linting, qodana-analysis, artifact-cleanup) and wire them into `push-docker-image.needs:`/`if:`. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Optional add-on jobs" for the table of signals → wiring.
+7. **Uncomment optional jobs** that apply (helm-chart-update, run-tests, run-linting, qodana-analysis, artifact-cleanup) and wire them into `push-docker-image.needs:`/`if:`. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § 3 "Optional add-on jobs".
 
-7. **Validate** with `actionlint` + the gap self-audit grep loop — see GATE 3-4 below.
+#### Library-mode (REPO_TYPE=library) flow
 
-8. **Remove the Jenkinsfile**:
+4. **Ask for library-specific values**:
+   - "What is the Maven groupId?" (becomes `<ARTIFACT_GROUP_ID>`, e.g. `org.unctad.eregistrations.mule.modules`) — read from the FIRST `<groupId>` in `pom.xml`
+   - "What is the Maven artifactId?" (becomes `<ARTIFACT_ID>`, e.g. `datamapping`) — read from the FIRST `<artifactId>` in `pom.xml`
+   - "What is the short repo name for the npm cache key?" (becomes `<REPO_NAME>`)
+   - "Who are this library's known consumers (org-prefixed repos)?" — populates the `propagate-version` matrix. **Empty list is OK** — the job will skip silently. Add consumers as they migrate.
+
+5. **Replace placeholders**:
    ```bash
-   git rm Jenkinsfile
+   sed -i \
+     -e 's|<ARTIFACT_GROUP_ID>|<group_id_value>|g' \
+     -e 's|<ARTIFACT_ID>|<artifact_id_value>|g' \
+     -e 's|<REPO_NAME>|<repo_name_value>|g' \
+     .github/workflows/ci-cd.yml
    ```
 
-9. **Show summary of generated workflow** with required secrets list (`SSH_PRIVATE_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `JENKINS_URL`/`JENKINS_USER`/`JENKINS_API_TOKEN`, `SLACK_WEBHOOK_URL`, plus any optional-job-specific secrets like `GHCR_TOKEN` for helm or `DEPENDENCY_PROPAGATOR_*` for Python-Commons access).
+6. **Fill the `<BUILD_STEP>` block in `build-and-publish`** — pick the recipe from [`reference/workflow-customization.md`](reference/workflow-customization.md) § 6 "Library `<BUILD_STEP>` recipes". The default for Mule 3 connectors:
+   ```yaml
+   - name: Build Maven artifact
+     run: |
+       mvn -DskipTests -Dfile.encoding=UTF-8 clean package
+   ```
+
+7. **Populate the `propagate-version` matrix** with the library's consumers (see [`reference/workflow-customization.md`](reference/workflow-customization.md) § 7). Default is empty list — skill MUST surface this so the user explicitly confirms there are no consumers, OR fills the list. Each adopting library has its own consumer set.
+
+8. **Provision `PROPAGATOR_TOKEN`** — for cross-repo PR creation. See `workflow-customization.md` § 7 "PROPAGATOR_TOKEN provisioning". **Required if matrix is non-empty**; can defer if empty.
+
+#### Common closing steps
+
+9. **Validate** with `actionlint` + the gap self-audit grep loop — see GATE 3-4 below.
+
+10. **Remove the Jenkinsfile**:
+    ```bash
+    git rm Jenkinsfile
+    ```
+
+11. **Show summary** of the generated workflow with the required-secrets list. App-mode: `SSH_PRIVATE_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `JENKINS_URL`/`JENKINS_USER`/`JENKINS_API_TOKEN`, `SLACK_WEBHOOK_URL`, plus optional-job-specific secrets. Library-mode: `SSH_PRIVATE_KEY`, `SLACK_WEBHOOK_URL`, and **`PROPAGATOR_TOKEN`** if consumer matrix is non-empty.
 
 #### Required summaries (preserved from prior versions)
 
 The canonical template includes a summary step in every job. Required summary titles (NO emojis in the `## ` heading line):
+
+**App-mode (workflow-template.yml):**
 
 | Job | Title |
 |-----|-------|
@@ -589,6 +732,17 @@ The canonical template includes a summary step in every job. Required summary ti
 | push-docker-image | Docker Image Pushed |
 | tag-release | Production Release Tagged |
 | trigger-jenkins-deploy | Jenkins Deployment Triggered |
+| notify-failure | Pipeline Failed |
+
+**Library-mode (workflow-template-library.yml):**
+
+| Job | Title |
+|-----|-------|
+| set-build-variables | Build Configuration (with subsections: Branch Information, Build Variables, Pipeline Decisions) |
+| bump-version | Version Bumped |
+| build-and-publish | Library Built |
+| tag-release | Library Release Tagged |
+| propagate-version | Version Propagation |
 | notify-failure | Pipeline Failed |
 
 See [reference/critical-patterns.md#16-summary-style-guidelines](reference/critical-patterns.md#16-summary-style-guidelines) for style rules.
@@ -863,20 +1017,39 @@ grep -q "permissions:" .github/workflows/ci-cd.yml && echo "Permissions: Found"
 grep -q "contents: write" .github/workflows/ci-cd.yml && echo "Contents write: Found"
 grep -q "^jobs:" .github/workflows/ci-cd.yml && echo "Jobs: Found"
 
-# Canonical-pattern self-audit (closes the 12 ds-backend alignment gaps)
-for pattern in "build-docker-image" "push-docker-image" "tag-release" "ephemeral" "imagetools create" \
-               "FEATURE_" "actions/cache@v4" "actions/setup-node@v4" "MINOR_TAG"; do
-  grep -q "$pattern" .github/workflows/ci-cd.yml || echo "MISSING canonical pattern: $pattern"
-done
+# Canonical-pattern self-audit — patterns differ by REPO_TYPE.
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+REPO_TYPE="${REPO_TYPE:-app}"
 
-# Anti-pattern check (these names are deprecated and should not appear)
+if [ "$REPO_TYPE" = "library" ]; then
+  echo "=== Library-mode self-audit ==="
+  for pattern in "build-and-publish" "tag-release" "propagate-version" "packages" \
+                 "git worktree add" "ARTIFACT_GROUP_PATH" "ARTIFACT_ID" \
+                 "actions/cache@v4" "actions/setup-node@v4" "actions/setup-java@v4" \
+                 "gh pr merge --merge"; do
+    grep -q "$pattern" .github/workflows/ci-cd.yml || echo "MISSING library pattern: $pattern"
+  done
+  # Library-mode anti-patterns (these belong in the app template, not library)
+  for anti in "build-docker-image:" "push-docker-image:" "trigger-jenkins-deploy:" "imagetools create"; do
+    grep -q "$anti" .github/workflows/ci-cd.yml && \
+      echo "DEPRECATED in library mode: $anti — library template should not have this"
+  done
+else
+  echo "=== App-mode self-audit ==="
+  for pattern in "build-docker-image" "push-docker-image" "tag-release" "ephemeral" "imagetools create" \
+                 "FEATURE_" "actions/cache@v4" "actions/setup-node@v4" "MINOR_TAG"; do
+    grep -q "$pattern" .github/workflows/ci-cd.yml || echo "MISSING canonical pattern: $pattern"
+  done
+fi
+
+# Anti-pattern check (deprecated job names from pre-canonical-template era)
 for anti in "build-and-push-docker" "tag-production"; do
   grep -q "^[[:space:]]*${anti}:" .github/workflows/ci-cd.yml && \
-    echo "DEPRECATED job name found: $anti — rename to canonical (see reference/workflow-template.yml)"
+    echo "DEPRECATED job name found: $anti — rename to canonical (see reference/workflow-template*.yml)"
 done
 ```
 
-Any `MISSING canonical pattern:` or `DEPRECATED job name found:` line means the canonical template wasn't followed correctly. Fix before proceeding.
+Any `MISSING ...:` or `DEPRECATED ...` line means the canonical template wasn't followed correctly. Fix before proceeding.
 
 ### Actionlint Configuration
 

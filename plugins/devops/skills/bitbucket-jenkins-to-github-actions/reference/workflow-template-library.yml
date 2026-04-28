@@ -1,0 +1,494 @@
+# =============================================================================
+# Canonical LIBRARY workflow template for UNCTAD-eRegistrations Maven libraries
+# =============================================================================
+# Use this template when the target repo is a LIBRARY (Maven artifact, not a
+# Docker app). For apps with Dockerfile, use workflow-template.yml instead.
+#
+# What this template covers (vs the app template):
+#   - NO Docker build/push, NO trigger-jenkins-deploy (libraries don't deploy)
+#   - Maven build on JDK 8 (Mule 3 / mule-devkit-parent libraries)
+#   - npm-based version bump on develop and release/* (standard-version style)
+#   - Artifact publish via PACKAGES-BRANCH trick: on master, JAR + POM + sha1/md5
+#     are committed to the `packages` branch via `git worktree`. Consumers fetch
+#     from this branch (mule-common pattern). See critical-patterns.md §32.
+#   - vX.Y.Z git tag on master (matching app template)
+#   - Cross-repo version PROPAGATION: opens a PR per known consumer bumping the
+#     dependency version, then `gh pr merge --merge` to merge immediately. Stale
+#     propagator PRs are closed before opening a new one. See critical-patterns.md §33.
+#   - Slack notify on failure (no ephemeral Docker tag cleanup — there are none)
+#
+# HOW TO USE: copy this file to .github/workflows/ci-cd.yml in the target repo.
+# Then:
+#   1. Replace placeholders (see workflow-customization.md § 1).
+#   2. Fill the <BUILD_STEP> block in build-and-publish based on repo type
+#      (workflow-customization.md § "Library <BUILD_STEP> recipes").
+#   3. Populate the propagate-version matrix with the library's known consumers
+#      (workflow-customization.md § "Propagate-version: managing the consumer matrix").
+#   4. Validate with actionlint + the gap self-audit grep (SKILL.md GATE 3-4).
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, develop, beta, release-candidate, release/**, feature/**]
+  workflow_dispatch:
+    inputs:
+      FORCE_BUILD:
+        description: 'Force build even if version bump'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write   # required for propagate-version (opens PRs in consumers)
+  checks: write
+  statuses: write
+  actions: write
+
+env:
+  ARTIFACT_GROUP_ID: <ARTIFACT_GROUP_ID>     # REQUIRED placeholder, e.g. org.unctad.eregistrations.mule.modules
+  ARTIFACT_ID: <ARTIFACT_ID>                  # REQUIRED placeholder, e.g. datamapping
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. set-build-variables: derive VERSION / SHOULD_BUMP / SHOULD_BUILD / IS_MASTER
+  #    plus ARTIFACT_GROUP_PATH (groupId with dots → slashes for Maven dir layout)
+  # ---------------------------------------------------------------------------
+  set-build-variables:
+    runs-on: [self-hosted, linux, build, normal]
+    outputs:
+      VERSION: ${{ steps.vars.outputs.VERSION }}
+      ARTIFACT_GROUP_PATH: ${{ steps.vars.outputs.ARTIFACT_GROUP_PATH }}
+      SHOULD_BUMP: ${{ steps.vars.outputs.SHOULD_BUMP }}
+      SHOULD_BUILD: ${{ steps.vars.outputs.SHOULD_BUILD }}
+      IS_MASTER: ${{ steps.vars.outputs.IS_MASTER }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set build variables
+        id: vars
+        env:
+          ARTIFACT_GROUP_ID: ${{ env.ARTIFACT_GROUP_ID }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+
+          # Maven directory path = groupId with dots replaced by slashes.
+          ARTIFACT_GROUP_PATH=$(echo "${ARTIFACT_GROUP_ID}" | tr '.' '/')
+
+          echo "Branch: $BRANCH_NAME"
+          echo "Commit: $COMMIT_MSG"
+          echo "Version: $VERSION"
+          echo "Artifact path: ${ARTIFACT_GROUP_PATH}/${ARTIFACT_ID}"
+
+          # Bump on develop AND release/* (skip chore/revert to avoid bump-loops)
+          SHOULD_BUMP="false"
+          if [[ "$BRANCH_NAME" == "develop" ]] || [[ "$BRANCH_NAME" == release/* ]]; then
+            if [[ ! "$COMMIT_MSG" =~ ^chore && ! "$COMMIT_MSG" =~ ^revert ]]; then
+              SHOULD_BUMP="true"
+            fi
+          fi
+
+          SHOULD_BUILD="true"
+
+          IS_MASTER="false"
+          if [[ "$BRANCH_NAME" == "master" ]]; then
+            IS_MASTER="true"
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "ARTIFACT_GROUP_PATH=$ARTIFACT_GROUP_PATH" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUMP=$SHOULD_BUMP" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUILD=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+          echo "IS_MASTER=$IS_MASTER" >> $GITHUB_OUTPUT
+
+      - name: Build Configuration summary
+        run: |
+          echo "## Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Branch Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Variables" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ steps.vars.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** \`${{ env.ARTIFACT_GROUP_ID }}:${{ env.ARTIFACT_ID }}:${{ steps.vars.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Decisions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Bump Version:** ${{ steps.vars.outputs.SHOULD_BUMP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Build:** ${{ steps.vars.outputs.SHOULD_BUILD }}" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 2. bump-version: patch-release with retry; cached npm
+  #    Identical to app template's bump-version (gaps E, F, I from app template).
+  # ---------------------------------------------------------------------------
+  bump-version:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: set-build-variables
+    if: needs.set-build-variables.outputs.SHOULD_BUMP == 'true'
+    outputs:
+      NEW_VERSION: ${{ steps.bump.outputs.NEW_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache npm dependencies
+        id: npm-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-npm-<REPO_NAME>-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-<REPO_NAME>-
+
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Bump version with retry
+        id: bump
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          MAX_RETRIES=5
+          for i in $(seq 0 $((MAX_RETRIES - 1))); do
+            echo "Attempt $((i + 1)) of $MAX_RETRIES"
+            OLD_VERSION=$(node -p "require('./package.json').version")
+
+            git checkout $BRANCH_NAME
+            git reset --hard origin/$BRANCH_NAME
+            git pull origin $BRANCH_NAME
+
+            if npm run patch-release; then
+              git pull origin $BRANCH_NAME
+              NEW_VERSION=$(node -p "require('./package.json').version")
+              echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
+              echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "Version bumped from $OLD_VERSION to $NEW_VERSION"
+              exit 0
+            else
+              if [ $i -lt $((MAX_RETRIES - 1)) ]; then
+                echo "Retrying in 5 seconds..."
+                git reset --hard origin/$BRANCH_NAME
+                sleep 5
+              else
+                echo "Failed to bump version after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Version Bumped summary
+        if: success()
+        run: |
+          echo "## Version Bumped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version:** \`${{ needs.set-build-variables.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version:** \`${{ steps.bump.outputs.NEW_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 3. build-and-publish: heavy runner, mvn build + packages-branch publish (master)
+  # ---------------------------------------------------------------------------
+  build-and-publish:
+    runs-on: [self-hosted, linux, build, heavy]
+    needs: [set-build-variables, bump-version]
+    if: |
+      always() &&
+      needs.set-build-variables.outputs.SHOULD_BUILD == 'true' &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+    outputs:
+      published_version: ${{ steps.resolve.outputs.VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          clean: false
+
+      - name: Pull latest changes
+        run: |
+          git pull origin ${{ github.ref_name }} || true
+
+      - name: Resolve VERSION from upstream outputs
+        id: resolve
+        env:
+          VERSION_FALLBACK: ${{ needs.set-build-variables.outputs.VERSION }}
+          VERSION_BUMPED: ${{ needs.bump-version.outputs.NEW_VERSION }}
+        run: |
+          VERSION="${VERSION_BUMPED:-$VERSION_FALLBACK}"
+          echo "Resolved VERSION: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK 8 (Mule 3 libraries)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+
+      # =======================================================================
+      # <BUILD_STEP>
+      # Replace this comment block with the build sequence appropriate for the
+      # library (Maven module, Mule 3 connector, plain JAR, etc.).
+      # See workflow-customization.md § "Library <BUILD_STEP> recipes".
+      # Default for Mule 3 connectors: mvn -DskipTests -Dfile.encoding=UTF-8 clean package
+      # =======================================================================
+
+      - name: Publish to packages branch (master only)
+        if: needs.set-build-variables.outputs.IS_MASTER == 'true'
+        env:
+          VERSION: ${{ steps.resolve.outputs.VERSION }}
+          ARTIFACT_GROUP_PATH: ${{ needs.set-build-variables.outputs.ARTIFACT_GROUP_PATH }}
+        run: |
+          # The `packages` branch is the canonical artifact storage (mule-common pattern).
+          # Use git worktree so we don't disturb the main checkout.
+          if ! git ls-remote --exit-code origin packages >/dev/null 2>&1; then
+            echo "First-time publish: creating orphan packages branch"
+            git worktree add -b packages /tmp/pkgs-wt
+            cd /tmp/pkgs-wt && git rm -rf . 2>/dev/null || true
+            cd "$GITHUB_WORKSPACE"
+          else
+            git fetch origin packages
+            git worktree add /tmp/pkgs-wt origin/packages
+          fi
+
+          PKG_DIR="/tmp/pkgs-wt/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
+          mkdir -p "$PKG_DIR"
+
+          # The Maven build is expected to produce target/${ARTIFACT_ID}-${VERSION}.jar
+          if [ ! -f "target/${{ env.ARTIFACT_ID }}-${VERSION}.jar" ]; then
+            echo "::error::Expected artifact target/${{ env.ARTIFACT_ID }}-${VERSION}.jar not found"
+            ls -la target/ 2>/dev/null || echo "(no target/ directory)"
+            exit 1
+          fi
+
+          cp "target/${{ env.ARTIFACT_ID }}-${VERSION}.jar" "$PKG_DIR/"
+          cp pom.xml "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}.pom"
+
+          # Generate sha1/md5 sidecars (mirrors mule-common's structure)
+          for f in "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}".jar "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}".pom; do
+            sha1sum "$f" | awk '{print $1}' > "$f.sha1"
+            md5sum  "$f" | awk '{print $1}' > "$f.md5"
+          done
+
+          cd /tmp/pkgs-wt
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to packages branch — already published"
+          else
+            git commit -m "publish ${{ env.ARTIFACT_ID }} ${VERSION}"
+            git push origin HEAD:packages
+            echo "Published ${{ env.ARTIFACT_ID }} ${VERSION} to packages branch"
+          fi
+
+      - name: Build summary
+        run: |
+          echo "## Library Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** \`${{ env.ARTIFACT_ID }}-${{ steps.resolve.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ steps.resolve.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.set-build-variables.outputs.IS_MASTER }}" = "true" ]; then
+            echo "- **Published to:** \`packages\` branch (consumers fetch via depth-1 clone)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Published to:** N/A (publish only on master)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ---------------------------------------------------------------------------
+  # 4. tag-release: tag master pushes with vX.Y.Z (matches app template, gap H)
+  # ---------------------------------------------------------------------------
+  tag-release:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, build-and-publish]
+    if: |
+      always() &&
+      needs.set-build-variables.outputs.IS_MASTER == 'true' &&
+      needs.build-and-publish.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+      - name: Tag library release
+        env:
+          VERSION: ${{ needs.set-build-variables.outputs.VERSION }}
+        run: |
+          git tag "v$VERSION" || echo "Tag v$VERSION already exists"
+          git push origin "v$VERSION" || echo "Tag already pushed"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Library Release Tagged summary
+        run: |
+          echo "## Library Release Tagged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 5. propagate-version: open + immediately merge a bump PR per known consumer
+  #    Stale propagator PRs (same artifact, our author) are closed first.
+  #    See critical-patterns.md §33.
+  # ---------------------------------------------------------------------------
+  propagate-version:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, build-and-publish, tag-release]
+    if: |
+      always() &&
+      needs.set-build-variables.outputs.IS_MASTER == 'true' &&
+      needs.build-and-publish.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        # ===================================================================
+        # CUSTOMIZATION POINT: list this library's consumer repos.
+        # Each adopting library populates its OWN list — different libraries
+        # have different downstream consumers.
+        # Format: org-prefixed repo names (UNCTAD-eRegistrations/<repo>).
+        #
+        # The placeholder below MUST be replaced before first master CI run.
+        # If this library has no consumers, delete the entire propagate-version
+        # job AND remove `propagate-version` from notify-failure's `needs:` list.
+        # ===================================================================
+        consumer:
+          - UNCTAD-eRegistrations/REPLACE-WITH-CONSUMER-OR-REMOVE-THIS-JOB
+    steps:
+      - name: Open bump PR in ${{ matrix.consumer }}
+        env:
+          # PROPAGATOR_TOKEN: PAT or GitHub App token with `repo` + `pull_requests`
+          # write scopes on EACH consumer. Falls back to GITHUB_TOKEN, which only
+          # works for same-repo operations — cross-repo propagation requires the
+          # custom token. Document this in the migration summary so it's added
+          # to repo secrets before first master push.
+          GH_TOKEN: ${{ secrets.PROPAGATOR_TOKEN || secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.build-and-publish.outputs.published_version }}
+          CONSUMER: ${{ matrix.consumer }}
+        run: |
+          BRANCH="chore/bump-${{ env.ARTIFACT_ID }}-${NEW_VERSION}"
+          WORKDIR=$(mktemp -d)
+
+          git clone --depth 1 -b develop \
+            "https://x-access-token:${GH_TOKEN}@github.com/${CONSUMER}.git" "$WORKDIR"
+          cd "$WORKDIR"
+
+          if [ ! -f pom.xml ]; then
+            echo "::warning::${CONSUMER} has no pom.xml — propagation skipped (custom consumer recipe needed)"
+            exit 0
+          fi
+
+          # Bump <version> of matching <artifactId> in consumer's pom.xml.
+          # sed lookahead trick: when the artifactId line matches, advance to next
+          # line and substitute the <version> there. Works for the standard
+          # multi-line dependency block layout used across UNCTAD-eRegistrations
+          # poms (artifactId followed by version on the very next non-empty line).
+          sed -i -E "/<artifactId>${{ env.ARTIFACT_ID }}<\/artifactId>/{n;s|<version>[^<]*</version>|<version>${NEW_VERSION}</version>|;}" pom.xml
+
+          if git diff --quiet pom.xml; then
+            echo "${CONSUMER} already at ${{ env.ARTIFACT_ID }} ${NEW_VERSION} — no PR needed"
+            exit 0
+          fi
+
+          # Close superseded propagator PRs (only those WE created — never close human PRs).
+          # Filter: open + author = us + title prefix `chore: bump <ARTIFACT_ID> to `.
+          ACTOR=$(gh api /user --jq '.login')
+          gh pr list --repo "$CONSUMER" --state open --author "$ACTOR" \
+            --search "in:title chore: bump ${{ env.ARTIFACT_ID }} to" \
+            --json number,title \
+            | jq -r ".[] | select(.title | startswith(\"chore: bump ${{ env.ARTIFACT_ID }} to \")) | .number" \
+            | while read -r pr_num; do
+                echo "Closing superseded PR #${pr_num}"
+                gh pr close "$pr_num" --repo "$CONSUMER" \
+                  --comment "Superseded by newer ${{ env.ARTIFACT_ID }} ${NEW_VERSION} bump (propagator run ${{ github.run_id }})." \
+                  --delete-branch \
+                  || echo "::warning::Could not close superseded PR #${pr_num}"
+              done
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+          git checkout -b "$BRANCH"
+          git add pom.xml
+          git commit -m "chore: bump ${{ env.ARTIFACT_ID }} to ${NEW_VERSION}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create --repo "$CONSUMER" --base develop --head "$BRANCH" \
+            --title "chore: bump ${{ env.ARTIFACT_ID }} to ${NEW_VERSION}" \
+            --body "Automated dep bump by propagator job in ${{ github.repository }} run ${{ github.run_id }}.")
+          echo "Opened PR: $PR_URL"
+
+          PR_NUM=$(echo "$PR_URL" | sed 's|.*/||')
+          if ! gh pr merge --merge --repo "$CONSUMER" "$PR_NUM" 2>&1; then
+            echo "::warning::Immediate merge failed for $PR_URL — likely blocked by future branch protection (status checks / reviews). PR remains open for human merge."
+          fi
+
+      - name: Propagation summary
+        if: always()
+        run: |
+          echo "## Version Propagation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Consumer:** \`${{ matrix.consumer }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump target:** \`${{ env.ARTIFACT_ID }}\` → \`${{ needs.build-and-publish.outputs.published_version }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 6. notify-failure: Slack-notify on any job failure (no Docker tag cleanup)
+  # ---------------------------------------------------------------------------
+  notify-failure:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, bump-version, build-and-publish, tag-release, propagate-version]
+    if: failure()
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"FAILED: Job '${{ github.repository }} - ${{ github.workflow }}' (Run #${{ github.run_number }})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            $SLACK_WEBHOOK_URL || true
+
+      - name: Pipeline Failed summary
+        run: |
+          echo "## Pipeline Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Slack notification sent to #unctad-alerts" >> $GITHUB_STEP_SUMMARY
