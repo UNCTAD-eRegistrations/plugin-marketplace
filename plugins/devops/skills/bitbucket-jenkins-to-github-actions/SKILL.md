@@ -534,114 +534,89 @@ grep -A 5 "post {" Jenkinsfile
 
 ### Step 3.2.1: Generate GitHub Actions Workflow
 
-**If user selected "Convert to GitHub Actions", you MUST create `.github/workflows/ci-cd.yml`.**
+**If user selected "Convert to GitHub Actions", you MUST create `.github/workflows/ci-cd.yml` from the canonical template bundled with this skill.**
 
-1. **Analyze Jenkinsfile structure**:
+The canonical template at [`reference/workflow-template.yml`](reference/workflow-template.yml) is a parameterized 7-job workflow that closes the 12 known alignment gaps with `ds-backend`'s gold-standard CI/CD (build/push split via ephemeral tags + `imagetools` promotion, sanitized `feature/*` tags, ds-backend release/* convention, mandatory `actions/setup-node@v4`, npm cache, `vX.Y.Z` master tags, ephemeral tag cleanup on failure, and trigger-jenkins-deploy releases support). **Do NOT hand-author the workflow** — the template is the authoritative source.
+
+1. **Analyze Jenkinsfile structure** (continues from Step 3.2.0):
    ```bash
    cat Jenkinsfile
    ```
-   Identify: stages, environment variables, branch conditions, credentials
+   Map every stage, environment variable, branch condition, and credential to the corresponding section of the canonical template using the feature-parity table built in Step 3.2.0.
 
-2. **Ask for project-specific values**:
-   - "What is the Docker image name?" (e.g., `unctad/bpa-websocket`)
-   - "What is the Helm chart name?" (if helm stage exists)
-   - "Should Jenkins deploy triggers be included?"
+2. **Ask for project-specific values** needed to fill placeholders:
+   - "What is the Docker image name?" (becomes `<DOCKER_IMAGE_NAME>`, e.g. `unctad/mule3-benin`)
+   - "What is the short repo name for the npm cache key?" (becomes `<REPO_NAME>`, e.g. `mule3-benin`)
+   - "Which optional add-on jobs apply?" (helm-chart-update if `helm/Chart.yaml` exists; run-tests if test runner present; qodana-analysis if `.qodana.yaml` present; etc.)
 
-3. **Generate workflow with standard jobs**:
-
-   | Job | Purpose | When to Include |
-   |-----|---------|-----------------|
-   | `set-build-variables` | TAG_NAME, VERSION, conditional flags | Always |
-   | `helm-chart-update` | Lint, package, push helm chart | If Jenkinsfile has helm stage |
-   | `bump-version` | Patch release with retry logic | If Jenkinsfile has version bump |
-   | `build-and-push-docker` | Docker build and push | Always (if Docker stage exists) |
-   | `tag-production` | Git tag on master | If Jenkinsfile tags releases |
-   | `trigger-jenkins-deploy` | Trigger Jenkins jobs | If deploy integration needed |
-   | `notify-failure` | Slack notification | Always |
-
-4. **Required workflow structure**:
-   ```yaml
-   name: CI/CD Pipeline
-   on:
-     push:
-       branches: [master, develop, beta, test, release-candidate, release/**, feature/**]
-     workflow_dispatch:
-       inputs:
-         FORCE_BUILD: ...
-
-   concurrency:
-     group: ${{ github.workflow }}-${{ github.ref }}
-     cancel-in-progress: true
-
-   permissions:
-     contents: write      # CRITICAL
-     checks: write
-     pull-requests: write
-     statuses: write
-     actions: write
-
-   jobs:
-     # Jobs here...
-   ```
-
-5. **Add GITHUB_STEP_SUMMARY for EVERY job** (MANDATORY):
-
-   Each job MUST have a summary step that writes to `$GITHUB_STEP_SUMMARY`:
-   ```yaml
-   - name: <Job> summary
-     run: |
-       echo "## 📋 <Title>" >> $GITHUB_STEP_SUMMARY
-       echo "" >> $GITHUB_STEP_SUMMARY
-       echo "- **Key:** \`value\`" >> $GITHUB_STEP_SUMMARY
-       echo "" >> $GITHUB_STEP_SUMMARY
-       echo "✅ <Success message>" >> $GITHUB_STEP_SUMMARY
-   ```
-
-   Required summaries per job (NO emojis in headers):
-   | Job | Title |
-   |-----|-------|
-   | set-build-variables | Build Configuration (with subsections: Branch Information, Build Variables, Pipeline Decisions) |
-   | helm-chart-update | Helm Chart Update |
-   | bump-version | Version Bumped |
-   | build-and-push-docker | Docker Build Summary |
-   | tag-production | Production Release Tagged |
-   | trigger-jenkins-deploy | Jenkins Deployment Triggered |
-   | notify-failure | Pipeline Failed |
-
-   See [reference/critical-patterns.md#16-summary-style-guidelines](reference/critical-patterns.md#16-summary-style-guidelines) for style rules.
-
-7. **Create workflow and remove Jenkinsfile**:
+3. **Copy the canonical template**:
    ```bash
    mkdir -p .github/workflows
-   # Write ci-cd.yml
+   cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
+   ```
+
+4. **Replace placeholders** (see [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Replace placeholders"):
+   ```bash
+   sed -i \
+     -e 's|<DOCKER_IMAGE_NAME>|<docker_image_value>|g' \
+     -e 's|<REPO_NAME>|<repo_name_value>|g' \
+     .github/workflows/ci-cd.yml
+   ```
+
+5. **Fill the `<BUILD_STEP>` block in `build-docker-image`** based on repo type — Java/Maven, Python, Frontend/Node, or Mule3 ESB. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Fill the `<BUILD_STEP>` block in `build-docker-image`" for per-type recipes.
+
+6. **Uncomment optional jobs** that apply to this repo (helm-chart-update, run-tests, run-linting, qodana-analysis, artifact-cleanup) and wire them into `push-docker-image.needs:`/`if:`. See [`reference/workflow-customization.md`](reference/workflow-customization.md) § "Optional add-on jobs" for the table of signals → wiring.
+
+7. **Validate** with `actionlint` + the gap self-audit grep loop — see GATE 3-4 below.
+
+8. **Remove the Jenkinsfile**:
+   ```bash
    git rm Jenkinsfile
    ```
 
-8. **Show summary of generated workflow** with required secrets list
+9. **Show summary of generated workflow** with required secrets list (`SSH_PRIVATE_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `JENKINS_URL`/`JENKINS_USER`/`JENKINS_API_TOKEN`, `SLACK_WEBHOOK_URL`, plus any optional-job-specific secrets like `GHCR_TOKEN` for helm or `DEPENDENCY_PROPAGATOR_*` for Python-Commons access).
+
+#### Required summaries (preserved from prior versions)
+
+The canonical template includes a summary step in every job. Required summary titles (NO emojis in the `## ` heading line):
+
+| Job | Title |
+|-----|-------|
+| set-build-variables | Build Configuration (with subsections: Branch Information, Build Variables, Pipeline Decisions) |
+| helm-chart-update | Helm Chart Update |
+| bump-version | Version Bumped |
+| build-docker-image | Docker Image Built (ephemeral) |
+| push-docker-image | Docker Image Pushed |
+| tag-release | Production Release Tagged |
+| trigger-jenkins-deploy | Jenkins Deployment Triggered |
+| notify-failure | Pipeline Failed |
+
+See [reference/critical-patterns.md#16-summary-style-guidelines](reference/critical-patterns.md#16-summary-style-guidelines) for style rules.
 
 ### Step 3.2.2: Jenkins Deployment Trigger Job
 
 **MANDATORY for ALL CI/CD workflows** - include this job with ALL branch-specific steps.
 
 **Job Configuration:**
-- `needs: [set-build-variables, build-and-push-docker]` - simplified dependencies
-- `if: needs.build-and-push-docker.result == 'success'` - runs when docker build succeeds
+- `needs: [set-build-variables, push-docker-image, tag-release]` — gate on the registry-side promote completing successfully
+- `if: needs.push-docker-image.result == 'success' && (needs.tag-release.result == 'success' || needs.tag-release.result == 'skipped')` — runs when the final image has been promoted; tag-release is skipped on non-master branches so allow that
 - Branch filtering is done at the STEP level, not the job level
 
 **Jenkins Job Mapping:**
 | Branch | Jenkins Job |
 |--------|-------------|
-| develop, feature/* | develop-deploy |
+| develop, feature/*, release/* | develop-deploy |
 | beta | beta-deploy |
 | release-candidate | test-deploy |
 
 ```yaml
   trigger-jenkins-deploy:
     runs-on: [self-hosted, linux, jenkins]
-    needs: [set-build-variables, build-and-push-docker]
+    needs: [set-build-variables, push-docker-image, tag-release]
     if: |
       always() &&
-      needs.build-and-push-docker.result == 'success'
+      needs.push-docker-image.result == 'success' &&
+      (needs.tag-release.result == 'success' || needs.tag-release.result == 'skipped')
     steps:
       - name: Load and mask Jenkins credentials
         run: |
@@ -656,8 +631,8 @@ grep -A 5 "post {" Jenkinsfile
           echo "JENKINS_API_TOKEN=${JENKINS_API_TOKEN}" >> $GITHUB_ENV
           echo "✓ Jenkins credentials loaded and masked"
 
-      - name: Trigger Jenkins deploy for develop/feature branches
-        if: github.ref_name == 'develop' || startsWith(github.ref_name, 'feature/')
+      - name: Trigger Jenkins deploy for develop/feature/release branches
+        if: github.ref_name == 'develop' || startsWith(github.ref_name, 'feature/') || startsWith(github.ref_name, 'release/')
         run: |
           echo "Triggering Jenkins deployment for ${{ github.ref_name }} branch..."
           HTTP_STATUS=$(curl -X POST \
@@ -843,7 +818,13 @@ grep -A 5 "post {" Jenkinsfile
 9. **Push retry (5 attempts)** with index.yaml merge conflict resolution via regeneration
 10. **Commit message format** -- `helm: update $CHART_NAME chart with $TGZ_FILE`
 
-**Reference implementation:** [`UNCTAD-eRegistrations/ActiveMQ` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml)
+**Canonical template:** [`reference/workflow-template.yml`](reference/workflow-template.yml) (bundled with this skill — derived from ds-backend's pattern; covers all 12 alignment gaps).
+
+**Gold-standard production reference (Python repo):** [`UNCTAD-eRegistrations/ds-backend` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ds-backend/blob/develop/.github/workflows/ci-cd.yml). Use for cross-checking when the canonical template is updated.
+
+**Java/Maven production reference:** [`UNCTAD-eRegistrations/mule3-benin` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/mule3-benin/blob/develop/.github/workflows/ci-cd.yml) (post-`8ff9234`, after gap closure). Use as the Java/Maven `<BUILD_STEP>` reference.
+
+> ⚠️ Do NOT use `UNCTAD-eRegistrations/ActiveMQ` as a reference implementation — it predates the alignment work and is likely to embody the 12 known gaps until separately audited.
 
 ### Step 3.3: GitHub Actions Updates
 
@@ -856,16 +837,14 @@ If .github/workflows/ exists, for EACH workflow file:
 
 ### Step 3.4: Release Branch Support
 
-1. **Ask user** (even if detection shows it's missing):
-   - "Add release branch support? This enables parallel maintenance branches"
-   - Options: "Yes, add full support" | "No, skip"
+Release-branch support is **built into the canonical template** (`reference/workflow-template.yml`) — no separate step is needed. The template covers:
 
-2. **If "Yes", apply these patterns** (ask before each):
-   - Add `release/**` to push triggers
-   - Add `minor_tag` output for version tagging
-   - Add release/* branch tag calculation case
-   - Update version bump condition
-   - Add Docker minor tag push
+- `release/**` in push triggers
+- `MINOR_TAG` output and the `release/*` branch tag-calculation case (tag = `$VERSION`, plus `MINOR_TAG = X.Y` from `${VERSION%.*}`)
+- `SHOULD_BUMP=true` on `release/*` so patch versions roll forward without a manual bump
+- `release/*` deploy via Jenkins `develop-deploy` (in the `trigger-jenkins-deploy` first conditional)
+
+If the target repo's release-branch convention diverges from this (e.g. it really should be `<X.Y>-RC` test-only with no version bump), document the rationale and fork the template — but the default for UNCTAD-eRegistrations repos is the ds-backend convention encoded above.
 
 ---
 
@@ -883,7 +862,21 @@ actionlint -config-file ~/.config/actionlint.yaml .github/workflows/ci-cd.yml
 grep -q "permissions:" .github/workflows/ci-cd.yml && echo "Permissions: Found"
 grep -q "contents: write" .github/workflows/ci-cd.yml && echo "Contents write: Found"
 grep -q "^jobs:" .github/workflows/ci-cd.yml && echo "Jobs: Found"
+
+# Canonical-pattern self-audit (closes the 12 ds-backend alignment gaps)
+for pattern in "build-docker-image" "push-docker-image" "tag-release" "ephemeral" "imagetools create" \
+               "FEATURE_" "actions/cache@v4" "actions/setup-node@v4" "MINOR_TAG"; do
+  grep -q "$pattern" .github/workflows/ci-cd.yml || echo "MISSING canonical pattern: $pattern"
+done
+
+# Anti-pattern check (these names are deprecated and should not appear)
+for anti in "build-and-push-docker" "tag-production"; do
+  grep -q "^[[:space:]]*${anti}:" .github/workflows/ci-cd.yml && \
+    echo "DEPRECATED job name found: $anti — rename to canonical (see reference/workflow-template.yml)"
+done
 ```
+
+Any `MISSING canonical pattern:` or `DEPRECATED job name found:` line means the canonical template wasn't followed correctly. Fix before proceeding.
 
 ### Actionlint Configuration
 

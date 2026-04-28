@@ -2,6 +2,10 @@
 
 This document contains detailed explanations of critical patterns for GitHub Actions workflows. These are the most common causes of CI/CD failures after migration.
 
+> **Canonical workflow template:** [`workflow-template.yml`](workflow-template.yml). Sections §1–§23 predate the template and describe patterns in isolation; **§24–§31** describe the structural patterns that the canonical template encodes, derived from `ds-backend` and the mule3-benin migration incident (see [`lessons-learned.md`](lessons-learned.md) "mule3-benin migration (2026-04)").
+>
+> When an older section references a job name like `tag-production` or `build-and-push-docker`, those are the historical names. The canonical template uses `tag-release` and the split `build-docker-image` + `push-docker-image` instead. If a recommendation in §1–§23 conflicts with the canonical template, **the canonical template wins**.
+
 ## Table of Contents
 
 1. [Workflow Permissions Block](#1-workflow-permissions-block)
@@ -27,6 +31,14 @@ This document contains detailed explanations of critical patterns for GitHub Act
 21. [Docker Hub Authentication Secret Names](#21-docker-hub-authentication-secret-names)
 22. [Artifact Uploads Must Be Opt-In](#22-artifact-uploads-must-be-opt-in)
 23. [Helm Chart Update Job Pattern](#23-helm-chart-update-job-pattern)
+24. [Build/Push Split via Ephemeral Tags](#24-buildpush-split-via-ephemeral-tags)
+25. [Feature Branch Tag Sanitization](#25-feature-branch-tag-sanitization)
+26. [Release Branch Tag Convention](#26-release-branch-tag-convention)
+27. [Master Tag Uses vX.Y.Z Prefix](#27-master-tag-uses-vxyz-prefix)
+28. [npm Cache in Version-Bump Job](#28-npm-cache-in-version-bump-job)
+29. [actions/setup-node@v4 Is Mandatory](#29-actionssetup-nodev4-is-mandatory)
+30. [Registry-Side Tag Promotion via imagetools](#30-registry-side-tag-promotion-via-imagetools)
+31. [Ephemeral Tag Cleanup](#31-ephemeral-tag-cleanup)
 
 ---
 
@@ -1748,4 +1760,346 @@ grep -A 2 "notify-failure:" .github/workflows/ci-cd.yml | grep -q "helm-chart-up
 
 ### Reference Implementation
 
-See: [`UNCTAD-eRegistrations/ActiveMQ` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml)
+See: [`UNCTAD-eRegistrations/ActiveMQ` — `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) — only the helm-chart-update job in this reference is currently endorsed; do NOT use the rest of the workflow as a pattern source. See [`workflow-template.yml`](workflow-template.yml) for the full canonical template.
+
+---
+
+## 24. Build/Push Split via Ephemeral Tags
+
+**Root Cause ID:** SPLIT-001
+**Closes gap:** B (Single `build-and-push-docker` job)
+
+### Problem
+
+Combining `mvn`/`docker build` and the final-tag `docker push` into one heavy-runner job ties the final image to a specific worker, blocks the heavy runner for longer than necessary, and prevents inserting test/lint gates between build and promote.
+
+### Required Pattern
+
+Split into two jobs:
+
+1. **`build-docker-image`** on `[self-hosted, linux, build, heavy]` — builds and pushes to an **ephemeral tag** `<DOCKER_IMAGE_NAME>:ephemeral-ci-${{ github.run_id }}`.
+2. **`push-docker-image`** on `[self-hosted, linux, build, normal]` — promotes the ephemeral tag to the final tag using `docker buildx imagetools create` (registry-side, no pull/push round-trip; see §30).
+
+The `build-docker-image` job exposes `ephemeral_image`, `version`, `tag_name`, and `minor_tag` as outputs; `push-docker-image` consumes them.
+
+### Why This Matters
+
+- Heavy runner is freed sooner — no waiting for final push to complete.
+- Final tag promotion is decoupled from the worker that built — the registry handles it.
+- Test/lint/qodana gates can be inserted between build and promote (see ds-backend's `run-tests`/`qodana-analysis` pattern).
+
+### Verification
+
+```bash
+grep -q "build-docker-image:" .github/workflows/ci-cd.yml || echo "MISSING split build job"
+grep -q "push-docker-image:" .github/workflows/ci-cd.yml || echo "MISSING split push job"
+grep -q "ephemeral-ci-\${{ github.run_id }}" .github/workflows/ci-cd.yml || echo "MISSING ephemeral tag"
+```
+
+---
+
+## 25. Feature Branch Tag Sanitization
+
+**Root Cause ID:** TAG-FEAT-001
+**Closes gap:** C (`feature/*` collides with `develop`'s `DEV` tag)
+
+### Problem
+
+Mapping every `feature/*` branch to the same `DEV` Docker tag causes the latest CI run to overwrite previous ones — including overwrites between `develop` and a feature branch running concurrently. Deployments using `unctad/<repo>:DEV` get whichever image was pushed last, which is non-deterministic when multiple branches are active.
+
+### Required Pattern
+
+In the `set-build-variables` case statement (and the `Recalculate tags` step in `build-docker-image`):
+
+```bash
+feature/*)
+  TAG_NAME=$(echo "$BRANCH_NAME" | tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9._-]/_/g')
+  ENV="dev"
+  ;;
+```
+
+Examples:
+- `feature/auth-fix` → `FEATURE_AUTH-FIX`
+- `feature/issue/123/fix` → `FEATURE_ISSUE_123_FIX`
+
+The regex `[^A-Z0-9._-]` replaces any character that's not letter/digit/dot/underscore/hyphen with `_` — Docker tag-safe.
+
+### Verification
+
+```bash
+grep -A 1 "feature/\*)" .github/workflows/ci-cd.yml | grep -q "tr '\[:lower:\]' '\[:upper:\]' | sed" \
+  || echo "MISSING feature/* sanitization regex"
+```
+
+---
+
+## 26. Release Branch Tag Convention
+
+**Root Cause ID:** TAG-RELEASE-001
+**Closes gap:** D (release/* uses `<branch_minor>-RC` test convention) + E (no version bump on release/*)
+
+### Problem
+
+Treating `release/*` as a stabilization-only branch (`<branch_minor>-RC` test image, no Jenkins deploy, no version bump) diverges from org convention. ds-backend treats `release/*` as a **maintenance line** with rolling patch releases.
+
+### Required Pattern
+
+In `set-build-variables`:
+
+```bash
+release/*)
+  TAG_NAME="$VERSION"
+  MINOR_TAG="${VERSION%.*}"   # 2.18.4 -> 2.18
+  echo "MINOR_TAG=$MINOR_TAG" >> $GITHUB_OUTPUT
+  ENV="live"
+  ;;
+```
+
+And in the `SHOULD_BUMP` block:
+
+```bash
+if [[ "$BRANCH_NAME" == "develop" ]] || [[ "$BRANCH_NAME" == release/* ]]; then
+  if [[ ! "$COMMIT_MSG" =~ ^chore && ! "$COMMIT_MSG" =~ ^revert ]]; then
+    SHOULD_BUMP="true"
+  fi
+fi
+```
+
+`push-docker-image` then promotes both `$VERSION` (full, e.g. `2.18.4`) AND `$MINOR_TAG` (e.g. `2.18`) — see §30.
+
+### Verification
+
+```bash
+grep -q "MINOR_TAG=\${VERSION%.\*}" .github/workflows/ci-cd.yml || echo "MISSING MINOR_TAG derivation"
+grep -A 5 SHOULD_BUMP .github/workflows/ci-cd.yml | grep -q "release/\*" || echo "MISSING release/* in SHOULD_BUMP"
+```
+
+---
+
+## 27. Master Tag Uses vX.Y.Z Prefix
+
+**Root Cause ID:** TAG-MASTER-001
+**Closes gaps:** G (job named `tag-production`) + H (master tag without `v` prefix)
+
+### Problem
+
+Master tags as bare `X.Y.Z` (e.g. `2.18.0`) without a `v` prefix make it ambiguous whether a string is a version or another identifier. ds-backend (and broader OSS convention) uses `vX.Y.Z`. Also, the historical job name `tag-production` is misleading (it's a release tag, not a "production" deploy).
+
+### Required Pattern
+
+```yaml
+tag-release:
+  runs-on: [self-hosted, linux, build, normal]
+  needs: [set-build-variables, push-docker-image]
+  if: |
+    always() &&
+    needs.set-build-variables.outputs.IS_MASTER == 'true' &&
+    needs.push-docker-image.result == 'success'
+  steps:
+    # ... checkout + git config
+    - name: Tag production release
+      env:
+        VERSION: ${{ needs.set-build-variables.outputs.VERSION }}
+      run: |
+        git tag "v$VERSION" || echo "Tag v$VERSION already exists"
+        git push origin "v$VERSION" || echo "Tag already pushed"
+```
+
+Notes:
+- Job name is `tag-release` (not `tag-production`).
+- Push only the new tag (`git push origin "v$VERSION"`), NOT all tags (`git push --tags`) — narrower blast radius.
+
+### Verification
+
+```bash
+grep -q "^[[:space:]]*tag-release:" .github/workflows/ci-cd.yml || echo "MISSING tag-release job (or still named tag-production)"
+grep -q 'git tag "v\$VERSION"' .github/workflows/ci-cd.yml || echo "MISSING vX.Y.Z prefix"
+```
+
+---
+
+## 28. npm Cache in Version-Bump Job
+
+**Root Cause ID:** NPM-CACHE-001
+**Closes gap:** I (`npm ci` runs cold every CI on every push)
+
+### Problem
+
+`bump-version` runs `npm ci` on every triggered CI run. With no cache, every run downloads and unpacks all `node_modules` — typically 10–30s of unnecessary work per CI.
+
+### Required Pattern
+
+```yaml
+- name: Set up Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: "20"
+
+- name: Cache npm dependencies
+  id: npm-cache
+  uses: actions/cache@v4
+  with:
+    path: |
+      ~/.npm
+      node_modules
+    key: ${{ runner.os }}-npm-<REPO_NAME>-${{ hashFiles('package-lock.json') }}
+    restore-keys: |
+      ${{ runner.os }}-npm-<REPO_NAME>-
+
+- name: Install dependencies
+  if: steps.npm-cache.outputs.cache-hit != 'true'
+  run: npm ci
+```
+
+Key points:
+- **Use `hashFiles('package-lock.json')` in the key**, not a static `v1` suffix. A static suffix means cache doesn't invalidate when package-lock changes → stale `node_modules`.
+- Skip `npm ci` on cache hit (`if: steps.npm-cache.outputs.cache-hit != 'true'`) — cache restored `node_modules` directly.
+- The `restore-keys` fallback lets a partial-prefix match populate `~/.npm` even on a different package-lock — speeds up the cold case.
+
+### Verification
+
+```bash
+grep -q "actions/cache@v4" .github/workflows/ci-cd.yml || echo "MISSING actions/cache"
+grep -q "hashFiles('package-lock.json')" .github/workflows/ci-cd.yml || echo "MISSING hashFiles in cache key"
+```
+
+---
+
+## 29. actions/setup-node@v4 Is Mandatory
+
+**Root Cause ID:** NODE-SETUP-001
+**Closes gap:** F (relying on pre-installed node) + A (heavy runner missing node entirely)
+
+### Problem
+
+The org's self-hosted `[self-hosted, linux, build, normal]` runners have a node binary pre-installed; the `[self-hosted, linux, build, heavy]` runners do not. A workflow that relies on pre-installed node will silently work on `normal` and fail with `Process completed with exit code 127` on `heavy`.
+
+### Required Pattern
+
+Every job that uses `node`, `npm`, or `npx` MUST start with:
+
+```yaml
+- name: Set up Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: "20"
+```
+
+This applies to: `set-build-variables`, `bump-version`. The `build-docker-image` job (heavy runner) intentionally does NOT use node — it consumes VERSION from upstream outputs (`set-build-variables.outputs.VERSION` / `bump-version.outputs.NEW_VERSION`) so node is not needed there.
+
+### Verification
+
+```bash
+# Every job that runs `node`/`npm` has setup-node before it
+grep -B 5 -E '^\s+run: \|.*\n.*node -p' .github/workflows/ci-cd.yml | \
+  grep -B 5 'node -p' | grep -q 'actions/setup-node@v4' || \
+  echo "WARNING: node command without preceding setup-node detected"
+```
+
+### Heavy-runner exception
+
+`build-docker-image` runs on heavy and must NOT use `node -p`. Instead:
+
+```yaml
+- name: Recalculate tags after version bump
+  env:
+    VERSION_FALLBACK: ${{ needs.set-build-variables.outputs.VERSION }}
+    VERSION_BUMPED: ${{ needs.bump-version.outputs.NEW_VERSION }}
+  run: |
+    VERSION="${VERSION_BUMPED:-$VERSION_FALLBACK}"
+    # ... case statement on BRANCH_NAME
+```
+
+---
+
+## 30. Registry-Side Tag Promotion via imagetools
+
+**Root Cause ID:** PROMOTE-001
+**Closes gap:** L (final tag pushed via `docker push` from heavy worker)
+
+### Problem
+
+`docker pull <ephemeral> && docker tag ... && docker push <final>` requires the runner to pull the full image, tag it locally, and re-push. This:
+- Pins the promote step to a worker that has the image cached (or forces a full pull).
+- Doubles network traffic vs registry-side promotion.
+- Slows down the pipeline.
+
+### Required Pattern
+
+```yaml
+- name: Promote ephemeral to final tag
+  run: |
+    docker buildx imagetools create \
+      --tag "${{ env.DOCKER_IMAGE }}:$TAG_NAME" \
+      "$EPHEMERAL_IMAGE"
+
+    if [ -n "$MINOR_TAG" ]; then
+      docker buildx imagetools create \
+        --tag "${{ env.DOCKER_IMAGE }}:$MINOR_TAG" \
+        "$EPHEMERAL_IMAGE"
+    fi
+```
+
+`docker buildx imagetools create` operates entirely against the registry — it reads the manifest from `$EPHEMERAL_IMAGE` and writes a new manifest reference at `$TAG_NAME` without pulling layers. The `push-docker-image` job that runs this can be on any runner with a Docker login.
+
+### Verification
+
+```bash
+grep -q "docker buildx imagetools create" .github/workflows/ci-cd.yml || echo "MISSING imagetools promote"
+```
+
+---
+
+## 31. Ephemeral Tag Cleanup
+
+**Root Cause ID:** CLEANUP-001
+**Closes gap:** J (notify-failure doesn't clean up ephemeral tags)
+
+### Problem
+
+Ephemeral tags (`<DOCKER_IMAGE_NAME>:ephemeral-ci-<run_id>`) accumulate in Docker Hub if not cleaned up. Over hundreds of CI runs this clutters the registry and may eventually hit per-repo tag limits.
+
+### Required Pattern
+
+Cleanup MUST happen on BOTH paths:
+
+1. **Success path** — at the end of `push-docker-image` (after the promote succeeds, the ephemeral is no longer needed):
+   ```yaml
+   - name: Cleanup ephemeral tag (Docker Hub)
+     if: always()
+     continue-on-error: true
+     env:
+       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+     run: |
+       JWT=$(curl -sS --fail -X POST -H "Content-Type: application/json" \
+         -d "{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_TOKEN\"}" \
+         https://hub.docker.com/v2/users/login/ | jq -r .token)
+       if [ -z "$JWT" ] || [ "$JWT" = "null" ]; then
+         echo "::warning::Could not obtain Docker Hub JWT; skipping remote tag cleanup"
+         exit 0
+       fi
+       HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE \
+         -H "Authorization: JWT $JWT" \
+         "https://hub.docker.com/v2/repositories/<DOCKER_IMAGE_NAME>/tags/$EPHEMERAL_TAG/")
+       case "$HTTP_CODE" in
+         204|404) echo "  OK (HTTP $HTTP_CODE)" ;;
+         *)       echo "::warning::Cleanup returned HTTP $HTTP_CODE" ;;
+       esac
+   ```
+
+2. **Failure path** — same step, at the start of `notify-failure`. Catches the case where build/promote failed and the ephemeral still exists.
+
+The Docker Hub `DELETE /v2/repositories/<repo>/tags/<tag>/` API expects JWT-format auth (obtained via `POST /v2/users/login/`). The cleanup is `continue-on-error: true` so a transient cleanup failure doesn't mask the real CI status.
+
+### Verification
+
+```bash
+# Success path
+grep -A 30 "push-docker-image:" .github/workflows/ci-cd.yml | grep -q "Cleanup ephemeral tag" \
+  || echo "MISSING cleanup step in push-docker-image"
+
+# Failure path
+grep -A 30 "notify-failure:" .github/workflows/ci-cd.yml | grep -q "Cleanup ephemeral tag" \
+  || echo "MISSING cleanup step in notify-failure"
+```
