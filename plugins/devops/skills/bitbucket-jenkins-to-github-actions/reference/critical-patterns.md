@@ -39,6 +39,8 @@ This document contains detailed explanations of critical patterns for GitHub Act
 29. [actions/setup-node@v4 Is Mandatory](#29-actionssetup-nodev4-is-mandatory)
 30. [Registry-Side Tag Promotion via imagetools](#30-registry-side-tag-promotion-via-imagetools)
 31. [Ephemeral Tag Cleanup](#31-ephemeral-tag-cleanup)
+32. [Packages-Branch Artifact Publish for Libraries](#32-packages-branch-artifact-publish-for-libraries)
+33. [Cross-Repo Version Propagation via PR + Immediate Merge](#33-cross-repo-version-propagation-via-pr--immediate-merge)
 
 ---
 
@@ -2102,4 +2104,182 @@ grep -A 30 "push-docker-image:" .github/workflows/ci-cd.yml | grep -q "Cleanup e
 # Failure path
 grep -A 30 "notify-failure:" .github/workflows/ci-cd.yml | grep -q "Cleanup ephemeral tag" \
   || echo "MISSING cleanup step in notify-failure"
+```
+
+---
+
+## 32. Packages-Branch Artifact Publish for Libraries
+
+**Root Cause ID:** PUBLISH-001
+**Applies to:** library template (`workflow-template-library.yml`) only
+
+### Problem
+
+UNCTAD-eRegistrations Maven libraries have historically published to a private Reposilite at `localhost:8081` on the Jenkins agent. That hostname is meaningless on a self-hosted GitHub Actions runner (different machine, different network namespace). Three publish-target options were considered:
+
+| Option | Pros | Cons |
+|---|---|---|
+| Stay with Reposilite | Existing infra | Requires runners to reach Reposilite (VPN / firewall); ops burden; auth tokens |
+| GitHub Packages (Maven) | Native to GitHub; auth via `secrets.GITHUB_TOKEN` | Per-token download requirement on consumers; `<distributionManagement>` config; quotas |
+| **Packages-branch trick** | Zero ops, zero new auth, mirror of mule-common's working pattern | Slightly larger repo size (versions accumulate as commits) |
+
+The packages-branch trick wins for UNCTAD's setup: zero ops, no auth tokens beyond `secrets.GITHUB_TOKEN`, and consumers fetch via plain `git clone --depth 1 -b packages` which works with the same SSH key already configured for source clones.
+
+### Required Pattern
+
+On every master push, the library's CI:
+1. Adds a git worktree for the `packages` branch (creates it on first publish)
+2. Stages the built artifact at `${ARTIFACT_GROUP_PATH}/${ARTIFACT_ID}/${VERSION}/` — same Maven-style directory layout consumers expect
+3. Generates `.sha1` and `.md5` sidecars for each `.jar` and `.pom` (mirrors mule-common's structure; some Maven setups validate)
+4. Commits + pushes to `packages`
+
+```yaml
+- name: Publish to packages branch (master only)
+  if: needs.set-build-variables.outputs.IS_MASTER == 'true'
+  env:
+    VERSION: ${{ steps.resolve.outputs.VERSION }}
+    ARTIFACT_GROUP_PATH: ${{ needs.set-build-variables.outputs.ARTIFACT_GROUP_PATH }}
+  run: |
+    if ! git ls-remote --exit-code origin packages >/dev/null 2>&1; then
+      git worktree add -b packages /tmp/pkgs-wt
+      cd /tmp/pkgs-wt && git rm -rf . 2>/dev/null || true
+      cd "$GITHUB_WORKSPACE"
+    else
+      git fetch origin packages
+      git worktree add /tmp/pkgs-wt origin/packages
+    fi
+
+    PKG_DIR="/tmp/pkgs-wt/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
+    mkdir -p "$PKG_DIR"
+    cp "target/${{ env.ARTIFACT_ID }}-${VERSION}.jar" "$PKG_DIR/"
+    cp pom.xml "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}.pom"
+
+    for f in "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}".jar "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}".pom; do
+      sha1sum "$f" | awk '{print $1}' > "$f.sha1"
+      md5sum  "$f" | awk '{print $1}' > "$f.md5"
+    done
+
+    cd /tmp/pkgs-wt
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+    git config user.name "GitHub Actions Bot"
+    git add .
+    git diff --cached --quiet || {
+      git commit -m "publish ${{ env.ARTIFACT_ID }} ${VERSION}"
+      git push origin HEAD:packages
+    }
+```
+
+### Consumer-side fetch pattern
+
+In the consumer's CI/CD workflow (e.g., mule3-benin's `build-docker-image` job, before the mvn step):
+
+```yaml
+- name: Fetch <library> from Bitbucket/GitHub packages branch
+  run: |
+    LIB_VERSION=$(grep -A 20 '<artifactId><library></artifactId>' pom.xml \
+      | grep -m 1 '<version>' \
+      | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+
+    TARGET=~/.m2/repository/org/unctad/.../<library>/${LIB_VERSION}
+    if [ -f "$TARGET/<library>-${LIB_VERSION}.jar" ]; then
+      echo "<library> ${LIB_VERSION} already cached, skipping fetch"
+      exit 0
+    fi
+
+    SRC=$(mktemp -d)
+    git clone --depth 1 -b packages git@github.com:UNCTAD-eRegistrations/<library>.git "$SRC"
+    mkdir -p "$TARGET"
+    cp "$SRC/org/unctad/.../<library>/${LIB_VERSION}/"* "$TARGET/"
+```
+
+mule-common is the canonical reference — its `packages` branch has been stable since well before the GitHub migration.
+
+### Verification
+
+```bash
+grep -q "packages" .github/workflows/ci-cd.yml || echo "MISSING packages-branch publish"
+grep -q "git worktree add" .github/workflows/ci-cd.yml || echo "MISSING worktree-based publish"
+grep -q "sha1sum\|sha256sum" .github/workflows/ci-cd.yml || echo "MISSING sha sidecar generation"
+```
+
+---
+
+## 33. Cross-Repo Version Propagation via PR + Immediate Merge
+
+**Root Cause ID:** PROPAGATE-001
+**Applies to:** library template (`workflow-template-library.yml`) only
+
+### Problem
+
+When a library publishes a new version, downstream consumers' `pom.xml` still pins the old version. The pre-migration Jenkins flow handled this with a "Update package in related projects" stage that cloned each consumer, ran `npm run update-related-projects-package`, and **direct-pushed** the bump. Three issues with that:
+
+1. Direct push bypasses any future CI gate or branch-protection rule the consumer might add
+2. No audit trail of why a version was bumped
+3. If two libraries publish simultaneously, two direct pushes race on the consumer's `develop`
+
+### Required Pattern
+
+The library's master CI opens a PR per known consumer (matrix-driven), then merges it immediately:
+
+```yaml
+propagate-version:
+  strategy:
+    fail-fast: false
+    matrix:
+      consumer: []
+        # - UNCTAD-eRegistrations/<consumer-1>
+        # - UNCTAD-eRegistrations/<consumer-2>
+  steps:
+    - name: Open bump PR in ${{ matrix.consumer }}
+      env:
+        GH_TOKEN: ${{ secrets.PROPAGATOR_TOKEN || secrets.GITHUB_TOKEN }}
+      run: |
+        # 1. Clone consumer's develop, bump pom.xml
+        # 2. Close superseded propagator PRs (filter: same author + same artifact title prefix)
+        # 3. git push branch + gh pr create + gh pr merge --merge
+```
+
+### Why `--merge` not `--auto`
+
+`gh pr merge --auto --squash` requires `allow_auto_merge: true` at the consumer's repo level (`gh api -X PATCH /repos/.../allow_auto_merge=true`). The user explicitly chose to keep that toggle OFF org-wide — auto-merge as a feature has subtle behaviors (dependency resolution, reviewer-required interactions) that are easier to enable case-by-case than blanket-on.
+
+`gh pr merge --merge` is "merge now, fail loud if blocked." With current org branch-protection state (none on `develop`), this succeeds immediately. If a consumer later adds status-check or review-required protection, the merge call fails with a clear error and the PR is left open for human handling. **Loud failure beats silent waiting** — the propagator emits a `::warning::` annotation pointing at the open PR URL.
+
+### Why open a PR (not direct push)
+
+Direct push has no audit trail and no extension point for future CI gates. Opening a PR (even one that auto-merges right away) creates:
+- A linkable record in the consumer's PR history
+- A trigger for the consumer's CI
+- A graceful upgrade path: when the consumer adds branch protection, the same workflow continues to function (the PR just sits longer)
+
+### Stale propagator PR cleanup
+
+If a previous propagator run left an unmerged bump PR (e.g., a transient API failure on merge), the next run would create a duplicate bump PR. To prevent accumulation:
+
+```bash
+ACTOR=$(gh api /user --jq '.login')
+gh pr list --repo "$CONSUMER" --state open --author "$ACTOR" \
+  --search "in:title chore: bump ${ARTIFACT_ID} to" \
+  --json number,title \
+  | jq -r '.[] | select(.title | startswith("chore: bump '"$ARTIFACT_ID"' to ")) | .number' \
+  | while read -r pr_num; do
+      gh pr close "$pr_num" --repo "$CONSUMER" \
+        --comment "Superseded by newer ${ARTIFACT_ID} ${NEW_VERSION} bump." \
+        --delete-branch
+    done
+```
+
+The `--author "$ACTOR"` filter is **mandatory** — without it, a human's manual bump PR could be closed accidentally. The author-and-title-prefix combo guarantees we only close PRs we created.
+
+### `PROPAGATOR_TOKEN` requirement
+
+Cross-repo `gh pr create` / `merge` / `close` need a token with `repo` + `pull_requests` write scopes on EACH consumer. `secrets.GITHUB_TOKEN` is implicitly scoped to the same repo and won't work cross-repo. Provision a fine-grained PAT (or org-level GitHub App) per library with access to the matrix consumers, store as `PROPAGATOR_TOKEN`.
+
+### Verification
+
+```bash
+grep -q "propagate-version:" .github/workflows/ci-cd.yml || echo "MISSING propagate-version job"
+grep -q "gh pr merge --merge" .github/workflows/ci-cd.yml || echo "MISSING --merge invocation"
+grep -q "Closing superseded PR" .github/workflows/ci-cd.yml || echo "MISSING stale PR cleanup"
+grep -q '\-\-author "$ACTOR"' .github/workflows/ci-cd.yml || echo "WARNING: stale-PR cleanup missing author filter (could close human PRs)"
 ```
