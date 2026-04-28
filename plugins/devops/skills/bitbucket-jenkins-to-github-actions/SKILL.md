@@ -87,8 +87,9 @@ Initialize with TodoWrite at start of migration:
 | 9 | GATE: Validate workflow syntax | Gate 3-4 |
 | 10 | Update file references | Phase 4 |
 | 11 | Apply branch deletion protection ruleset | Phase 4.5 |
-| 12 | Generate migration summary | Phase 5 |
-| 13 | **MANDATORY: Run validation suite** | Phase 5.5 |
+| 12 | Grant team access (v4-development [+ v4-fe-development if frontend]) | Phase 4.6 |
+| 13 | Generate migration summary | Phase 5 |
+| 14 | **MANDATORY: Run validation suite** | Phase 5.5 |
 
 If migration fails, see Phase 6 (Rollback). Mark each complete as you progress. Use this exact list when calling TodoWrite.
 
@@ -103,6 +104,7 @@ Check required tools:
 # Required
 which git || echo "MISSING: git"
 which ssh || echo "MISSING: ssh"
+which gh  || echo "MISSING: gh (required for Phase 4.5 rulesets and Phase 4.6 team grants)"
 
 # Optional (for specific project types)
 which npm 2>/dev/null && echo "Found: npm (Node.js)"
@@ -110,14 +112,20 @@ which mvn 2>/dev/null && echo "Found: mvn (Java/Maven)"
 which python3 2>/dev/null && echo "Found: python3"
 ```
 
-### Step 0.2: GitHub SSH Connectivity
+### Step 0.2: GitHub SSH Connectivity & gh CLI Auth
 
 ```bash
 ssh -T git@github.com 2>&1 | head -5
+
+# gh CLI auth — needed for Phase 4.5 (rulesets) and Phase 4.6 (team grants)
+gh auth status 2>&1 | head -10
 ```
 
-Expected success: "Hi <username>! You've successfully authenticated..."
-If fails: Ask user to configure SSH keys before proceeding.
+Expected success (SSH): "Hi <username>! You've successfully authenticated..."
+Expected success (gh): "✓ Logged in to github.com account <user>"
+
+If SSH fails: Ask user to configure SSH keys before proceeding.
+If gh fails: Ask user to run `gh auth login` before proceeding (or the migration will succeed up to Phase 4.5 then fail there).
 
 ### Step 0.3: Repository State Check
 
@@ -1034,6 +1042,153 @@ gh api "repos/$GITHUB_REPO/rulesets/$RULESET_ID" \
 | HTTP 422 (validation) | Org-level ruleset preempts | Inspect with `gh api repos/$GITHUB_REPO/rulesets --jq '.[].source_type'` — org rulesets take precedence; coordinate with org admin |
 
 If unrecoverable, do NOT abort migration — note in summary that ruleset must be applied manually.
+
+---
+
+## Phase 4.6: Repository Team Access
+
+**Purpose**: Grant the standard org teams `write` (push) access to the migrated repo so developers don't need individual-collaborator grants.
+
+**Teams granted**:
+- `v4-development` — always, on every migrated repo
+- `v4-fe-development` — only on frontend-related repos (heuristic + user confirmation)
+
+**Scope**: Only these teams. Per-user collaborators (e.g. admins) are intentionally NOT added — those are managed manually per repo.
+
+### Step 4.6.1: Detect Frontend Classification
+
+Heuristic — any one signal counts as frontend:
+
+```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+
+IS_FRONTEND="no"
+FE_SIGNALS=""
+
+# Signal 1: package.json with frontend framework deps
+if [ -f package.json ] && grep -qE '"(react|vue|@angular/core|@angular/cli|svelte|next|nuxt|vite|@vue/cli|preact|solid-js)"\s*:' package.json; then
+  IS_FRONTEND="yes"
+  FE_SIGNALS="$FE_SIGNALS package.json-deps"
+fi
+
+# Signal 2: telltale frontend config files
+for pattern in vite.config.* next.config.* nuxt.config.* angular.json svelte.config.* astro.config.* remix.config.*; do
+  if compgen -G "$pattern" > /dev/null 2>&1; then
+    IS_FRONTEND="yes"
+    FE_SIGNALS="$FE_SIGNALS config:$pattern"
+    break
+  fi
+done
+
+# Signal 3: HTML entry point in conventional locations
+if [ -f index.html ] || [ -f public/index.html ] || [ -f src/index.html ]; then
+  IS_FRONTEND="yes"
+  FE_SIGNALS="$FE_SIGNALS html-entry"
+fi
+
+echo "Frontend detection: IS_FRONTEND=$IS_FRONTEND (signals:$FE_SIGNALS)"
+
+# Persist for downstream steps
+cat >> /tmp/migration-state.sh <<EOF
+export IS_FRONTEND="$IS_FRONTEND"
+export FE_SIGNALS="$FE_SIGNALS"
+EOF
+```
+
+Then ask user to confirm using AskUserQuestion (matches Phase 1.2 style):
+
+- Question: "Detected frontend classification: **$IS_FRONTEND** (signals:$FE_SIGNALS). Should `v4-fe-development` team be granted write access?"
+- Options: "Yes — grant v4-fe-development" | "No — skip v4-fe-development"
+
+Set `GRANT_FE_TEAM` to `yes`/`no` based on the user's answer (NOT solely the heuristic — user confirmation is authoritative). Persist:
+
+```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+echo "export GRANT_FE_TEAM=\"$GRANT_FE_TEAM\"" >> /tmp/migration-state.sh
+```
+
+### Step 4.6.2: Grant Team Access
+
+`PUT /orgs/{org}/teams/{team}/repos/{owner}/{repo}` is upsert — but a blind PUT with `permission=push` would silently DOWNGRADE a team that already holds `admin` or `maintain`. Use the helper below to guard against that case (relevant when re-running the skill on an already-migrated repo where someone manually elevated team permissions):
+
+```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+
+# $GITHUB_REPO was exported by Step 2.6; fall back to local derivation if missing
+: "${GITHUB_REPO:=$(git remote get-url origin | sed -E 's/.*github.com[:\/](.+)\.git/\1/')}"
+
+grant_team_write() {
+  local TEAM="$1"
+  local EXISTING_ROLE
+
+  # Empty role on 404 (no access) or any non-200; PUT below will surface auth failures.
+  EXISTING_ROLE=$(gh api -H 'Accept: application/vnd.github.v3.repository+json' \
+    "/orgs/UNCTAD-eRegistrations/teams/$TEAM/repos/$GITHUB_REPO" \
+    --jq '.role_name' 2>/dev/null)
+
+  case "$EXISTING_ROLE" in
+    admin|maintain)
+      echo "Skipped $TEAM — already has higher permission ($EXISTING_ROLE); not downgrading to write"
+      return 0
+      ;;
+    write)
+      echo "$TEAM already has write — re-applying for safety (no-op upsert)"
+      ;;
+    "")
+      echo "Granting $TEAM write access to $GITHUB_REPO (no prior access)"
+      ;;
+    *)
+      echo "$TEAM has '$EXISTING_ROLE' — upgrading to write"
+      ;;
+  esac
+
+  gh api -X PUT "/orgs/UNCTAD-eRegistrations/teams/$TEAM/repos/$GITHUB_REPO" \
+    -f permission=push
+}
+
+# Always: v4-development
+grant_team_write v4-development
+
+# Conditional: v4-fe-development (only if user confirmed frontend)
+if [ "$GRANT_FE_TEAM" = "yes" ]; then
+  grant_team_write v4-fe-development
+else
+  echo "Skipped v4-fe-development (not a frontend repo)"
+fi
+```
+
+`permission=push` corresponds to the GitHub UI label `Role: write`.
+
+### Step 4.6.3: Verify
+
+```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+: "${GITHUB_REPO:=$(git remote get-url origin | sed -E 's/.*github.com[:\/](.+)\.git/\1/')}"
+
+for TEAM in v4-development $([ "$GRANT_FE_TEAM" = "yes" ] && echo v4-fe-development); do
+  echo "Verifying $TEAM..."
+  gh api -H 'Accept: application/vnd.github.v3.repository+json' \
+    "/orgs/UNCTAD-eRegistrations/teams/$TEAM/repos/$GITHUB_REPO" \
+    --jq "{team: \"$TEAM\", repo: .name, role_name: .role_name}"
+done
+```
+
+**Expected output (frontend repo)**:
+```json
+{"team": "v4-development", "repo": "<repo>", "role_name": "write"}
+{"team": "v4-fe-development", "repo": "<repo>", "role_name": "write"}
+```
+
+### Step 4.6.4: Failure Handling
+
+| Failure | Likely Cause | Action |
+|---------|--------------|--------|
+| HTTP 403 | Token lacks scope OR user not org admin | Verify `gh auth status` shows org admin on UNCTAD-eRegistrations; token needs at least `repo` + `read:org` (org admins can manage team-repo grants) |
+| HTTP 404 (team) | Team renamed or removed | Check `gh api /orgs/UNCTAD-eRegistrations/teams/<slug>` — if gone, document new slug and update this step |
+| HTTP 404 (repo) | `$GITHUB_REPO` wrong or not yet pushed | Confirm Phase 2 completed and repo exists on GitHub |
+| Heuristic misfire | False positive/negative for frontend | User confirmation in Step 4.6.1 overrides heuristic — answer "No" to skip FE team, "Yes" to add it |
+
+If a grant fails, do NOT abort migration — note in summary which team(s) need to be granted manually via Settings → Collaborators and teams.
 
 ---
 
