@@ -41,6 +41,8 @@ This document contains detailed explanations of critical patterns for GitHub Act
 31. [Ephemeral Tag Cleanup](#31-ephemeral-tag-cleanup)
 32. [Packages-Branch Artifact Publish for Libraries](#32-packages-branch-artifact-publish-for-libraries)
 33. [Cross-Repo Version Propagation via PR + Immediate Merge](#33-cross-repo-version-propagation-via-pr--immediate-merge)
+34. [Git LFS-Tracked Binaries in Migrated Repos](#34-git-lfs-tracked-binaries-in-migrated-repos)
+35. [Cross-Repo Private-Read via the unctad-dependency-propagator App](#35-cross-repo-private-read-via-the-unctad-dependency-propagator-app)
 
 ---
 
@@ -2300,4 +2302,143 @@ grep -q "propagate-version:" .github/workflows/ci-cd.yml || echo "MISSING propag
 grep -q "gh pr merge --merge" .github/workflows/ci-cd.yml || echo "MISSING --merge invocation"
 grep -q "Closing superseded PR" .github/workflows/ci-cd.yml || echo "MISSING stale PR cleanup"
 grep -q '\-\-author "$ACTOR"' .github/workflows/ci-cd.yml || echo "WARNING: stale-PR cleanup missing author filter (could close human PRs)"
+```
+
+---
+
+## 34. Git LFS-Tracked Binaries in Migrated Repos
+
+**Root Cause ID:** LFS-001
+**Closes gap:** large binaries (typically vendor distributions like `mule-standalone-*.tar.gz`) checked out as pointer files in CI
+
+### Problem
+
+Repos that were tracking large binaries via Git LFS on Bitbucket (`.gitattributes`: `*.gz filter=lfs`) lose those binaries on a vanilla `git push` — only the LFS POINTER files transfer; the actual content lives in LFS object storage and must be explicitly pushed via `git lfs push --all`. Symptom on the consumer side (CI runner): the file in the working tree is a 100-byte text file ("version https://git-lfs.github.com/spec/v1\noid sha256:...\nsize ...") instead of the real binary. Any consumer that depends on byte-exact content (Dockerfile MD5 check, hash-pinned binary install) fails.
+
+### Required Pattern (source side)
+
+The skill's Phase 2.3/2.4 enforces this when `HAS_LFS=yes` is detected in Phase 0.5.2:
+
+```bash
+# Phase 2.3 — after the regular branches/tags push
+if [ "$HAS_LFS" = "yes" ]; then
+  git lfs push --all github
+fi
+
+# Phase 2.4 — verify object reachability
+if [ "$HAS_LFS" = "yes" ]; then
+  git lfs fetch github --all   # fails if any referenced object is missing
+fi
+```
+
+### Required Pattern (consumer side, in CI/CD workflow)
+
+Every job that touches an LFS-tracked file needs:
+
+1. `git-lfs` installed (self-hosted runners often lack it):
+   ```yaml
+   - name: Ensure git-lfs is available
+     run: |
+       command -v git-lfs >/dev/null && exit 0
+       LFS_VERSION="3.7.0"
+       curl -fsSL "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/git-lfs-linux-amd64-v${LFS_VERSION}.tar.gz" -o /tmp/lfs.tgz
+       tar -xzf /tmp/lfs.tgz -C /tmp
+       mkdir -p "$HOME/.local/bin"
+       ln -sf "/tmp/git-lfs-${LFS_VERSION}/git-lfs" "$HOME/.local/bin/git-lfs"
+       echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+   ```
+
+2. `actions/checkout@v4` with `lfs: true` AND default `clean: true` (drop `clean: false` for LFS jobs — stale pointer files survive otherwise).
+
+3. Defensive smudge after the existing pull (handles reused workspaces where checkout's auto-smudge silently no-ops):
+   ```yaml
+   - run: |
+       git pull origin ${{ github.ref_name }} || true
+       git lfs install --local
+       git lfs pull
+   ```
+
+4. (Optional) Inline MD5 sanity check before any expensive build that consumes the binary — fails fast, preserves operator time.
+
+### Why this isn't in the canonical app template by default
+
+`lfs: true` on every checkout is wasted bandwidth + workspace churn for the majority of repos with no LFS files. The Phase 0.5.2 detection signal (`HAS_LFS=yes`) gates whether to add the recipe. See [`workflow-customization.md`](workflow-customization.md) § 9.
+
+### Verification
+
+```bash
+# Source side (after migration)
+git lfs ls-files | wc -l    # files at HEAD
+git lfs fetch github --all  # must succeed without error
+
+# Consumer side (in workflow)
+grep -q 'lfs: true' .github/workflows/ci-cd.yml || echo "MISSING lfs:true on checkout"
+grep -q 'git lfs pull' .github/workflows/ci-cd.yml || echo "MISSING defensive lfs pull"
+```
+
+### Reference incident
+
+Migrating mule3-benin from Bitbucket → GitHub: my Phase 2 push didn't run `git lfs push --all` (the skill at the time only had this as a "conditional handling" note, not enforced). LFS pointers transferred but objects didn't. Subsequent CI runs got pointer files from `actions/checkout`, the Dockerfile's `md5sum -c` failed, build broke. Recovery: manually run `git lfs push --all origin` from the maintainer's workstation (which had LFS objects locally), then add lfs:true + git-lfs install + clean:true to the CI workflow.
+
+---
+
+## 35. Cross-Repo Private-Read via the unctad-dependency-propagator App
+
+**Root Cause ID:** AUTH-CROSS-001
+**Closes gap:** consumer needs to read another private GitHub repo (e.g. fetch a library's `packages` branch)
+
+### Problem
+
+When migrated apps consume libraries that publish via the packages-branch trick (§32), the consumer's CI must clone the library's `packages` branch from another private GitHub repo. Two auth options that DON'T work:
+
+1. **`secrets.GITHUB_TOKEN`** is implicitly scoped to the running repo only. Cross-repo private clone returns 404 / "Not Found".
+2. **Self-hosted runner's `SSH_PRIVATE_KEY`** is the org's standard SSH key for **bitbucket.org** (mule-common, eregistrations-tools). It's not a GitHub deploy key. SSH clone of a github.com private repo fails with "Permission denied (publickey)".
+
+### Required Pattern
+
+Reuse the org-installed `unctad-dependency-propagator` App that already powers library propagation (§33). Generate a per-job App token scoped to ONE library, HTTPS-clone with it.
+
+```yaml
+- name: Generate token for <library> access
+  id: lib-token
+  uses: actions/create-github-app-token@v1
+  with:
+    app-id: ${{ vars.DEPENDENCY_PROPAGATOR_ID }}
+    private-key: ${{ secrets.DEPENDENCY_PROPAGATOR_SECRET }}
+    owner: UNCTAD-eRegistrations
+    repositories: <library-repo-name>     # narrows token scope
+
+- name: Clone <library>'s packages branch
+  env:
+    GH_TOKEN: ${{ steps.lib-token.outputs.token }}
+  run: |
+    git clone --depth 1 -b packages \
+      "https://x-access-token:${GH_TOKEN}@github.com/UNCTAD-eRegistrations/<library>.git" \
+      "$DEST"
+```
+
+### Prerequisites
+
+- The App must be installed on the **consumer repo** (so `actions/create-github-app-token@v1` can issue tokens).
+- The App must be installed on the **library repo** (so the issued token can read it).
+- Org-level `vars.DEPENDENCY_PROPAGATOR_ID` + `secrets.DEPENDENCY_PROPAGATOR_SECRET` (already provisioned).
+
+### Why not deploy keys
+
+A GitHub deploy key per consumer-library pair works but doesn't scale — N×M keys to rotate, all tied to specific user accounts. The App is one-time setup with auto-rotating 1-hour tokens scoped to exactly the repos requested.
+
+### Why not make the library public
+
+Libraries contain proprietary org code. Public-by-default isn't aligned with org policy. App-mediated read access preserves privacy.
+
+### Reference
+
+This is the consumer-side counterpart to §33 (library-side propagation). Same App, different direction.
+
+### Verification
+
+```bash
+grep -q "actions/create-github-app-token@v1" .github/workflows/ci-cd.yml \
+  && grep -q "DEPENDENCY_PROPAGATOR_ID" .github/workflows/ci-cd.yml \
+  || echo "MISSING App-token cross-repo fetch (consumer-side)"
 ```

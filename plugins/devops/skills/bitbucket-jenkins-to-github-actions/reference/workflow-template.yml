@@ -274,6 +274,18 @@ jobs:
       tag_name: ${{ steps.recalc.outputs.TAG_NAME }}
       minor_tag: ${{ steps.recalc.outputs.MINOR_TAG }}
     steps:
+      # =======================================================================
+      # If the source repo had HAS_LFS=yes (Phase 0.5.2 detection), this job
+      # needs Git LFS support:
+      #   1. Add a "Ensure git-lfs is available" step BEFORE this checkout
+      #      (self-hosted runners often lack git-lfs).
+      #   2. Set `lfs: true` and `clean: true` on this checkout so the LFS
+      #      pointer is smudged to the real binary.
+      #   3. Optionally add a `git lfs pull` + MD5 sanity check after Pull
+      #      latest changes (catches stale workspace issues).
+      # See reference/workflow-customization.md § "Git LFS handling" for the
+      # exact recipe.
+      # =======================================================================
       - name: Checkout code
         uses: actions/checkout@v4
         with:
