@@ -247,7 +247,7 @@ Comment out or delete the matrix entry. No state cleanup needed — already-merg
 2. Updates the matching `<artifactId>` block's `<version>` in `pom.xml` via sed.
 3. **Closes superseded propagator PRs first** — only PRs (a) authored by the propagator's actor AND (b) titled `chore: bump <ARTIFACT_ID> to *`. Human-authored PRs touching the same dep are NEVER closed.
 4. Opens a new PR `chore: bump <ARTIFACT_ID> to <NEW_VERSION>` against the consumer's `develop`.
-5. Calls `gh pr merge --merge` to merge immediately. With current org branch-protection state (no required checks), this succeeds. If consumers later add protections, the merge attempt errors and the PR is left open for human handling — the propagator surfaces this as a `::warning::`.
+5. Calls `gh pr merge --merge --delete-branch` to merge immediately and remove the propagator's bump branch on the consumer side. With current org branch-protection state (no required checks), this succeeds. If consumers later add protections, the merge attempt errors and the PR is left open for human handling (branch retained) — the propagator surfaces this as a `::warning::`.
 
 ### Authentication: the `unctad-dependency-propagator` GitHub App
 

@@ -2238,14 +2238,14 @@ propagate-version:
       run: |
         # 1. Clone consumer's develop, bump pom.xml
         # 2. Close superseded propagator PRs (filter: same author + same artifact title prefix)
-        # 3. git push branch + gh pr create + gh pr merge --merge
+        # 3. git push branch + gh pr create + gh pr merge --merge --delete-branch
 ```
 
 ### Why `--merge` not `--auto`
 
 `gh pr merge --auto --squash` requires `allow_auto_merge: true` at the consumer's repo level (`gh api -X PATCH /repos/.../allow_auto_merge=true`). The user explicitly chose to keep that toggle OFF org-wide — auto-merge as a feature has subtle behaviors (dependency resolution, reviewer-required interactions) that are easier to enable case-by-case than blanket-on.
 
-`gh pr merge --merge` is "merge now, fail loud if blocked." With current org branch-protection state (none on `develop`), this succeeds immediately. If a consumer later adds status-check or review-required protection, the merge call fails with a clear error and the PR is left open for human handling. **Loud failure beats silent waiting** — the propagator emits a `::warning::` annotation pointing at the open PR URL.
+`gh pr merge --merge --delete-branch` is "merge now, drop the bump branch, fail loud if blocked." With current org branch-protection state (none on `develop`), this succeeds immediately and removes the propagator-created branch in the same call. If a consumer later adds status-check or review-required protection, the merge call fails with a clear error and the PR is left open for human handling (branch retained). **Loud failure beats silent waiting** — the propagator emits a `::warning::` annotation pointing at the open PR URL.
 
 ### Why open a PR (not direct push)
 
@@ -2299,7 +2299,7 @@ Per-library setup: install the App on (a) the library repo (where the workflow r
 
 ```bash
 grep -q "propagate-version:" .github/workflows/ci-cd.yml || echo "MISSING propagate-version job"
-grep -q "gh pr merge --merge" .github/workflows/ci-cd.yml || echo "MISSING --merge invocation"
+grep -q "gh pr merge --merge --delete-branch" .github/workflows/ci-cd.yml || echo "MISSING --merge --delete-branch invocation"
 grep -q "Closing superseded PR" .github/workflows/ci-cd.yml || echo "MISSING stale PR cleanup"
 grep -q '\-\-author "$ACTOR"' .github/workflows/ci-cd.yml || echo "WARNING: stale-PR cleanup missing author filter (could close human PRs)"
 ```
