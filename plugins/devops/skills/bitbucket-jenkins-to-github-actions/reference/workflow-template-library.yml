@@ -13,8 +13,9 @@
 #     from this branch (mule-common pattern). See critical-patterns.md §32.
 #   - vX.Y.Z git tag on master (matching app template)
 #   - Cross-repo version PROPAGATION: opens a PR per known consumer bumping the
-#     dependency version, then `gh pr merge --merge` to merge immediately. Stale
-#     propagator PRs are closed before opening a new one. See critical-patterns.md §33.
+#     dependency version, then `gh pr merge --merge --delete-branch` to merge
+#     immediately and clean up the bump branch. Stale propagator PRs are closed
+#     before opening a new one. See critical-patterns.md §33.
 #   - Slack notify on failure (no ephemeral Docker tag cleanup — there are none)
 #
 # HOW TO USE: copy this file to .github/workflows/ci-cd.yml in the target repo.
@@ -508,7 +509,7 @@ jobs:
           echo "Opened PR: $PR_URL"
 
           PR_NUM=$(echo "$PR_URL" | sed 's|.*/||')
-          if ! gh pr merge --merge --repo "$CONSUMER" "$PR_NUM" 2>&1; then
+          if ! gh pr merge --merge --delete-branch --repo "$CONSUMER" "$PR_NUM" 2>&1; then
             echo "::warning::Immediate merge failed for $PR_URL — likely blocked by future branch protection (status checks / reviews). PR remains open for human merge."
           fi
 
