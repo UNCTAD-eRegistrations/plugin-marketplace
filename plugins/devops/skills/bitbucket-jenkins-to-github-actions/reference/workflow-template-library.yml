@@ -419,6 +419,32 @@ jobs:
           owner: UNCTAD-eRegistrations
           repositories: ${{ matrix.consumer }}
 
+      - name: Ensure gh CLI is available
+        # Self-hosted [linux, build, normal] runners may not ship with gh.
+        # Install on demand to a per-job local bin and add to PATH for next step.
+        run: |
+          if command -v gh >/dev/null 2>&1; then
+            echo "gh already on PATH: $(command -v gh)"
+            gh --version | head -1
+            exit 0
+          fi
+          GH_VERSION="2.61.0"
+          ARCH="$(uname -m)"
+          case "$ARCH" in
+            x86_64)         GH_ARCH="amd64" ;;
+            aarch64|arm64)  GH_ARCH="arm64" ;;
+            *) echo "::error::Unsupported arch: $ARCH"; exit 1 ;;
+          esac
+          TARBALL="gh_${GH_VERSION}_linux_${GH_ARCH}.tar.gz"
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}" -o "/tmp/${TARBALL}"
+          tar -xzf "/tmp/${TARBALL}" -C /tmp
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "/tmp/gh_${GH_VERSION}_linux_${GH_ARCH}/bin/gh" "$HOME/.local/bin/gh"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          rm -f "/tmp/${TARBALL}"
+          echo "gh installed at $HOME/.local/bin/gh"
+          "$HOME/.local/bin/gh" --version | head -1
+
       - name: Open bump PR in ${{ matrix.consumer }}
         env:
           GH_TOKEN: ${{ steps.propagator-token.outputs.token }}
