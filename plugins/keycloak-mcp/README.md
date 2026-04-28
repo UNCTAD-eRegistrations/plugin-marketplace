@@ -17,6 +17,81 @@ A single `Keycloak` MCP server (51 tools). It reuses the instance profiles regis
 | `/keycloak-mcp:login <instance>` | Authenticate to a Keycloak instance (admin credentials) |
 | `/keycloak-mcp:doctor` | Diagnose and fix common issues |
 
+## Skills
+
+| Skill | Slash invocation | Description |
+|-------|------------------|-------------|
+| `create-theme` | `/keycloak-mcp:create-theme <theme-name> [primary-color-rgb] [locales]` | Scaffold a new country/deployment Keycloak theme inheriting from `unctad-next`. Run from the eRegistrations Keycloak repo (the directory containing `themes/unctad-next/`). |
+
+### `create-theme` — full process
+
+**Prerequisites:** Run from the eRegistrations Keycloak repo root — the directory whose Docker image bakes `/opt/keycloak/themes/`. The repo must contain `themes/unctad-next/` (the parent theme all country themes inherit from).
+
+**Arguments:**
+
+| Position | Name | Required | Default | Notes |
+|---|---|---|---|---|
+| 1 | `<theme-name>` | yes | — | Lowercase, e.g. `tanzania`. Becomes the directory name **and** the value users see in Keycloak's theme picker. |
+| 2 | `[primary-color-rgb]` | no | `74,98,136` (unctad-next blue) | Comma-separated 0–255 triple, e.g. `51,102,204`. |
+| 3 | `[locales]` | no | `en` | Comma-separated locale codes, e.g. `en,fr,ar`. |
+
+**What the skill does, step by step:**
+
+1. **Verifies the working directory.** Runs `test -d themes/unctad-next` — stops if missing. Refuses to scaffold outside the Keycloak repo.
+2. **Checks for collisions.** Runs `test ! -d themes/<theme-name>` — stops if the theme already exists. Won't overwrite. Offers the user three options: abort, pick a different name, or delete-and-recreate.
+3. **Creates the directory tree:**
+   ```
+   themes/<name>/
+   ├── login/
+   │   ├── theme.properties
+   │   └── resources/
+   │       ├── css/variables.css
+   │       └── images/.gitkeep
+   └── email/
+       ├── theme.properties
+       └── resources/
+           └── images/.gitkeep
+   ```
+4. **Writes `themes/<name>/login/theme.properties`:**
+   ```properties
+   parent=unctad-next
+   locales=<locales>
+   styles=css/variables.css css/styles.css
+   scripts=js/conditional-fields.js
+   ```
+   `css/styles.css` and `js/conditional-fields.js` are **inherited from `unctad-next`** — the skill does not scaffold them under the new theme.
+5. **Writes `themes/<name>/login/resources/css/variables.css`** — sets `--main-primary` to the chosen RGB triple, plus the standard unctad-next palette (background, text, borders, error colors). The login CSS uses an `R, G, B` triple fed into `rgb()`/`rgba()`.
+6. **Writes `themes/<name>/email/theme.properties`** — converts the RGB triple to a 6-digit lowercase hex (`#rrggbb`) for the email `mainColor`:
+
+   | RGB | Hex |
+   |---|---|
+   | `74, 98, 136` | `#4a6288` |
+   | `255, 204, 0` | `#ffcc00` |
+   | `51, 102, 204` | `#3366cc` |
+7. **Adds `.gitkeep` placeholders** in both `images/` directories so git tracks them until logos are dropped in.
+8. **Reports back to the user** with the file list and three reminders:
+   - **Add logo PNGs** (the skill cannot generate these): `themes/<name>/login/resources/images/logo.png` and `themes/<name>/email/resources/images/logo.png`.
+   - **Optional further customization:** add `css/custom.css` (and update the `styles=` line in `login/theme.properties`); override messages at `login/messages/messages_<locale>.properties`; override FTL templates (e.g. `register.ftl`) for custom form fields.
+   - **After Docker image rebuild + deploy**, assign the theme to a realm via the Keycloak MCP server:
+     ```
+     mcp__Keycloak__kc_set_realm_theme(
+         realm="<realm-name>",
+         login_theme="<name>",
+         email_theme="<name>",
+         instance="<instance>"
+     )
+     ```
+
+**Examples:**
+
+```
+/keycloak-mcp:create-theme tanzania 51,102,204 en,fr,sw
+/keycloak-mcp:create-theme rwanda
+/keycloak-mcp:create-theme jamaica 255,204,0 en
+```
+
+**Important — scaffolding is not deployment.** Themes are baked into the Keycloak Docker image at build time. After running this skill you still need to commit the new files, build the image, push, and redeploy. Only then can `kc_set_realm_theme` reference the new theme name; calling it earlier will fail because the server doesn't have the theme on disk yet.
+
 ## Prerequisites
 
 ### 1. Install `bpa-mcp` first
