@@ -6,16 +6,18 @@ This document captures critical failures encountered during migrations and their
 
 ## Reference Migrations
 
-When migrating a new repository, **pick the closest-precedent migration and read its `ci-cd.yml` first.** Copy patterns verbatim — custom patterns are the #1 source of failure (see Critical Failure #4 below).
+**Start with the canonical template** ([`workflow-template.yml`](workflow-template.yml)) — it encodes the post-mule3-benin alignment with ds-backend and closes the 12 known structural gaps. Then consult the table below for repo-type-specific `<BUILD_STEP>` recipes.
 
-| Migration | Closest match for | Workflow |
-|-----------|-------------------|----------|
-| **Mule4** | **Mule3** — same Maven `mule-application` shape + identical `standard-version`/`xml-js` tooling; **runtime differs** (CE 4.7 vs CE 3.9), and **Mule4 has no helm chart** (use ActiveMQ for the helm-chart-update job pattern) | [`UNCTAD-eRegistrations/Mule4` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) |
-| DS-Backend | Python (Django) project with `package.json` + `standard-version` version-bump tooling | [`UNCTAD-eRegistrations/DS-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/DS-Backend/blob/develop/.github/workflows/ci-cd.yml) |
-| BPA-Backend | Java / Spring Boot (Maven build); `standard-version` bump tooling syncs to `pom.xml` via `xml-js` | [`UNCTAD-eRegistrations/BPA-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml) |
-| ActiveMQ | Helm-chart-update job pattern | [`UNCTAD-eRegistrations/ActiveMQ` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) |
+| Reference | Best for | Workflow |
+|-----------|---------|----------|
+| **Canonical template** (this skill) | Default starting point — covers the 7 core jobs; uncomment optional add-ons as needed | [`workflow-template.yml`](workflow-template.yml) |
+| **DS-Backend** (gold standard) | Python (Django); full pattern with helm-chart-update + run-tests + qodana + artifact-cleanup | [`UNCTAD-eRegistrations/ds-backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ds-backend/blob/develop/.github/workflows/ci-cd.yml) |
+| **mule3-benin** (post-`8ff9234`) | Java/Maven `<BUILD_STEP>` reference (`mvn package` + SSH agent + bitbucket clone of `eregistrations-tools`); also a known-good Mule3 ESB workflow | [`UNCTAD-eRegistrations/mule3-benin` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/mule3-benin/blob/develop/.github/workflows/ci-cd.yml) |
+| BPA-Backend | Java / Spring Boot (Maven build); `standard-version` bump tooling syncs to `pom.xml` via `xml-js`. **Caveat:** workflow predates the alignment fix and may still embody some of the 12 gaps (see Critical Failure #9) — cross-check against the canonical template before copying. | [`UNCTAD-eRegistrations/BPA-Backend` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/BPA-Backend/blob/develop/.github/workflows/ci-cd.yml) |
+| Mule4 | Maven `mule-application` shape + identical `standard-version`/`xml-js` tooling. Same caveat as BPA-Backend. | [`UNCTAD-eRegistrations/Mule4` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/Mule4/blob/develop/.github/workflows/ci-cd.yml) |
+| ActiveMQ | **Only the helm-chart-update job pattern** is endorsed. Do NOT use the rest as a reference. | [`UNCTAD-eRegistrations/ActiveMQ` → `.github/workflows/ci-cd.yml`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) |
 
-> Mule3 is the next planned use case. **Mule4 is the primary reference for the toolchain shape** (Maven Mule-application packaging, `package.json` with identical `standard-version` + `xml-js` devDependencies, Jenkinsfile→Actions conversion already proven). **Two important caveats for Mule3:** (a) the Mule runtime itself differs — Mule3 is CE 3.9.6 with `mule-maven-plugin` 3.7.1 and Java 8, whereas Mule4 targets CE 4.7.4 with `mule-maven-plugin` 4.5.1 and Java 11; expect runtime-specific changes that Mule4's workflow won't preview. (b) Mule3 has a `helm/` directory and Mule4 does not — for the helm-chart-update job, reference [`UNCTAD-eRegistrations/ActiveMQ`](https://github.com/UNCTAD-eRegistrations/ActiveMQ/blob/develop/.github/workflows/ci-cd.yml) instead.
+> ⚠️ The pre-alignment workflows (BPA-Backend, Mule4, ActiveMQ) were the previous "reference implementations" and likely still embody some of the 12 structural gaps documented in Critical Failure #9. Until those repos are separately audited and fixed, **prefer the canonical template + mule3-benin (post-fix) + ds-backend** as your sources.
 
 ---
 
@@ -278,6 +280,49 @@ The `always()` + `needs.bump-version.result` check ensures:
 
 ### Prevention:
 **NEVER make SHOULD_BUILD depend on SHOULD_BUMP. Use job dependencies to control execution order.**
+
+---
+
+## Critical Failure #9: Heavy Runner Missing Node + 12 Structural Gaps (mule3-benin migration, 2026-04)
+
+### What happened:
+
+The mule3-benin migration generated a `ci-cd.yml` that combined `mvn` build, `docker build`, and final `docker push` into a single `build-and-push-docker` job on `[self-hosted, linux, build, heavy]`. The first CI run on `develop` failed at step "Get current version" with `Process completed with exit code 127` — the heavy runner's image does NOT have `node` pre-installed, so `node -p "require('./package.json').version"` could not run.
+
+The audit that followed (mule3-benin's `ci-cd.yml` vs ds-backend's `ci-cd.yml`) surfaced **12 distinct structural gaps**:
+
+| # | Gap | Evidence in mule3-benin |
+|---|---|---|
+| A | Heavy runner missing node | `node -p` on `[..., heavy]` → exit 127 |
+| B | Single build-and-push-docker job | one job did mvn + docker build + final push |
+| C | `feature/*` collides with develop's `DEV` | `develop\|feature/*) TAG_NAME="DEV"` |
+| D | `release/*` test-RC convention | `TAG_NAME="${RELEASE_VERSION}-RC"; ENV="test"` |
+| E | Version bump only on develop | `if [[ "$BRANCH_NAME" == "develop" ]]` |
+| F | Missing `actions/setup-node@v4` | implicit reliance on pre-installed node |
+| G | Job named `tag-production` | (org convention is `tag-release`) |
+| H | Master tag `X.Y.Z` (no prefix) | `git tag "$VERSION"` |
+| I | No npm cache | bare `npm ci` per CI run |
+| J | notify-failure didn't clean ephemeral | (ephemeral wasn't even used) |
+| K | trigger-jenkins-deploy missed release/* | first conditional was `develop \|\| feature/*` |
+| L | Final push from heavy worker | `docker push` directly from heavy job |
+
+### Resolution:
+
+Two commits on mule3-benin's `develop`:
+- `877107f feat: split build/push, fix branch tagging, align with ds-backend TOBE-17420` — closed gaps A, B, C, D, E, F, G, J, K, L.
+- `8ff9234 feat: cache npm in bump-version, prefix master tags with v TOBE-17420` — closed gaps H, I.
+
+The skill itself was then updated (this PR) to bundle a canonical [`workflow-template.yml`](workflow-template.yml) that encodes all 12 fixes, plus updates to [`critical-patterns.md`](critical-patterns.md) §§24–31 and [`troubleshooting.md`](troubleshooting.md) "Symptom: exit code 127 in version-reading step".
+
+### Root cause (skill-level):
+
+The skill operated as a **step-by-step guide** rather than a **template generator**. SKILL.md Phase 3 listed job names but provided full templates for only 2 of 7 core jobs. Users were directed to copy from "reference implementations" (Mule4, ActiveMQ) that were themselves never audited against ds-backend's pattern. mule3-benin's broken patterns were a faithful copy of ActiveMQ's broken patterns.
+
+### Prevention:
+
+1. **Use the canonical template** — `cp reference/workflow-template.yml .github/workflows/ci-cd.yml` is now Step 3.2.1's first action. Hand-authoring is forbidden.
+2. **Run the GATE 3-4 self-audit grep** — it checks for all 12 canonical patterns AND flags deprecated job names (`tag-production`, `build-and-push-docker`).
+3. **Treat pre-alignment workflows (BPA-Backend, Mule4, ActiveMQ) as historical** — see "Reference Migrations" table at the top of this file. Use them only for `<BUILD_STEP>` recipes, not for full-workflow patterns.
 
 ---
 

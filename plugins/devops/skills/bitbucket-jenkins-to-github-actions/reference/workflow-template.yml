@@ -1,0 +1,694 @@
+# =============================================================================
+# Canonical CI/CD workflow template for UNCTAD-eRegistrations repos
+# =============================================================================
+# Closes the 12 known alignment gaps between historical migrations (mule3-benin
+# pre-fix, ActiveMQ) and the gold-standard ds-backend workflow:
+#
+#   A. Heavy runner missing node       -> consume upstream VERSION (no node on heavy)
+#   B. Single build-and-push job       -> split build (heavy → ephemeral) + push (normal → imagetools)
+#   C. feature/* tag collisions        -> sanitized FEATURE_<branch> tag
+#   D. release/* test-RC convention    -> $VERSION + MINOR_TAG, env=live
+#   E. Version bump only on develop    -> bump on develop AND release/*
+#   F. Missing actions/setup-node      -> explicit on every node-using job
+#   G. tag-production naming           -> tag-release
+#   H. Master tag X.Y.Z (no prefix)    -> vX.Y.Z
+#   I. No npm cache                    -> actions/cache@v4 with package-lock hash
+#   J. No ephemeral cleanup on failure -> Docker Hub API DELETE in notify-failure
+#   K. release/* missing from deploy   -> first conditional includes release/*
+#   L. Final tag pushed via docker push -> docker buildx imagetools create
+#
+# HOW TO USE: copy this file to .github/workflows/ci-cd.yml in the target repo.
+# Then:
+#   1. Replace placeholders (see reference/workflow-customization.md § "Replace placeholders").
+#   2. Fill the <BUILD_STEP> block in build-docker-image based on repo type
+#      (see reference/workflow-customization.md § "Fill the <BUILD_STEP> block").
+#   3. Uncomment optional jobs (helm-chart-update, run-tests, qodana-analysis,
+#      artifact-cleanup) only if the repo has the corresponding signal — see
+#      reference/workflow-customization.md § "Optional add-on jobs".
+#   4. Validate with actionlint (see reference/critical-patterns.md § "Setup-node is mandatory" + GATE 3-4).
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, develop, beta, release-candidate, release/**, feature/**]
+  workflow_dispatch:
+    inputs:
+      FORCE_BUILD:
+        description: 'Force build even if version bump'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+  statuses: write
+  actions: write
+
+env:
+  DOCKER_IMAGE: <DOCKER_IMAGE_NAME>   # REQUIRED placeholder, e.g. unctad/mule3-benin
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. set-build-variables: derive TAG_NAME / VERSION / MINOR_TAG / ENV / flags
+  # ---------------------------------------------------------------------------
+  set-build-variables:
+    runs-on: [self-hosted, linux, build, normal]
+    outputs:
+      TAG_NAME: ${{ steps.vars.outputs.TAG_NAME }}
+      VERSION: ${{ steps.vars.outputs.VERSION }}
+      MINOR_TAG: ${{ steps.vars.outputs.MINOR_TAG }}
+      ENV: ${{ steps.vars.outputs.ENV }}
+      SHOULD_BUMP: ${{ steps.vars.outputs.SHOULD_BUMP }}
+      SHOULD_BUILD: ${{ steps.vars.outputs.SHOULD_BUILD }}
+      IS_MASTER: ${{ steps.vars.outputs.IS_MASTER }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set build variables
+        id: vars
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+
+          echo "Branch: $BRANCH_NAME"
+          echo "Commit: $COMMIT_MSG"
+          echo "Version: $VERSION"
+
+          # Bump on develop AND release/* (gap E). Skip chore/revert commits
+          # to avoid bump-loops on the auto-generated release commits.
+          SHOULD_BUMP="false"
+          if [[ "$BRANCH_NAME" == "develop" ]] || [[ "$BRANCH_NAME" == release/* ]]; then
+            if [[ ! "$COMMIT_MSG" =~ ^chore && ! "$COMMIT_MSG" =~ ^revert ]]; then
+              SHOULD_BUMP="true"
+            fi
+          fi
+
+          # Branch-specific TAG_NAME and ENV (gaps C, D)
+          case "$BRANCH_NAME" in
+            develop)
+              TAG_NAME="DEV"
+              ENV="dev"
+              ;;
+            beta)
+              TAG_NAME="BETA"
+              ENV="test"
+              ;;
+            release-candidate)
+              TAG_NAME="RC"
+              ENV="test"
+              ;;
+            master)
+              TAG_NAME="$VERSION"
+              ENV="live"
+              ;;
+            release/*)
+              # gap D: full version + minor, env=live
+              TAG_NAME="$VERSION"
+              MINOR_TAG="${VERSION%.*}"   # e.g. 2.18.4 -> 2.18
+              echo "MINOR_TAG=$MINOR_TAG" >> $GITHUB_OUTPUT
+              ENV="live"
+              ;;
+            feature/*)
+              # gap C: sanitize so each feature branch gets a unique tag
+              TAG_NAME=$(echo "$BRANCH_NAME" | tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9._-]/_/g')
+              ENV="dev"
+              ;;
+            *)
+              TAG_NAME="DEV"
+              ENV="dev"
+              ;;
+          esac
+
+          SHOULD_BUILD="true"
+
+          IS_MASTER="false"
+          if [[ "$BRANCH_NAME" == "master" ]]; then
+            IS_MASTER="true"
+          fi
+
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "ENV=$ENV" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUMP=$SHOULD_BUMP" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUILD=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+          echo "IS_MASTER=$IS_MASTER" >> $GITHUB_OUTPUT
+
+      - name: Build Configuration summary
+        run: |
+          echo "## Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Branch Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Variables" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ steps.vars.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ steps.vars.outputs.TAG_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** \`${{ steps.vars.outputs.ENV }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Decisions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Bump Version:** ${{ steps.vars.outputs.SHOULD_BUMP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Build:** ${{ steps.vars.outputs.SHOULD_BUILD }}" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 2. bump-version: patch-release with retry; cached npm
+  #    (gaps E, F, I)
+  # ---------------------------------------------------------------------------
+  bump-version:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: set-build-variables
+    if: needs.set-build-variables.outputs.SHOULD_BUMP == 'true'
+    outputs:
+      NEW_VERSION: ${{ steps.bump.outputs.NEW_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache npm dependencies
+        id: npm-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-npm-<REPO_NAME>-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-<REPO_NAME>-
+
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Bump version with retry
+        id: bump
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          MAX_RETRIES=5
+          for i in $(seq 0 $((MAX_RETRIES - 1))); do
+            echo "Attempt $((i + 1)) of $MAX_RETRIES"
+            OLD_VERSION=$(node -p "require('./package.json').version")
+
+            git checkout $BRANCH_NAME
+            git reset --hard origin/$BRANCH_NAME
+            git pull origin $BRANCH_NAME
+
+            if npm run patch-release; then
+              git pull origin $BRANCH_NAME
+              NEW_VERSION=$(node -p "require('./package.json').version")
+              echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
+              echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "Version bumped from $OLD_VERSION to $NEW_VERSION"
+              exit 0
+            else
+              if [ $i -lt $((MAX_RETRIES - 1)) ]; then
+                echo "Retrying in 5 seconds..."
+                git reset --hard origin/$BRANCH_NAME
+                sleep 5
+              else
+                echo "Failed to bump version after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Version Bumped summary
+        if: success()
+        run: |
+          echo "## Version Bumped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version:** \`${{ needs.set-build-variables.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version:** \`${{ steps.bump.outputs.NEW_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Version bump committed and pushed successfully." >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 3. build-docker-image: heavy runner, builds AND pushes to EPHEMERAL tag
+  #    (gaps A, B, F, L) — no node on heavy; consumes upstream VERSION;
+  #    final tag promotion happens in push-docker-image, not here.
+  # ---------------------------------------------------------------------------
+  build-docker-image:
+    runs-on: [self-hosted, linux, build, heavy]
+    needs: [set-build-variables, bump-version]
+    if: |
+      always() &&
+      needs.set-build-variables.outputs.SHOULD_BUILD == 'true' &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+    env:
+      EPHEMERAL_IMAGE: <DOCKER_IMAGE_NAME>:ephemeral-ci-${{ github.run_id }}
+    outputs:
+      ephemeral_image: <DOCKER_IMAGE_NAME>:ephemeral-ci-${{ github.run_id }}
+      version: ${{ steps.recalc.outputs.VERSION }}
+      tag_name: ${{ steps.recalc.outputs.TAG_NAME }}
+      minor_tag: ${{ steps.recalc.outputs.MINOR_TAG }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          clean: false
+
+      - name: Pull latest changes
+        run: |
+          git pull origin ${{ github.ref_name }} || true
+
+      - name: Recalculate tags after version bump
+        id: recalc
+        env:
+          # gap A: consume upstream output, do NOT run node on heavy.
+          VERSION_FALLBACK: ${{ needs.set-build-variables.outputs.VERSION }}
+          VERSION_BUMPED: ${{ needs.bump-version.outputs.NEW_VERSION }}
+        run: |
+          VERSION="${VERSION_BUMPED:-$VERSION_FALLBACK}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          case "$BRANCH_NAME" in
+            master)
+              TAG_NAME="$VERSION"
+              ENV="live"
+              ;;
+            develop)
+              TAG_NAME="DEV"
+              ENV="dev"
+              ;;
+            beta)
+              TAG_NAME="BETA"
+              ENV="test"
+              ;;
+            release-candidate)
+              TAG_NAME="RC"
+              ENV="test"
+              ;;
+            release/*)
+              TAG_NAME="$VERSION"
+              MINOR_TAG="${VERSION%.*}"
+              echo "MINOR_TAG=$MINOR_TAG" >> $GITHUB_OUTPUT
+              ENV="live"
+              ;;
+            feature/*)
+              TAG_NAME=$(echo "$BRANCH_NAME" | tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9._-]/_/g')
+              ENV="dev"
+              ;;
+            *)
+              TAG_NAME="DEV"
+              ENV="dev"
+              ;;
+          esac
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "ENV=$ENV" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # <BUILD_STEP>
+      # Replace this comment block with the build sequence appropriate for the
+      # repo (Maven, Python, Node, etc.).
+      # See reference/workflow-customization.md § "Fill the <BUILD_STEP> block"
+      # for per-repo-type recipes (Java/Maven, Python, frontend, Mule3 ESB).
+      # =======================================================================
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image (ephemeral)
+        env:
+          VERSION: ${{ steps.recalc.outputs.VERSION }}
+          ENV: ${{ steps.recalc.outputs.ENV }}
+        run: |
+          echo "Building ephemeral Docker image:"
+          echo "  EPHEMERAL_IMAGE=$EPHEMERAL_IMAGE"
+          echo "  VERSION=$VERSION"
+          echo "  ENV=$ENV"
+
+          docker build \
+            --network=host \
+            --build-arg VERSION="$VERSION" \
+            --build-arg ENV="$ENV" \
+            -t "$EPHEMERAL_IMAGE" \
+            .
+
+      - name: Push ephemeral image
+        run: docker push "$EPHEMERAL_IMAGE"
+
+      - name: Build summary
+        run: |
+          echo "## Docker Image Built (ephemeral)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ephemeral tag:** \`$EPHEMERAL_IMAGE\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Final tag (after promote):** \`${{ env.DOCKER_IMAGE }}:${{ steps.recalc.outputs.TAG_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ steps.recalc.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** \`${{ steps.recalc.outputs.ENV }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 4. push-docker-image: normal runner, registry-side promote ephemeral → final
+  #    (gaps B, J, L) — uses imagetools (no pull/push round-trip), cleans up.
+  #
+  #    NOTE: when uncommenting optional run-tests / qodana-analysis jobs below,
+  #    add them to this job's `needs:` and extend the `if:` with their results.
+  # ---------------------------------------------------------------------------
+  push-docker-image:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, build-docker-image]
+    if: |
+      always() &&
+      needs.build-docker-image.result == 'success'
+    env:
+      TAG_NAME: ${{ needs.build-docker-image.outputs.tag_name }}
+      MINOR_TAG: ${{ needs.build-docker-image.outputs.minor_tag }}
+      EPHEMERAL_IMAGE: ${{ needs.build-docker-image.outputs.ephemeral_image }}
+      EPHEMERAL_TAG: ephemeral-ci-${{ github.run_id }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Promote ephemeral to final tag
+        run: |
+          echo "Promoting $EPHEMERAL_IMAGE -> ${{ env.DOCKER_IMAGE }}:$TAG_NAME"
+          docker buildx imagetools create \
+            --tag "${{ env.DOCKER_IMAGE }}:$TAG_NAME" \
+            "$EPHEMERAL_IMAGE"
+
+          if [ -n "$MINOR_TAG" ]; then
+            echo "Also tagging ${{ env.DOCKER_IMAGE }}:$MINOR_TAG"
+            docker buildx imagetools create \
+              --tag "${{ env.DOCKER_IMAGE }}:$MINOR_TAG" \
+              "$EPHEMERAL_IMAGE"
+          fi
+
+      - name: Cleanup ephemeral tag (Docker Hub)
+        if: always()
+        continue-on-error: true
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          JWT=$(curl -sS --fail -X POST -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+          if [ -z "$JWT" ] || [ "$JWT" = "null" ]; then
+            echo "::warning::Could not obtain Docker Hub JWT; skipping remote tag cleanup"
+            exit 0
+          fi
+          echo "Deleting ephemeral tag from Docker Hub: $EPHEMERAL_TAG"
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE \
+            -H "Authorization: JWT $JWT" \
+            "https://hub.docker.com/v2/repositories/<DOCKER_IMAGE_NAME>/tags/$EPHEMERAL_TAG/")
+          case "$HTTP_CODE" in
+            204|404) echo "  OK (HTTP $HTTP_CODE)" ;;
+            *)       echo "::warning::Cleanup returned HTTP $HTTP_CODE" ;;
+          esac
+
+      - name: Push summary
+        run: |
+          echo "## Docker Image Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ env.DOCKER_IMAGE }}:$TAG_NAME\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$MINOR_TAG" ]; then
+            echo "- **Minor tag:** \`${{ env.DOCKER_IMAGE }}:$MINOR_TAG\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **Version:** \`${{ needs.build-docker-image.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 5. tag-release: tag master pushes with vX.Y.Z (gaps G, H)
+  # ---------------------------------------------------------------------------
+  tag-release:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, push-docker-image]
+    if: |
+      always() &&
+      needs.set-build-variables.outputs.IS_MASTER == 'true' &&
+      needs.push-docker-image.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+      - name: Tag production release
+        env:
+          VERSION: ${{ needs.set-build-variables.outputs.VERSION }}
+        run: |
+          # gap H: vX.Y.Z prefix; push only the new tag (not --tags).
+          git tag "v$VERSION" || echo "Tag v$VERSION already exists"
+          git push origin "v$VERSION" || echo "Tag already pushed"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Production Release Tagged summary
+        run: |
+          echo "## Production Release Tagged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Production release tagged successfully." >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 6. trigger-jenkins-deploy: branch-specific Jenkins job triggers
+  #    (gap K) — first conditional now includes release/*.
+  # ---------------------------------------------------------------------------
+  trigger-jenkins-deploy:
+    runs-on: [self-hosted, linux, jenkins]
+    needs: [set-build-variables, push-docker-image, tag-release]
+    if: |
+      always() &&
+      needs.push-docker-image.result == 'success' &&
+      (needs.tag-release.result == 'success' || needs.tag-release.result == 'skipped')
+    steps:
+      - name: Load and mask Jenkins credentials
+        run: |
+          JENKINS_URL="${JENKINS_URL:-${{ secrets.JENKINS_URL }}}"
+          JENKINS_USER="${JENKINS_USER:-${{ secrets.JENKINS_USER }}}"
+          JENKINS_API_TOKEN="${JENKINS_API_TOKEN:-${{ secrets.JENKINS_API_TOKEN }}}"
+          echo "::add-mask::${JENKINS_URL}"
+          echo "::add-mask::${JENKINS_USER}"
+          echo "::add-mask::${JENKINS_API_TOKEN}"
+          echo "JENKINS_URL=${JENKINS_URL}" >> $GITHUB_ENV
+          echo "JENKINS_USER=${JENKINS_USER}" >> $GITHUB_ENV
+          echo "JENKINS_API_TOKEN=${JENKINS_API_TOKEN}" >> $GITHUB_ENV
+          echo "Jenkins credentials loaded and masked"
+
+      - name: Trigger Jenkins deploy for develop/feature/release branches
+        if: github.ref_name == 'develop' || startsWith(github.ref_name, 'feature/') || startsWith(github.ref_name, 'release/')
+        run: |
+          echo "Triggering Jenkins deployment for ${{ github.ref_name }} branch..."
+          HTTP_STATUS=$(curl -X POST \
+            -u ${JENKINS_USER}:${JENKINS_API_TOKEN} \
+            -w "%{http_code}" \
+            -o /dev/null \
+            -s \
+            "${JENKINS_URL}/job/develop-deploy/build?delay=0sec")
+          if [ $HTTP_STATUS -eq 201 ] || [ $HTTP_STATUS -eq 200 ]; then
+            echo "Jenkins job triggered successfully (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** develop-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Success (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Failed to trigger Jenkins job (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** develop-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Failed (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Trigger Jenkins deploy for beta
+        if: github.ref_name == 'beta'
+        run: |
+          echo "Triggering Jenkins deployment for beta branch..."
+          HTTP_STATUS=$(curl -X POST \
+            -u ${JENKINS_USER}:${JENKINS_API_TOKEN} \
+            -w "%{http_code}" \
+            -o /dev/null \
+            -s \
+            "${JENKINS_URL}/job/beta-deploy/build?delay=0sec")
+          if [ $HTTP_STATUS -eq 201 ] || [ $HTTP_STATUS -eq 200 ]; then
+            echo "Jenkins job triggered successfully (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** beta" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** beta-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Success (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Failed to trigger Jenkins job (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** beta" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** beta-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Failed (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Trigger Jenkins deploy for release-candidate
+        if: github.ref_name == 'release-candidate'
+        run: |
+          echo "Triggering Jenkins deployment for release-candidate branch..."
+          HTTP_STATUS=$(curl -X POST \
+            -u ${JENKINS_USER}:${JENKINS_API_TOKEN} \
+            -w "%{http_code}" \
+            -o /dev/null \
+            -s \
+            "${JENKINS_URL}/job/test-deploy/build?delay=0sec")
+          if [ $HTTP_STATUS -eq 201 ] || [ $HTTP_STATUS -eq 200 ]; then
+            echo "Jenkins job triggered successfully (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** release-candidate" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** test-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Success (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Failed to trigger Jenkins job (HTTP $HTTP_STATUS)"
+            echo "## Jenkins Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** release-candidate" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jenkins Job:** test-deploy" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** Failed (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # 7. notify-failure: cleanup ephemeral tag THEN Slack-notify (gap J)
+  # ---------------------------------------------------------------------------
+  notify-failure:
+    runs-on: [self-hosted, linux, build, normal]
+    needs: [set-build-variables, bump-version, build-docker-image, push-docker-image, tag-release, trigger-jenkins-deploy]
+    if: failure()
+    env:
+      EPHEMERAL_TAG: ephemeral-ci-${{ github.run_id }}
+    steps:
+      - name: Cleanup ephemeral tag (Docker Hub)
+        if: always()
+        continue-on-error: true
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          JWT=$(curl -sS --fail -X POST -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+          if [ -z "$JWT" ] || [ "$JWT" = "null" ]; then
+            echo "::warning::Could not obtain Docker Hub JWT; skipping remote tag cleanup"
+            exit 0
+          fi
+          echo "Deleting ephemeral tag from Docker Hub: $EPHEMERAL_TAG"
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE \
+            -H "Authorization: JWT $JWT" \
+            "https://hub.docker.com/v2/repositories/<DOCKER_IMAGE_NAME>/tags/$EPHEMERAL_TAG/")
+          case "$HTTP_CODE" in
+            204|404) echo "  OK (HTTP $HTTP_CODE)" ;;
+            *)       echo "::warning::Cleanup returned HTTP $HTTP_CODE" ;;
+          esac
+
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"FAILED: Job '${{ github.repository }} - ${{ github.workflow }}' (Run #${{ github.run_number }})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            $SLACK_WEBHOOK_URL || true
+
+      - name: Pipeline Failed summary
+        run: |
+          echo "## Pipeline Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Slack notification sent to #unctad-alerts" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # OPTIONAL JOBS
+  # Uncomment the ones that apply to the target repo. When uncommenting, add
+  # the job to push-docker-image's `needs:` and extend its `if:` to gate on
+  # the new job's result. See reference/workflow-customization.md
+  # § "Optional add-on jobs" for the wiring details.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: helm-chart-update — include if repo has helm/Chart.yaml
+  # See SKILL.md Step 3.2.3 for the canonical helm-chart-update job template.
+  # ---------------------------------------------------------------------------
+  # helm-chart-update:
+  #   runs-on: [self-hosted, linux, build, normal]
+  #   needs: set-build-variables
+  #   if: |
+  #     needs.set-build-variables.outputs.should_update_helm == 'true' &&
+  #     github.event_name != 'schedule'
+  #   # ... see SKILL.md Step 3.2.3 for full template
+
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: run-tests — include if repo has pytest/jest/etc. and a test image
+  # See ds-backend ci-cd.yml for the canonical run-tests pattern with service
+  # containers (postgres, redis, etc.) consuming the ephemeral test image.
+  # ---------------------------------------------------------------------------
+  # run-tests:
+  #   runs-on: [self-hosted, linux, build, normal]
+  #   needs: [set-build-variables, build-docker-image]
+  #   if: needs.set-build-variables.outputs.should_run_tests == 'true'
+  #   # ... see ds-backend reference
+
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: run-linting — include if repo has linter config (ruff, eslint, etc.)
+  # ---------------------------------------------------------------------------
+  # run-linting:
+  #   runs-on: [self-hosted, linux, build, normal]
+  #   needs: [set-build-variables, build-docker-image]
+  #   if: needs.set-build-variables.outputs.should_run_tests == 'true'
+  #   # ... see ds-backend reference
+
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: qodana-analysis — include if repo has .qodana.yaml or qodana.yaml
+  # ---------------------------------------------------------------------------
+  # qodana-analysis:
+  #   runs-on: [self-hosted, linux, build, normal]
+  #   needs: [set-build-variables, build-docker-image]
+  #   if: needs.set-build-variables.outputs.should_run_qodana == 'true'
+  #   # ... see ds-backend reference
+
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: artifact-cleanup — include if upload-artifact is used elsewhere
+  # ---------------------------------------------------------------------------
+  # artifact-cleanup:
+  #   runs-on: [self-hosted, linux, build, normal]
+  #   needs: [push-docker-image, trigger-jenkins-deploy]
+  #   if: always()
+  #   # ... see ds-backend reference

@@ -348,6 +348,42 @@ After cleanup, you can start the migration skill again:
 
 ## Post-Migration Issues
 
+### Issue: Process completed with exit code 127 in version-reading step
+
+**Symptom:** A workflow step that runs `node -p "require('./package.json').version"` fails with `Process completed with exit code 127` (command not found). Most commonly hits the docker-build job when it tries to read the version on `[self-hosted, linux, build, heavy]`.
+
+**Cause:** The `[self-hosted, linux, build, heavy]` runner image does NOT have `node` pre-installed. `[self-hosted, linux, build, normal]` does.
+
+**Fix (preferred):** Stop reading the version on the heavy runner. Consume it from upstream job outputs instead:
+
+```yaml
+# In the build-docker-image job (heavy runner):
+- name: Recalculate tags after version bump
+  id: recalc
+  env:
+    VERSION_FALLBACK: ${{ needs.set-build-variables.outputs.VERSION }}
+    VERSION_BUMPED: ${{ needs.bump-version.outputs.NEW_VERSION }}
+  run: |
+    VERSION="${VERSION_BUMPED:-$VERSION_FALLBACK}"
+    # ... case statement on BRANCH_NAME for TAG_NAME / MINOR_TAG / ENV
+    echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+```
+
+This also closes structural gap A from the mule3-benin migration incident (see [`lessons-learned.md`](lessons-learned.md) "Critical Failure #9").
+
+**Fix (fallback, if heavy-runner node is genuinely needed):** Add an explicit setup-node step:
+
+```yaml
+- name: Set up Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: "20"
+```
+
+But prefer the upstream-output approach — it eliminates the dependency entirely.
+
+See [`critical-patterns.md`](critical-patterns.md) §29 ("actions/setup-node@v4 Is Mandatory").
+
 ### Issue: Version Bump Succeeds but Commit Not Visible
 
 **Cause:** Missing `permissions: contents: write`
