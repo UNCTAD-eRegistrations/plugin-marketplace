@@ -275,17 +275,25 @@ jobs:
         run: |
           # The `packages` branch is the canonical artifact storage (mule-common pattern).
           # Use git worktree so we don't disturb the main checkout.
+          PKGS_WT="/tmp/pkgs-wt"
+
+          # Pre-cleanup — self-hosted runners share /tmp across runs; a previous
+          # run that died mid-step or didn't reach the post-cleanup may have left
+          # this path behind. Remove the worktree (registered or not) before use.
+          git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"
+          git worktree prune 2>/dev/null || true
+
           if ! git ls-remote --exit-code origin packages >/dev/null 2>&1; then
             echo "First-time publish: creating orphan packages branch"
-            git worktree add -b packages /tmp/pkgs-wt
-            cd /tmp/pkgs-wt && git rm -rf . 2>/dev/null || true
+            git worktree add -b packages "$PKGS_WT"
+            cd "$PKGS_WT" && git rm -rf . 2>/dev/null || true
             cd "$GITHUB_WORKSPACE"
           else
             git fetch origin packages
-            git worktree add /tmp/pkgs-wt origin/packages
+            git worktree add "$PKGS_WT" origin/packages
           fi
 
-          PKG_DIR="/tmp/pkgs-wt/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
+          PKG_DIR="$PKGS_WT/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
           mkdir -p "$PKG_DIR"
 
           # The Maven build is expected to produce target/${ARTIFACT_ID}-${VERSION}.jar
@@ -304,7 +312,7 @@ jobs:
             md5sum  "$f" | awk '{print $1}' > "$f.md5"
           done
 
-          cd /tmp/pkgs-wt
+          cd "$PKGS_WT"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
           git add .
@@ -315,6 +323,11 @@ jobs:
             git push origin HEAD:packages
             echo "Published ${{ env.ARTIFACT_ID }} ${VERSION} to packages branch"
           fi
+
+          # Post-cleanup — remove the worktree so /tmp/pkgs-wt doesn't accumulate
+          # across runs on the same self-hosted runner.
+          cd "$GITHUB_WORKSPACE"
+          git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"
 
       - name: Build summary
         run: |
