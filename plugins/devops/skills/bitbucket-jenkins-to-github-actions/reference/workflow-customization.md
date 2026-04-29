@@ -303,7 +303,10 @@ If Phase 0.5.2 detected `HAS_LFS=yes`, the migrated repo has binaries tracked vi
              *) echo "::error::Unsupported arch: $ARCH"; exit 1 ;;
            esac
            TARBALL="git-lfs-linux-${LFS_ARCH}-v${LFS_VERSION}.tar.gz"
-           curl -fsSL "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/${TARBALL}" -o "/tmp/${TARBALL}"
+           # Retry on transient errors (502/503/504/connect failures from CDN).
+           curl -fsSL --retry 5 --retry-delay 5 --retry-max-time 60 \
+             "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/${TARBALL}" \
+             -o "/tmp/${TARBALL}"
            tar -xzf "/tmp/${TARBALL}" -C /tmp
            mkdir -p "$HOME/.local/bin"
            ln -sf "/tmp/git-lfs-${LFS_VERSION}/git-lfs" "$HOME/.local/bin/git-lfs"

@@ -2341,7 +2341,10 @@ Every job that touches an LFS-tracked file needs:
      run: |
        command -v git-lfs >/dev/null && exit 0
        LFS_VERSION="3.7.0"
-       curl -fsSL "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/git-lfs-linux-amd64-v${LFS_VERSION}.tar.gz" -o /tmp/lfs.tgz
+       # Retry on transient CDN errors (502/503/504/connect failures).
+       curl -fsSL --retry 5 --retry-delay 5 --retry-max-time 60 \
+         "https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/git-lfs-linux-amd64-v${LFS_VERSION}.tar.gz" \
+         -o /tmp/lfs.tgz
        tar -xzf /tmp/lfs.tgz -C /tmp
        mkdir -p "$HOME/.local/bin"
        ln -sf "/tmp/git-lfs-${LFS_VERSION}/git-lfs" "$HOME/.local/bin/git-lfs"

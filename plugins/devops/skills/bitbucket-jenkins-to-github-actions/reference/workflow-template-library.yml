@@ -437,7 +437,10 @@ jobs:
             *) echo "::error::Unsupported arch: $ARCH"; exit 1 ;;
           esac
           TARBALL="gh_${GH_VERSION}_linux_${GH_ARCH}.tar.gz"
-          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}" -o "/tmp/${TARBALL}"
+          # Retry on transient errors (502/503/504/connect failures from CDN).
+          curl -fsSL --retry 5 --retry-delay 5 --retry-max-time 60 \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}" \
+            -o "/tmp/${TARBALL}"
           tar -xzf "/tmp/${TARBALL}" -C /tmp
           mkdir -p "$HOME/.local/bin"
           ln -sf "/tmp/gh_${GH_VERSION}_linux_${GH_ARCH}/bin/gh" "$HOME/.local/bin/gh"
