@@ -37,7 +37,7 @@ body {
 
 h1 {
   font-family: 'DM Serif Display', serif;
-  font-size: 2.2rem;
+  font-size: 1.9rem;
   font-weight: 400;
   color: var(--fg);
   letter-spacing: -0.02em;
@@ -99,6 +99,18 @@ a:hover { border-bottom-color: var(--accent); }
   gap: 0.35rem;
   flex-wrap: wrap;
   margin-bottom: 2rem;
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.chained-label {
+  color: oklch(0.65 0.01 55);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .skill-tag {
@@ -209,6 +221,8 @@ details > .content {
 }
 
 .phase-section > summary::-webkit-details-marker { display: none; }
+
+.phase-section > summary::before { display: none; }
 
 .phase-section > summary::after {
   content: '';
@@ -601,7 +615,10 @@ td {
 <!-- PAGE 1 -->
 <div id="page1"></div>
 
-<h1>Copy service suite</h1>
+<div class="title-row">
+  <h1>Copy service suite</h1>
+  <span class="chained-label">3 chained skills</span>
+</div>
 <div class="part-label">Part 1 &mdash; copying services on top of existing services</div>
 <div class="part-next">Part 2 (planned): copying new services to another instance</div>
 <div class="meta">
