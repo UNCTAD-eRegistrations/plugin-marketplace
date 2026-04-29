@@ -463,6 +463,33 @@ grep "runs-on:" .github/workflows/ci-cd.yml
 
 **Configuration Path:** Repository > Settings > Secrets and variables > Actions
 
+### Issue: `fatal: '/tmp/pkgs-wt' already exists` in Publish to packages branch (library template)
+
+**Cause:** A previous master publish on the same self-hosted runner left `/tmp/pkgs-wt` behind (cancelled mid-step or a crash before post-cleanup). The naive cleanup `git worktree remove --force ... || rm -rf` does not catch the case where `worktree remove` returns 0 but doesn't physically delete the path.
+
+**Fix:** ensure the workflow uses the unconditional `rm -rf` cleanup in BOTH the pre- and post-cleanup blocks of the `Publish to packages branch` step:
+```bash
+git worktree remove --force "$PKGS_WT" 2>/dev/null || true
+git worktree prune 2>/dev/null || true
+rm -rf "$PKGS_WT"
+```
+
+See `lessons-learned.md` § Critical Failure #10 (Trap A) for the full root-cause analysis.
+
+**Quick sanity check on a candidate workflow:**
+```bash
+# Should return zero matches — old fragile pattern
+grep -n '|| rm -rf "\$PKGS_WT"' .github/workflows/ci-cd.yml
+```
+
+### Issue: `gzip: stdin: unexpected end of file` / `tar: Unexpected EOF in archive` in Ensure gh CLI is available
+
+**Cause:** Transient CDN issue truncated the gh tarball mid-stream. `curl --retry` does not retry on partial-download successes (it returns 0 on a truncated stream when the response lacked `Content-Length`), so `tar` then fails on the corrupt archive.
+
+**Fix:** wrap download + `gzip -t` integrity check in a retry loop (5 attempts with backoff). See `workflow-template-library.yml` "Ensure gh CLI is available" step or `lessons-learned.md` § Critical Failure #10 (Trap B) for the canonical snippet.
+
+**Immediate recovery for an in-flight failed run:** re-run the failed job from the GitHub Actions UI — transient CDN errors usually clear within a few minutes.
+
 ---
 
 ## Emergency Contacts

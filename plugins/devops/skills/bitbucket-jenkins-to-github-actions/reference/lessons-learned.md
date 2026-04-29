@@ -584,6 +584,98 @@ Before any action, ask: "Have I READ the relevant state/docs/diffs?"
 
 ---
 
+## Critical Failure #10: Library Publish Pipeline — Two Silent Transient-Error Traps (2026-04, mule-common + mule3-datamapping-connector)
+
+Both library workflows hit master-only publish failures within hours of each other on self-hosted runners. The cleanup logic and the gh CLI installer each had a "looks-defensive but isn't" pattern that returned 0 despite leaving the runner in a broken state.
+
+### Trap A — `git worktree remove --force` returns 0 without deleting
+
+**Symptom in CI log:**
+```
+Preparing worktree (detached HEAD <sha>)
+fatal: '/tmp/pkgs-wt' already exists
+Error: Process completed with exit code 128.
+```
+
+**Original cleanup (looked correct):**
+```bash
+git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"
+git worktree prune 2>/dev/null || true
+```
+
+**Why it failed:** when the path was registered as a worktree but its physical state was inconsistent (cancelled mid-write by `concurrency.cancel-in-progress: true`, or stale registration from a prior workspace), `git worktree remove --force` returned **0** without deleting the filesystem path. The `||` short-circuited, `rm -rf` never ran, and the next `git worktree add` saw the leftover directory and exited with `fatal: 'X' already exists`.
+
+**Fix (mandatory, both pre- AND post-publish):**
+```bash
+git worktree remove --force "$PKGS_WT" 2>/dev/null || true
+git worktree prune 2>/dev/null || true
+rm -rf "$PKGS_WT"
+```
+
+The `rm -rf` is now unconditional. Whatever happened above, the path is gone before `worktree add` runs.
+
+### Trap B — `curl --retry` doesn't retry on partial downloads
+
+**Symptom in CI log:**
+```
+Run if command -v gh >/dev/null 2>&1; then
+gzip: stdin: unexpected end of file
+tar: Unexpected EOF in archive
+tar: Error is not recoverable: exiting now
+Error: Process completed with exit code 2.
+```
+
+**Original installer:**
+```bash
+curl -fsSL --retry 5 --retry-delay 5 --retry-max-time 60 \
+  "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}" \
+  -o "/tmp/${TARBALL}"
+tar -xzf "/tmp/${TARBALL}" -C /tmp
+```
+
+**Why it failed:** `curl --retry` retries on connection errors and 5xx responses, **not** on a successfully-started response that gets truncated mid-stream (which can happen when the CDN omits `Content-Length` and the connection drops). curl returns 0 with a partial file; tar then chokes on a corrupt gzip header. mule-common didn't even have `--retry` — it had no resilience at all.
+
+**Fix:** wrap download + integrity check in an explicit retry loop, validate the gzip stream before extracting:
+```bash
+TARBALL_PATH="/tmp/${TARBALL}"
+URL="https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}"
+
+for attempt in 1 2 3 4 5; do
+  rm -f "$TARBALL_PATH"
+  if curl -fsSL --retry 3 --retry-delay 3 "$URL" -o "$TARBALL_PATH" \
+     && gzip -t "$TARBALL_PATH" 2>/dev/null; then
+    break
+  fi
+  if [ "$attempt" = "5" ]; then
+    echo "::error::gh CLI tarball download failed after 5 attempts"
+    exit 1
+  fi
+  echo "::warning::gh CLI tarball download/validate attempt ${attempt} failed, retrying"
+  sleep $((attempt * 3))
+done
+
+tar -xzf "$TARBALL_PATH" -C /tmp
+```
+
+`gzip -t` rejects truncated archives, so a partial download gets caught and re-attempted instead of poisoning `tar`.
+
+### General lesson
+
+**Bash `A || B` is not a fallback when `A` can lie.** Both bugs share the same root: a guard command (`git worktree remove`, `curl`) returned 0 without finishing the job it implied. Defensive cleanup must either (a) verify the post-condition explicitly, or (b) run the worst-case cleanup unconditionally. For both downloads and ephemeral filesystem state, prefer "always do the destructive thing" over "do it only on observed failure."
+
+### Verification commands
+
+```bash
+# Library template must use unconditional rm + prune; remove||rm pattern is forbidden
+grep -A1 "git worktree remove --force \"\$PKGS_WT\"" workflow-template-library.yml \
+  | grep -q "|| rm -rf" && echo "FORBIDDEN: || rm -rf pattern still present"
+
+# gh CLI installer must validate tarball
+grep -q "gzip -t" workflow-template-library.yml || echo "MISSING gzip integrity check on gh tarball"
+```
+
+---
+
 ## Verification
 
 To verify these measures are being followed in future migrations:

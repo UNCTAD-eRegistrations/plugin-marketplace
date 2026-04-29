@@ -2142,16 +2142,23 @@ On every master push, the library's CI:
     VERSION: ${{ steps.resolve.outputs.VERSION }}
     ARTIFACT_GROUP_PATH: ${{ needs.set-build-variables.outputs.ARTIFACT_GROUP_PATH }}
   run: |
+    PKGS_WT="/tmp/pkgs-wt"
+
+    # Pre-cleanup — see "Worktree cleanup hazard" subsection below.
+    git worktree remove --force "$PKGS_WT" 2>/dev/null || true
+    git worktree prune 2>/dev/null || true
+    rm -rf "$PKGS_WT"
+
     if ! git ls-remote --exit-code origin packages >/dev/null 2>&1; then
-      git worktree add -b packages /tmp/pkgs-wt
-      cd /tmp/pkgs-wt && git rm -rf . 2>/dev/null || true
+      git worktree add -b packages "$PKGS_WT"
+      cd "$PKGS_WT" && git rm -rf . 2>/dev/null || true
       cd "$GITHUB_WORKSPACE"
     else
       git fetch origin packages
-      git worktree add /tmp/pkgs-wt origin/packages
+      git worktree add "$PKGS_WT" origin/packages
     fi
 
-    PKG_DIR="/tmp/pkgs-wt/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
+    PKG_DIR="$PKGS_WT/${ARTIFACT_GROUP_PATH}/${{ env.ARTIFACT_ID }}/${VERSION}"
     mkdir -p "$PKG_DIR"
     cp "target/${{ env.ARTIFACT_ID }}-${VERSION}.jar" "$PKG_DIR/"
     cp pom.xml "$PKG_DIR/${{ env.ARTIFACT_ID }}-${VERSION}.pom"
@@ -2161,7 +2168,7 @@ On every master push, the library's CI:
       md5sum  "$f" | awk '{print $1}' > "$f.md5"
     done
 
-    cd /tmp/pkgs-wt
+    cd "$PKGS_WT"
     git config user.email "github-actions[bot]@users.noreply.github.com"
     git config user.name "GitHub Actions Bot"
     git add .
@@ -2169,7 +2176,19 @@ On every master push, the library's CI:
       git commit -m "publish ${{ env.ARTIFACT_ID }} ${VERSION}"
       git push origin HEAD:packages
     }
+
+    # Post-cleanup — same pattern as pre-cleanup; keep both.
+    cd "$GITHUB_WORKSPACE"
+    git worktree remove --force "$PKGS_WT" 2>/dev/null || true
+    git worktree prune 2>/dev/null || true
+    rm -rf "$PKGS_WT"
 ```
+
+### Worktree cleanup hazard (mandatory pattern)
+
+`/tmp/pkgs-wt` persists across runs on self-hosted runners — a previous job that was cancelled mid-step (or workflow concurrency `cancel-in-progress`) leaves the path behind. The naive cleanup `git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"` looks correct but has a silent failure mode: when the worktree registration is stale (registered but path was independently created/recreated), `git worktree remove --force` returns **0** without deleting the filesystem path, the `||` short-circuits, `rm -rf` never runs, and the next `git worktree add` fails with `fatal: '/tmp/pkgs-wt' already exists`.
+
+The robust pattern: best-effort `worktree remove`, then `worktree prune`, then **unconditional** `rm -rf`. Apply both before AND after the publish so neighbouring jobs on the same runner inherit a clean slate.
 
 ### Consumer-side fetch pattern
 

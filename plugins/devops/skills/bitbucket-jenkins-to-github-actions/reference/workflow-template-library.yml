@@ -280,9 +280,12 @@ jobs:
 
           # Pre-cleanup — self-hosted runners share /tmp across runs; a previous
           # run that died mid-step or didn't reach the post-cleanup may have left
-          # this path behind. Remove the worktree (registered or not) before use.
-          git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"
+          # this path behind. `git worktree remove --force` can return 0 without
+          # deleting the path (stale registration / partial state), so always
+          # rm -rf after to guarantee a clean slate before `git worktree add`.
+          git worktree remove --force "$PKGS_WT" 2>/dev/null || true
           git worktree prune 2>/dev/null || true
+          rm -rf "$PKGS_WT"
 
           if ! git ls-remote --exit-code origin packages >/dev/null 2>&1; then
             echo "First-time publish: creating orphan packages branch"
@@ -328,7 +331,9 @@ jobs:
           # Post-cleanup — remove the worktree so /tmp/pkgs-wt doesn't accumulate
           # across runs on the same self-hosted runner.
           cd "$GITHUB_WORKSPACE"
-          git worktree remove --force "$PKGS_WT" 2>/dev/null || rm -rf "$PKGS_WT"
+          git worktree remove --force "$PKGS_WT" 2>/dev/null || true
+          git worktree prune 2>/dev/null || true
+          rm -rf "$PKGS_WT"
 
       - name: Build summary
         run: |
@@ -437,15 +442,32 @@ jobs:
             *) echo "::error::Unsupported arch: $ARCH"; exit 1 ;;
           esac
           TARBALL="gh_${GH_VERSION}_linux_${GH_ARCH}.tar.gz"
-          # Retry on transient errors (502/503/504/connect failures from CDN).
-          curl -fsSL --retry 5 --retry-delay 5 --retry-max-time 60 \
-            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}" \
-            -o "/tmp/${TARBALL}"
-          tar -xzf "/tmp/${TARBALL}" -C /tmp
+          TARBALL_PATH="/tmp/${TARBALL}"
+          URL="https://github.com/cli/cli/releases/download/v${GH_VERSION}/${TARBALL}"
+
+          # curl --retry doesn't catch partial downloads — it returns 0 on a
+          # truncated stream when the server omits Content-Length, leaving tar
+          # to fail with "unexpected end of file". Retry the whole download +
+          # gzip integrity check loop instead.
+          for attempt in 1 2 3 4 5; do
+            rm -f "$TARBALL_PATH"
+            if curl -fsSL --retry 3 --retry-delay 3 "$URL" -o "$TARBALL_PATH" \
+               && gzip -t "$TARBALL_PATH" 2>/dev/null; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              echo "::error::gh CLI tarball download failed after 5 attempts"
+              exit 1
+            fi
+            echo "::warning::gh CLI tarball download/validate attempt ${attempt} failed, retrying"
+            sleep $((attempt * 3))
+          done
+
+          tar -xzf "$TARBALL_PATH" -C /tmp
           mkdir -p "$HOME/.local/bin"
           ln -sf "/tmp/gh_${GH_VERSION}_linux_${GH_ARCH}/bin/gh" "$HOME/.local/bin/gh"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          rm -f "/tmp/${TARBALL}"
+          rm -f "$TARBALL_PATH"
           echo "gh installed at $HOME/.local/bin/gh"
           "$HOME/.local/bin/gh" --version | head -1
 
