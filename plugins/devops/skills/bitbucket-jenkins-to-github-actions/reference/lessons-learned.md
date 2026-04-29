@@ -676,6 +676,87 @@ grep -q "gzip -t" workflow-template-library.yml || echo "MISSING gzip integrity 
 
 ---
 
+## Critical Failure #11: Node Library Recovery — Git URL Propagation Was Always Going to Fail (json-logic-extension, 2026-04)
+
+### What happened
+
+`Json-Logic-Extension` (Node.js library, no Dockerfile, no `pom.xml`) was previously migrated to GitHub. The skill at the time had no `node-library` mode, so the migration produced an `app`-style workflow that bumped versions and then ran a "propagation" job: clone each consumer (`JS-Assistant`, `DS-Backend`, `DS-Frontend`, `formio-server`), `npm install --save json-logic-extension@<git-URL>#<VERSION>` to update package.json + lock, push to `develop`. After many iterations of auth fixes (token leakage, URL rewrites, Docker BuildKit), the propagation was disabled with `chore: disable dependency propagation temporarily` because **the consumers' own CIs** were failing on the new git URL.
+
+### Root cause (why git-URL propagation cannot work)
+
+The runner's SSH key has access to **Bitbucket** but not GitHub (private libraries). When a consumer's CI runs `npm install --no-save standard-version` (a step that runs *before* `webfactory/ssh-agent` is set up), npm walks the lock file, encounters `json-logic-extension` with a `git+https://github.com/...` resolved URL, and asks git to `ls-remote`. Git's global `insteadOf` config rewrites `https://github.com/` → `ssh://git@github.com/`, which tries to authenticate with the runner's loaded SSH key (Bitbucket-only) → `Permission denied (publickey)`. The Dockerfile's own URL-rewrite block fixes this *inside* the build container, but the failing step runs *outside* Docker, so it never benefits.
+
+There is no clean fix to the git-URL approach without either (a) adding GitHub SSH keys to every runner, (b) injecting `insteadOf` rewrites with a token in *every* npm-install step on *every* consumer, or (c) abandoning git URLs entirely.
+
+### Resolution
+
+Switch to the **packages-branch + tarball** pattern (Critical Failure #10's `mule-common` precedent applied to Node):
+
+1. **Library side** (`Json-Logic-Extension`):
+   - Delete the propagation jobs from the workflow.
+   - Add `publish-package` job: after `bump-version` succeeds, `npm pack` and push the tarball to a `packages` branch under `latest/<name>.tgz` and `<version>/<name>.tgz`.
+   - The `packages` branch is orphaned on first publish.
+
+2. **Consumer side** (`JS-Assistant`, `DS-Frontend` — applied per consumer once):
+   - `package.json`: change `json-logic-extension` from `git+https://...#X.Y.Z` to `file:./vendor/json-logic-extension.tgz`.
+   - `package-lock.json`: regenerate the entry once locally with `npm install --package-lock-only file:./vendor/json-logic-extension.tgz`.
+   - `.gitignore`: add `/vendor/*.tgz`.
+   - `Dockerfile`: add `COPY vendor ./vendor` to the build stage that runs `npm ci`.
+   - CI workflow: in every job that runs `npm install`/`npm ci`, add (a) a step to mint a GitHub App token for the library repo (`vars.DEPENDENCY_PROPAGATOR_ID` + `secrets.DEPENDENCY_PROPAGATOR_SECRET`), and (b) a step that `curl`s `latest/<name>.tgz` from the library's `packages` branch into `vendor/`, then runs `npm install --package-lock-only file:./vendor/<name>.tgz` to refresh the lock entry's integrity.
+   - `DS-Backend` was wrongly in the original propagation matrix — it's a Python repo whose `package.json` exists only for `standard-version`. It does NOT depend on the library. Verify dep presence before adding any consumer to the matrix.
+
+3. **Library-side propagation** (optional, `propagate-version` job in the Node template): `workflow_dispatch` each consumer's CI on `develop` after publish so they pull the new tarball promptly. Avoid PR-based propagation here because the consumer's `package.json` never needs bumping (it's pinned to `file:./vendor/...`); a PR would have nothing to change.
+
+### Why this works where git URLs didn't
+
+- Auth happens once (curl with explicit `Authorization: Bearer <token>` header), not implicitly at every npm install.
+- npm sees a `file:` URL — no git ls-remote, no SSH, no `insteadOf` interaction.
+- The Docker build stage gets the tarball from the COPYed `vendor/` directory; no in-container git auth needed for this dep.
+- Lock file integrity is regenerated at CI time via `--package-lock-only`, so consumers don't need to be re-committed every time the library bumps.
+
+### Prevention (skill-level)
+
+- `node-library` REPO_TYPE detection added to Phase 1 (Step 3.2.0a) — `package.json` present + no Dockerfile + no `bin` field + no `pom.xml`.
+- `workflow-template-library-node.yml` added — 5-job pipeline (test, bump-version, publish-package, propagate-version, notify-failure).
+- `consumer-side-patch-node.md` added — one-time patch checklist for each consumer.
+- Phase 1 Step 6 (Node-library flow) requires verifying every matrix consumer is already patched (`grep "file:./vendor/<PACKAGE_NAME>.tgz"` in their `package.json` on `develop`) before adding it. Adding an unpatched consumer would dispatch its CI which then immediately fails on the still-broken git URL.
+- "Consumer presence" check: never add a repo to the propagation matrix without confirming `dependencies["<PACKAGE_NAME>"]` exists in its `package.json`. Python/Java repos with npm-only tooling (`standard-version` in devDependencies) are NOT consumers.
+
+### Related: handle Bitbucket-only propagation targets gracefully
+
+The original workflow also had `propagate-formio-server` cloning `bitbucket.org/unctad/formio-server`. The runner's `BITBUCKET_USERNAME` / `BITBUCKET_APP_PASSWORD` didn't have access to that workspace, so the job failed every run. The recovery dropped the job from the workflow rather than poisoning every release with a known-failed step. Skill should:
+
+- Detect Bitbucket-hosted consumers separately from GitHub-hosted ones.
+- Allow a Bitbucket consumer to be flagged as `auth-blocked` so the pipeline skips it without surfacing as a failure (move it to a separate optional job, OR exclude it from the matrix entirely until creds are sorted).
+
+### Verification commands
+
+```bash
+# Node-library detection
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+[ "$REPO_TYPE" = "node-library" ] && echo "OK: detected as node-library"
+
+# Self-audit (subset; full list in SKILL.md GATE 3-4)
+for p in "publish-package:" "npm pack" "git checkout --orphan packages" \
+         "DEPENDENCY_PROPAGATOR_ID"; do
+  grep -q "$p" .github/workflows/ci-cd.yml || echo "MISSING node-library pattern: $p"
+done
+
+# Consumer adoption check (run AFTER patching consumers, BEFORE adding them to matrix)
+for c in JS-Assistant DS-Frontend; do
+  SPEC=$(gh api "repos/UNCTAD-eRegistrations/${c}/contents/package.json?ref=develop" \
+    --jq '.content' | base64 -d | python3 -c '
+import json,sys; d=json.load(sys.stdin); print(d.get("dependencies",{}).get("json-logic-extension",""))')
+  case "$SPEC" in
+    file:*vendor*) echo "$c: PATCHED ($SPEC)" ;;
+    "")            echo "$c: NOT A CONSUMER" ;;
+    *)             echo "$c: NOT PATCHED ($SPEC) — apply consumer-side-patch-node.md" ;;
+  esac
+done
+```
+
+---
+
 ## Verification
 
 To verify these measures are being followed in future migrations:
@@ -695,3 +776,5 @@ To verify these measures are being followed in future migrations:
 - [`UNCTAD-eRegistrations/DS-Backend`](https://github.com/UNCTAD-eRegistrations/DS-Backend) — `.github/workflows/ci-cd.yml` (Python/Django; `package.json` + `standard-version` for version-bump)
 - [`UNCTAD-eRegistrations/BPA-Backend`](https://github.com/UNCTAD-eRegistrations/BPA-Backend) — `.github/workflows/ci-cd.yml` (Java / Spring Boot Maven build; `standard-version` bump tooling syncs version to `pom.xml` via `xml-js`)
 - [`UNCTAD-eRegistrations/ActiveMQ`](https://github.com/UNCTAD-eRegistrations/ActiveMQ) — `.github/workflows/ci-cd.yml` (helm-chart-update job pattern)
+- [`UNCTAD-eRegistrations/Json-Logic-Extension`](https://github.com/UNCTAD-eRegistrations/Json-Logic-Extension) — `.github/workflows/ci-cd.yml` on master + `packages` branch (Node.js library reference; `npm pack` → `packages` branch tarball pattern)
+- [`UNCTAD-eRegistrations/JS-Assistant`](https://github.com/UNCTAD-eRegistrations/JS-Assistant) and [`DS-Frontend`](https://github.com/UNCTAD-eRegistrations/DS-Frontend) — develop branches (reference Node consumers patched per `consumer-side-patch-node.md`)

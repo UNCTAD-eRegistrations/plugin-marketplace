@@ -1,0 +1,311 @@
+# =============================================================================
+# Canonical LIBRARY workflow template for UNCTAD-eRegistrations Node.js libraries
+# =============================================================================
+# Use this template when the target repo is a Node.js library (no Dockerfile,
+# `package.json` ships JS sources to npm consumers). For Maven libraries use
+# workflow-template-library.yml; for Docker apps use workflow-template.yml.
+#
+# Reference implementation: UNCTAD-eRegistrations/Json-Logic-Extension (master).
+# Reference consumers (already adopted): JS-Assistant, DS-Frontend (develop).
+#
+# What this template covers (vs the Maven library template):
+#   - NO Maven, NO JDK 8 — npm pack + Node 22
+#   - npm-based version bump (npm version patch on master) — same as Maven template
+#   - Artifact publish via PACKAGES-BRANCH trick: on master, the .tgz produced by
+#     `npm pack` is committed to the `packages` branch under `latest/<name>.tgz`
+#     and `<version>/<name>.tgz`. Consumers fetch `latest/` via curl + GitHub
+#     App token, then `npm install --package-lock-only file:./vendor/<name>.tgz`
+#     to refresh integrity at install time. See lessons-learned.md §11.
+#   - vX.Y.Z git tag on master (created in bump-version, same as Maven template)
+#   - Cross-repo PROPAGATION via `workflow_dispatch` — triggers each consumer's
+#     own CI to run; the consumer fetches `latest/` and regenerates its lock.
+#     This is cleaner than opening PRs because the consumer's `package.json`
+#     never needs bumping (it stays pinned to `file:./vendor/<name>.tgz`).
+#   - Slack notify on failure (no Docker cleanup — libraries don't push images)
+#
+# HOW TO USE: copy this file to .github/workflows/ci-cd.yml in the target repo.
+# Then:
+#   1. Replace placeholders:
+#      - <PACKAGE_NAME>            → npm package name from package.json (e.g. json-logic-extension)
+#      - <NODE_VERSION>            → Node major version matching package.json `engines.node`
+#   2. Populate the propagate-version matrix with adopted consumers (see
+#      workflow-customization.md § "Propagate-version (Node libraries)"). Empty
+#      matrix is OK — the job will skip silently. Add consumers as they migrate.
+#   3. Validate with actionlint + the gap self-audit grep (SKILL.md GATE 3-4).
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ===========================================================================
+  # Test job — runs on every push to master. Decides whether downstream
+  # release jobs should fire (skipped when the commit IS the version bump,
+  # to avoid an infinite loop after bump-version pushes).
+  # ===========================================================================
+  test:
+    runs-on: [self-hosted, linux, build, normal]
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+      - run: npm install
+      - run: npm test
+      - name: Check if commit is itself a version bump
+        id: check
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          if echo "$MSG" | grep -qE "^chore: bump version"; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "Skipping release - commit is a version bump"
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Test summary
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node Version:** <NODE_VERSION>" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Release:** ${{ steps.check.outputs.should_release }}" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Bump-version — creates the next patch version + git tag. Uses retry loop
+  # for race conditions (concurrent merges). The push uses GITHUB_TOKEN so it
+  # does NOT trigger another CI run (would loop forever otherwise).
+  # ===========================================================================
+  bump-version:
+    needs: test
+    if: |
+      needs.test.outputs.should_release == 'true' &&
+      github.event_name == 'push' &&
+      github.ref_name == 'master'
+    runs-on: [self-hosted, linux, build, normal]
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.bump.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+      - name: Bump patch version with retry
+        id: bump
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            git fetch origin "$BRANCH_NAME"
+            git reset --hard "origin/$BRANCH_NAME"
+
+            NEW_VERSION=$(npm version patch --no-git-tag-version)
+            NEW_VERSION=${NEW_VERSION#v}
+
+            git add package.json package-lock.json
+            git commit -m "chore: bump version to $NEW_VERSION"
+            git tag "v$NEW_VERSION"
+            NEW_SHA=$(git rev-parse HEAD)
+
+            if git push origin "$BRANCH_NAME" && git push origin "v$NEW_VERSION"; then
+              echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "sha=$NEW_SHA" >> $GITHUB_OUTPUT
+              echo "Successfully bumped to $NEW_VERSION (SHA: $NEW_SHA, attempt $i)"
+              exit 0
+            fi
+
+            echo "Push failed (attempt $i/$MAX_RETRIES), retrying..."
+            git tag -d "v$NEW_VERSION" 2>/dev/null || true
+            sleep $((RANDOM % 5 + 2))
+          done
+          echo "Failed to bump version after $MAX_RETRIES retries"
+          exit 1
+      - name: Summary
+        run: |
+          echo "## Version Bumped" >> $GITHUB_STEP_SUMMARY
+          echo "- **New version:** \`${{ steps.bump.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`v${{ steps.bump.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit SHA:** \`${{ steps.bump.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Publish-package — npm pack + push to `packages` branch under
+  # `latest/<name>.tgz` and `<version>/<name>.tgz`. The branch is orphaned
+  # on first publish (no shared history with master). Idempotent: skips
+  # commit if the tgz hasn't changed.
+  # ===========================================================================
+  publish-package:
+    needs: bump-version
+    if: needs.bump-version.result == 'success'
+    runs-on: [self-hosted, linux, build, normal]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+      - name: Build tarball
+        env:
+          VERSION: ${{ needs.bump-version.outputs.version }}
+        run: |
+          npm pack
+          mv "<PACKAGE_NAME>-${VERSION}.tgz" /tmp/<PACKAGE_NAME>.tgz
+          ls -la /tmp/<PACKAGE_NAME>.tgz
+      - name: Publish to packages branch
+        env:
+          VERSION: ${{ needs.bump-version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin packages >/dev/null 2>&1; then
+            git fetch origin packages
+            git checkout packages
+            git pull --ff-only origin packages
+          else
+            git checkout --orphan packages
+            git rm -rf . >/dev/null 2>&1 || true
+            git clean -fdx
+          fi
+
+          mkdir -p "${VERSION}" latest
+          cp /tmp/<PACKAGE_NAME>.tgz "${VERSION}/<PACKAGE_NAME>.tgz"
+          cp /tmp/<PACKAGE_NAME>.tgz "latest/<PACKAGE_NAME>.tgz"
+
+          git add "${VERSION}/<PACKAGE_NAME>.tgz" "latest/<PACKAGE_NAME>.tgz"
+          if git diff --cached --quiet; then
+            echo "No tarball changes to publish for ${VERSION}"
+          else
+            git commit -m "publish: <PACKAGE_NAME> ${VERSION}"
+            git push origin packages
+          fi
+      - name: Summary
+        env:
+          VERSION: ${{ needs.bump-version.outputs.version }}
+        run: |
+          echo "## Published <PACKAGE_NAME> ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tarball available at:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`packages/${VERSION}/<PACKAGE_NAME>.tgz\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`packages/latest/<PACKAGE_NAME>.tgz\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Consumers fetch via api.github.com using DEPENDENCY_PROPAGATOR App token." >> "$GITHUB_STEP_SUMMARY"
+
+  # ===========================================================================
+  # Propagate-version — for Node libraries with packages-branch + `latest/`
+  # pattern, consumers don't need a `package.json` bump (they're pinned to
+  # `file:./vendor/<name>.tgz`). Instead this job triggers each consumer's
+  # ci-cd.yml on `develop` so they fetch the new tarball promptly.
+  #
+  # CUSTOMIZATION: list this library's adopted consumers below. Empty matrix
+  # is fine (job skips). Each consumer must have ci-cd.yml with workflow_dispatch
+  # enabled AND must already be patched to consume from the packages branch
+  # (see consumer-side-patch-node.md).
+  # ===========================================================================
+  propagate-version:
+    needs: [bump-version, publish-package]
+    if: |
+      always() &&
+      needs.bump-version.result == 'success' &&
+      needs.publish-package.result == 'success'
+    runs-on: [self-hosted, linux, build, normal]
+    strategy:
+      fail-fast: false
+      matrix:
+        consumer:
+          # ===================================================================
+          # Replace placeholders below with the actual consumer repo names
+          # (no org prefix — UNCTAD-eRegistrations is hardcoded in the steps).
+          # If this library has no consumers, delete the entire propagate-version
+          # job AND remove `propagate-version` from notify-failure's `needs:` list.
+          # ===================================================================
+          - REPLACE-WITH-CONSUMER-REPO-NAME
+    steps:
+      - name: Generate propagator token
+        id: propagator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEPENDENCY_PROPAGATOR_ID }}
+          private-key: ${{ secrets.DEPENDENCY_PROPAGATOR_SECRET }}
+          owner: UNCTAD-eRegistrations
+          repositories: ${{ matrix.consumer }}
+      - name: Trigger ${{ matrix.consumer }} CI on develop
+        env:
+          GH_TOKEN: ${{ steps.propagator-token.outputs.token }}
+          CONSUMER: ${{ matrix.consumer }}
+          VERSION: ${{ needs.bump-version.outputs.version }}
+        run: |
+          # Use the API directly (avoids needing gh CLI on the runner).
+          # workflow_dispatch on develop — the consumer's CI fetches `latest/`
+          # from this library's packages branch, regenerates lock, runs tests,
+          # rebuilds docker.
+          HTTP=$(curl -sS -o /tmp/dispatch.body -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/UNCTAD-eRegistrations/${CONSUMER}/actions/workflows/ci-cd.yml/dispatches" \
+            -d '{"ref":"develop"}')
+          if [ "$HTTP" -lt 200 ] || [ "$HTTP" -ge 300 ]; then
+            echo "::error::workflow_dispatch failed (HTTP $HTTP)"
+            cat /tmp/dispatch.body
+            exit 1
+          fi
+          echo "✓ Dispatched ${CONSUMER}/ci-cd.yml on develop for ${VERSION}"
+      - name: Summary
+        env:
+          CONSUMER: ${{ matrix.consumer }}
+          VERSION: ${{ needs.bump-version.outputs.version }}
+        run: |
+          echo "## ${CONSUMER} dispatched" >> $GITHUB_STEP_SUMMARY
+          echo "- **Library version:** \`${VERSION}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Consumer branch:** develop" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Notify-failure — Slack on any failed job. Does NOT include the test job
+  # in needs because test failure is already visible on the PR/commit status;
+  # this notification is for release-pipeline failures specifically.
+  # ===========================================================================
+  notify-failure:
+    if: failure()
+    needs: [test, bump-version, publish-package, propagate-version]
+    runs-on: [self-hosted, linux, build, normal]
+    steps:
+      - name: Slack notification
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "<PACKAGE_NAME> CI/CD Failed",
+              "attachments": [{
+                "color": "danger",
+                "fields": [
+                  {"title": "Repository", "value": "${{ github.repository }}", "short": true},
+                  {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                  {"title": "Workflow", "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>", "short": true}
+                ]
+              }]
+            }

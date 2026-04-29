@@ -10,8 +10,8 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI (≥2.13 recommended), git, ssh access to GitHub. UNCTAD-eRegistrations org assumed for helm umbrella repo and Jenkins job mappings.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(ls *), Bash(grep *), Bash(find *), Bash(mkdir *), Bash(cp *), Bash(mv *), Bash(rm *), Bash(cat *), Bash(echo *), Bash(date *), Bash(seq *), Bash(sleep *), Bash(awk *), Bash(sed *), Bash(base64 *), Bash(node *), Bash(npm *), Bash(mvn *), Bash(du *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.1"
-  version-date: "2026-04-28"
+  version: "1.2.0"
+  version-date: "2026-04-29"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[github-target-url] [--dry-run]"
 ---
@@ -576,7 +576,7 @@ If Jenkinsfile exists, ask user:
 The skill ships **two** canonical templates. Pick the right one before proceeding:
 
 ```bash
-# Detect repo type — Dockerfile presence dominates; pom.xml <packaging> is the secondary signal
+# Detect repo type — three-way: app / library (Maven/Mule) / node-library
 HAS_DOCKERFILE="no"
 [ -f Dockerfile ] && HAS_DOCKERFILE="yes"
 
@@ -585,30 +585,55 @@ if [ -f pom.xml ]; then
   PACKAGING=$(grep -m 1 '<packaging>' pom.xml | sed 's/.*<packaging>\(.*\)<\/packaging>.*/\1/' || echo "")
 fi
 
+HAS_PACKAGE_JSON="no"
+[ -f package.json ] && HAS_PACKAGE_JSON="yes"
+
+# Node-library signal: package.json present, no Dockerfile, no `bin` field
+# (CLI tools are apps not libraries), no pom.xml. We INTENTIONALLY do not check
+# `private: true` — internal libraries often set it to block public-npm publish
+# while still being consumed via git/tarball.
+HAS_BIN_FIELD="no"
+if [ "$HAS_PACKAGE_JSON" = "yes" ]; then
+  if node -p "Boolean(require('./package.json').bin)" 2>/dev/null | grep -q true; then
+    HAS_BIN_FIELD="yes"
+  fi
+fi
+
 REPO_TYPE="app"   # default
 if [ "$HAS_DOCKERFILE" = "no" ] && [ -n "$PACKAGING" ] && \
    echo "$PACKAGING" | grep -qE '^(jar|mule-module|maven-plugin|pom)$'; then
   REPO_TYPE="library"
+elif [ "$HAS_DOCKERFILE" = "no" ] && [ "$HAS_PACKAGE_JSON" = "yes" ] && \
+     [ "$HAS_BIN_FIELD" = "no" ] && [ ! -f pom.xml ]; then
+  REPO_TYPE="node-library"
 fi
 
-echo "Detected repo type: $REPO_TYPE  (Dockerfile=$HAS_DOCKERFILE  packaging=$PACKAGING)"
+echo "Detected repo type: $REPO_TYPE  (Dockerfile=$HAS_DOCKERFILE  packaging=$PACKAGING  package.json=$HAS_PACKAGE_JSON  bin=$HAS_BIN_FIELD)"
 
 # Persist for Step 3.2.1
 cat >> /tmp/migration-state.sh <<EOF
 export REPO_TYPE="$REPO_TYPE"
 export HAS_DOCKERFILE="$HAS_DOCKERFILE"
 export PACKAGING="$PACKAGING"
+export HAS_PACKAGE_JSON="$HAS_PACKAGE_JSON"
+export HAS_BIN_FIELD="$HAS_BIN_FIELD"
 EOF
 ```
 
 The detection is a **heuristic** — confirm with the user before routing in Step 3.2.1:
 
-- "Detected repo type: **$REPO_TYPE** (Dockerfile=$HAS_DOCKERFILE, packaging=$PACKAGING). Use the matching canonical template?"
-- Options: "Yes — use $REPO_TYPE template" | "No — override to the other"
+- "Detected repo type: **$REPO_TYPE** (Dockerfile=$HAS_DOCKERFILE, packaging=$PACKAGING, package.json=$HAS_PACKAGE_JSON, bin=$HAS_BIN_FIELD). Use the matching canonical template?"
+- Options: "Yes — use $REPO_TYPE template" | "No — override to a different type"
 
 Edge cases to flag:
 - Dockerfile + library `<packaging>` together (rare but possible — e.g. a library that ships a sidecar Docker image): the heuristic chooses "app". Override to "library" only if the Docker image is genuinely incidental.
-- No Dockerfile + no `pom.xml`: heuristic falls back to "app". For pure-Node libraries, override to "library" and choose a non-Maven `<BUILD_STEP>` (out of scope for v1 — manual customization needed).
+- Dockerfile + Node `package.json` together: the heuristic chooses "app" (correct — service repos like JS-Assistant, DS-Frontend have both, and they consume Node libraries rather than being one).
+- `package.json` with only `standard-version` in `devDependencies` and no production `dependencies`: this is a Python or Java repo using npm only as a version-bump tool. It's NOT a Node library — heuristic correctly falls back to "app" because the consumer detection in propagation should reject it as a non-consumer of any Node library (see Step 1.4 below for consumer-presence verification).
+- No Dockerfile + no `pom.xml` + no `package.json`: heuristic falls back to "app". Genuinely unusual; ask the user to specify the build/publish flow.
+
+**Reference Node-library implementation**: `UNCTAD-eRegistrations/Json-Logic-Extension`
+(master). Reference adopters: `JS-Assistant`, `DS-Frontend` (develop), each
+patched per [`reference/consumer-side-patch-node.md`](reference/consumer-side-patch-node.md).
 
 #### Step 3.2.0b: Jenkinsfile feature extraction
 
@@ -656,12 +681,13 @@ grep -A 5 "post {" Jenkinsfile
 
 **If user selected "Convert to GitHub Actions", you MUST create `.github/workflows/ci-cd.yml` from the canonical template matching the `REPO_TYPE` detected in Step 3.2.0a.**
 
-Two templates ship with this skill — **do NOT hand-author the workflow**, and do NOT mix the two:
+Three templates ship with this skill — **do NOT hand-author the workflow**, and do NOT mix them:
 
 | `REPO_TYPE` | Template | Coverage |
 |---|---|---|
 | `app` | [`reference/workflow-template.yml`](reference/workflow-template.yml) | 7 jobs (set-build-variables, bump-version, build-docker-image, push-docker-image, tag-release, trigger-jenkins-deploy, notify-failure) — closes the 12 known ds-backend alignment gaps |
-| `library` | [`reference/workflow-template-library.yml`](reference/workflow-template-library.yml) | 6 jobs (set-build-variables, bump-version, build-and-publish, tag-release, propagate-version, notify-failure) — packages-branch publish, cross-repo version propagation |
+| `library` | [`reference/workflow-template-library.yml`](reference/workflow-template-library.yml) | 6 jobs (set-build-variables, bump-version, build-and-publish, tag-release, propagate-version, notify-failure) — Maven/Mule 3 packages-branch publish, cross-repo version propagation via PRs |
+| `node-library` | [`reference/workflow-template-library-node.yml`](reference/workflow-template-library-node.yml) | 5 jobs (test, bump-version, publish-package, propagate-version, notify-failure) — `npm pack` + packages-branch tarball, consumers fetch `latest/<name>.tgz` and refresh lock at install time. Consumers patched per [`consumer-side-patch-node.md`](reference/consumer-side-patch-node.md). |
 
 Common steps (both types):
 
@@ -679,11 +705,17 @@ Common steps (both types):
 3. **Copy the matching canonical template**:
    ```bash
    mkdir -p .github/workflows
-   if [ "$REPO_TYPE" = "library" ]; then
-     cp <skill-dir>/reference/workflow-template-library.yml .github/workflows/ci-cd.yml
-   else
-     cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
-   fi
+   case "$REPO_TYPE" in
+     library)
+       cp <skill-dir>/reference/workflow-template-library.yml .github/workflows/ci-cd.yml
+       ;;
+     node-library)
+       cp <skill-dir>/reference/workflow-template-library-node.yml .github/workflows/ci-cd.yml
+       ;;
+     *)
+       cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
+       ;;
+   esac
    ```
 
 #### App-mode (REPO_TYPE=app) flow
@@ -733,6 +765,45 @@ Common steps (both types):
 
 8. **Provision `PROPAGATOR_TOKEN`** — for cross-repo PR creation. See `workflow-customization.md` § 7 "PROPAGATOR_TOKEN provisioning". **Required if matrix is non-empty**; can defer if empty.
 
+#### Node-library-mode (REPO_TYPE=node-library) flow
+
+Reference implementation: `UNCTAD-eRegistrations/Json-Logic-Extension`. Reference adopters: `JS-Assistant`, `DS-Frontend`.
+
+4. **Ask for library-specific values**:
+   - "What is the npm package name?" (becomes `<PACKAGE_NAME>`, e.g. `json-logic-extension`) — read from `name` in `package.json`. Note: this is also the tarball filename — `<PACKAGE_NAME>.tgz` lands at `latest/` and `<version>/` on the `packages` branch.
+   - "What Node major version matches `engines.node` in `package.json`?" (becomes `<NODE_VERSION>`, e.g. `22` if engines says `>20.0.0`). If `engines.node` is missing, ask the user to specify.
+   - "Who are this library's adopted consumers (org-prefixed repo names, no org)?" — populates the `propagate-version` matrix. **Empty matrix is OK** — the job will skip silently. Do NOT add a consumer until it has been patched per [`consumer-side-patch-node.md`](reference/consumer-side-patch-node.md).
+
+5. **Replace placeholders**:
+   ```bash
+   sed -i \
+     -e 's|<PACKAGE_NAME>|<package_name_value>|g' \
+     -e 's|<NODE_VERSION>|<node_version_value>|g' \
+     .github/workflows/ci-cd.yml
+   ```
+
+6. **Verify each consumer in the matrix is already patched** for the packages-branch
+   pattern. The skill MUST grep each consumer's `package.json` on `develop` for
+   `"file:./vendor/<PACKAGE_NAME>.tgz"` — if missing, the consumer is NOT yet
+   adopted and must be patched first (see `consumer-side-patch-node.md`).
+   ```bash
+   for c in $CONSUMERS; do
+     SPEC=$(gh api "repos/UNCTAD-eRegistrations/${c}/contents/package.json?ref=develop" \
+       --jq '.content' | base64 -d | node -p "
+         JSON.parse(require('fs').readFileSync('/dev/stdin'))
+           .dependencies?.['<PACKAGE_NAME>'] || ''" 2>/dev/null)
+     if ! echo "$SPEC" | grep -q "file:.*${PACKAGE_NAME}.tgz"; then
+       echo "::warning::$c is NOT patched (spec=$SPEC) — apply consumer-side-patch-node.md first"
+     fi
+   done
+   ```
+
+7. **Confirm `vars.DEPENDENCY_PROPAGATOR_ID` and `secrets.DEPENDENCY_PROPAGATOR_SECRET`
+   exist** at the org level (they should — used by all libraries). The
+   `unctad-dependency-propagator` App must be installed on this library AND on
+   every consumer in the matrix. If any consumer is missing the App, dispatch
+   to it will fail with 401.
+
 #### Common closing steps
 
 9. **Validate** with `actionlint` + the gap self-audit grep loop — see GATE 3-4 below.
@@ -742,7 +813,7 @@ Common steps (both types):
     git rm Jenkinsfile
     ```
 
-11. **Show summary** of the generated workflow with the required-secrets list. App-mode: `SSH_PRIVATE_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `JENKINS_URL`/`JENKINS_USER`/`JENKINS_API_TOKEN`, `SLACK_WEBHOOK_URL`, plus optional-job-specific secrets. Library-mode: `SSH_PRIVATE_KEY`, `SLACK_WEBHOOK_URL`, and **`PROPAGATOR_TOKEN`** if consumer matrix is non-empty.
+11. **Show summary** of the generated workflow with the required-secrets list. App-mode: `SSH_PRIVATE_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `JENKINS_URL`/`JENKINS_USER`/`JENKINS_API_TOKEN`, `SLACK_WEBHOOK_URL`, plus optional-job-specific secrets. Library-mode (Maven): `SSH_PRIVATE_KEY`, `SLACK_WEBHOOK_URL`, and **`PROPAGATOR_TOKEN`** if consumer matrix is non-empty. Node-library-mode: `SLACK_WEBHOOK_URL` plus org-level `vars.DEPENDENCY_PROPAGATOR_ID` + `secrets.DEPENDENCY_PROPAGATOR_SECRET` (already provisioned org-wide). No `SSH_PRIVATE_KEY` or `DOCKERHUB_*` needed — Node libraries don't build images.
 
 #### Required summaries (preserved from prior versions)
 
@@ -770,6 +841,16 @@ The canonical template includes a summary step in every job. Required summary ti
 | build-and-publish | Library Built |
 | tag-release | Library Release Tagged |
 | propagate-version | Version Propagation |
+| notify-failure | Pipeline Failed |
+
+**Node-library-mode (workflow-template-library-node.yml):**
+
+| Job | Title |
+|-----|-------|
+| test | Test Results |
+| bump-version | Version Bumped |
+| publish-package | Published `<PACKAGE_NAME>` `${VERSION}` |
+| propagate-version | `<consumer>` dispatched (one summary per matrix entry) |
 | notify-failure | Pipeline Failed |
 
 See [reference/critical-patterns.md#16-summary-style-guidelines](reference/critical-patterns.md#16-summary-style-guidelines) for style rules.
@@ -1060,6 +1141,20 @@ if [ "$REPO_TYPE" = "library" ]; then
   for anti in "build-docker-image:" "push-docker-image:" "trigger-jenkins-deploy:" "imagetools create"; do
     grep -q "$anti" .github/workflows/ci-cd.yml && \
       echo "DEPRECATED in library mode: $anti — library template should not have this"
+  done
+elif [ "$REPO_TYPE" = "node-library" ]; then
+  echo "=== Node-library-mode self-audit ==="
+  for pattern in "publish-package:" "propagate-version:" "npm pack" "packages branch" \
+                 "git checkout --orphan packages" "actions/setup-node@v4" \
+                 "DEPENDENCY_PROPAGATOR_ID" "workflow_dispatch"; do
+    grep -q "$pattern" .github/workflows/ci-cd.yml || echo "MISSING node-library pattern: $pattern"
+  done
+  # Node-library anti-patterns (these belong in the app or Maven library template)
+  for anti in "build-docker-image:" "push-docker-image:" "trigger-jenkins-deploy:" \
+              "build-and-publish:" "git worktree add" "actions/setup-java@v4" \
+              "ARTIFACT_GROUP_PATH" "gh pr merge --merge --delete-branch"; do
+    grep -q "$anti" .github/workflows/ci-cd.yml && \
+      echo "DEPRECATED in node-library mode: $anti — use the matching app/library template instead"
   done
 else
   echo "=== App-mode self-audit ==="
