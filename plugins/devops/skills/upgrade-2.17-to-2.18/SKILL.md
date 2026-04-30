@@ -7,18 +7,22 @@ description: >
   swaps the minio image and healthcheck, and removes deprecated env vars. Strict
   mode — aborts on anything unexpected. Env-aware anomaly thresholds for
   `BUILD_TYPE` and `EREGISTRATIONS_VERSION`. LIVE invocations require a
-  retype-country confirmation rail before commit. Commits on a fresh feature
-  branch, pushes, and opens a pull request against master (gh on GitHub origins,
-  manual link on Bitbucket origins). Swarm-stack (docker-stack.yml) shape only —
-  instances still on docker-compose.yml must run /docker-swarm-migration first.
+  retype-country confirmation rail before commit (skipped in chain mode — the
+  orchestrator does it once up front). Two invocation modes: standalone (creates
+  branch, pushes, opens a pull request against master via gh on GitHub origins,
+  manual link on Bitbucket origins) and chain mode (`CHAIN_MODE=1
+  CHAIN_BRANCH=<name>`, commits to orchestrator-managed branch, no push, no PR —
+  the orchestrator squashes the chain and ships a single PR). Swarm-stack
+  (docker-stack.yml) shape only — instances still on docker-compose.yml must run
+  /docker-swarm-migration first.
 license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master with a clean tracked tree. Requires an authenticated CLI for the host VCS (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   version-date: "2026-04-30"
   author: "UNCTAD Trade Facilitation Section"
-  argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1]"
+  argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1] [CHAIN_MODE=1 CHAIN_BRANCH=<name>]"
   jira: "TOBE-17814"
 ---
 
@@ -32,11 +36,13 @@ When the upgrade is approved, the skill commits on a fresh branch `chore/upgrade
 
 ## Arguments
 
-The skill accepts up to three positional/flag tokens, whitespace-separated, in any order:
+The skill accepts up to five positional/flag tokens, whitespace-separated, in any order:
 
 - `<env>` — one of `dev`, `test`, `preview`, `prelive`, `live` (lowercase). Disambiguated by exact keyword match.
 - `<country>` — the folder name under `Conf-<UPPER_ENV>/compose/`, e.g. `kenya`, `lesotho`, `colombia`. Anything that isn't an env keyword and isn't a `KEY=VALUE` flag is treated as `<country>`.
 - `BACKUP_CONFIRMED=1` — flag (any other value of `BACKUP_CONFIRMED` is treated as not-confirmed). Suppresses the STEP 1.5 backup prompt — used by the orchestrator, which already asked.
+- `CHAIN_MODE=1` — flag. Switches to chain mode: the orchestrator owns branch creation, push, and PR. Sub-skill commits a single step-scoped commit on `<CHAIN_BRANCH>` and returns. Implies `BACKUP_CONFIRMED=1`. Skips the STEP 5 commit-or-not prompt and STEP 5.5 LIVE retype-country rail (orchestrator did the rail once before the first step).
+- `CHAIN_BRANCH=<branch>` — required when `CHAIN_MODE=1`. The branch the orchestrator already created and switched to. Sub-skill verifies the working tree is on this branch in STEP 0 and commits here in STEP 6.
 
 Tokenizer rules:
 - Whitespace-split.
@@ -66,6 +72,10 @@ If the target instance has only `docker-compose.yml` (no `docker-stack.yml`), ab
 
 Before doing anything else, verify the repository is in a state where the upgrade can proceed. Run these checks in order. If any fails, print the failure reason and stop — do not proceed to STEP 1 and do not modify any files. STEP 0 is git-only; the eregistrations-v4 directory shape check happens in STEP 1 once `<env>` is known. If invoked standalone, STEP 1's directory check is the only eregistrations-v4 shape gate.
 
+The branch and pull checks differ between standalone and chain modes:
+
+**Standalone mode** (no `CHAIN_MODE=1`):
+
 1. **Working tree is a git repo at the repo root.** Run `git rev-parse --show-toplevel`. If it errors, abort: "Not in a git working tree."
 2. **Current branch is `master`.** Run `git rev-parse --abbrev-ref HEAD`. If the result is not exactly `master`, abort and print: "Refusing to run on branch <branch-name>. Switch to master first."
 3. **No staged or modified tracked files.** Run `git status --porcelain --untracked-files=no`. If the output is non-empty, abort and print: "There are staged or modified tracked files. Resolve the changes below first." followed by the same output. Untracked files are ignored — the skill only `git add`s the single target file, so stray untracked files cannot be bundled into the upgrade commit.
@@ -75,7 +85,14 @@ Before doing anything else, verify the repository is in a state where the upgrad
    - Otherwise abort: "Unsupported origin host: <url>."
 5. **`master` is in sync with origin.** Run `git pull --ff-only origin master`. If it fails, abort and print the git error verbatim. Suggest: "Resolve divergence (e.g. `git pull --rebase`) and re-run."
 
-When all five checks pass, proceed to STEP 1.
+**Chain mode** (`CHAIN_MODE=1`, requires `CHAIN_BRANCH=<branch>`):
+
+1. **Working tree is a git repo at the repo root.** Same check as standalone.
+2. **Currently on `<CHAIN_BRANCH>`.** Run `git rev-parse --abbrev-ref HEAD`. If the result is not exactly `<CHAIN_BRANCH>`, abort: "Chain mode expected branch `<CHAIN_BRANCH>` but on `<actual>`. Orchestrator state inconsistent."
+3. **No staged or modified tracked files.** Same check as standalone — the orchestrator should have ensured a clean tree between steps.
+4. **Skip host detection and pull.** The orchestrator already validated both before creating the chain branch.
+
+When pre-flight passes, proceed to STEP 1.
 
 ## STEP 1: Resolve env, country, target
 
@@ -111,7 +128,7 @@ Proceed to STEP 1.5.
 
 ## STEP 1.5: Backup confirmation
 
-If `BACKUP_CONFIRMED=1` was passed in args (orchestrator-routed invocations always set this), skip this step and proceed to STEP 2.
+If `BACKUP_CONFIRMED=1` was passed in args (orchestrator-routed and chain-mode invocations always set this), skip this step and proceed to STEP 2.
 
 Otherwise AskUserQuestion: "Is the current state of `<env>`/`<country>` recoverable (snapshot, prior tag, manual export)? (y/N)"
 
@@ -213,14 +230,23 @@ When the user has resolved all matches (or there were none), proceed to STEP 5.
 Show the user the diff and ask for explicit approval before committing.
 
 1. Run `git --no-pager diff --no-color -- "$TARGET"` and print the output verbatim (do not summarise).
+
+**Standalone mode:**
+
 2. Ask: "Commit, push, and open PR? (y/N)"
 3. Read the answer.
    - `y` (case-insensitive) — if `<env>=live`, proceed to STEP 5.5. Otherwise, proceed to STEP 6.
    - Anything else — run `git restore -- "$TARGET"` and exit cleanly: "Aborted. No commit made."
 
-## STEP 5.5: LIVE confirmation rail (only when `<env>=live`)
+**Chain mode:**
 
-For live envs, require a retype-country confirmation as a final guardrail before commit.
+2. Skip the y/N prompt — the orchestrator already gathered intent for the whole chain. Proceed straight to STEP 6 (commit only). Skip STEP 5.5 too — the orchestrator does the LIVE retype-country rail once before the first step.
+
+## STEP 5.5: LIVE confirmation rail (standalone mode only when `<env>=live`)
+
+In **chain mode**, this step is skipped — the orchestrator does the LIVE retype-country rail once before the first step in the chain.
+
+In **standalone mode** for live envs, require a retype-country confirmation as a final guardrail before commit:
 
 1. Print:
    ```
@@ -232,7 +258,22 @@ For live envs, require a retype-country confirmation as a final guardrail before
    - Match → proceed to STEP 6.
    - Mismatch → run `git restore -- "$TARGET"` and exit cleanly: "Country name mismatch. Aborted. No commit made."
 
-## STEP 6: Branch, commit, push, open PR
+## STEP 6: Commit (and push/PR in standalone mode)
+
+### Chain mode
+
+In chain mode, the orchestrator owns the branch lifecycle (creation, push, PR). The sub-skill only commits.
+
+1. **Stage and commit on `<CHAIN_BRANCH>`.**
+
+   ```bash
+   git add "$TARGET"
+   git commit -m "Step 2.17→2.18 on <env>.<country> TOBE-17814"
+   ```
+
+2. Print: "Step 2.17→2.18 committed on `<CHAIN_BRANCH>`." Return control to the orchestrator. Do not push, do not open a PR, do not switch branches.
+
+### Standalone mode
 
 1. **Compute the branch name.** `BRANCH=chore/upgrade-<env>-<country>-2.17-to-2.18` (using the resolved env and country folder name).
 
@@ -268,7 +309,9 @@ For live envs, require a retype-country confirmation as a final guardrail before
        --base master \
        --head "$BRANCH" \
        --title "Upgrade <env>.<country> from 2.17 to 2.18" \
-       --body "<body>"
+       --body "<body>" \
+       --assignee @me \
+       --reviewer benoumemen
      ```
 
      If `gh pr create` fails, leave the branch pushed and the local commit in place. Print the gh error and tell the user: "PR creation failed; the branch is pushed. Open the PR manually."
@@ -279,6 +322,7 @@ For live envs, require a retype-country confirmation as a final guardrail before
      Branch pushed: $BRANCH
      Open the PR via the Bitbucket web UI at:
      https://bitbucket.org/<workspace>/<repo>/pull-requests/new?source=$BRANCH&dest=master
+     Set the assignee to yourself and the reviewer to `benoumemen` in the Bitbucket UI.
      ```
 
 6. **Print the PR URL** — the URL returned by `gh pr create` (GitHub) or the constructed Bitbucket URL on its own line.
