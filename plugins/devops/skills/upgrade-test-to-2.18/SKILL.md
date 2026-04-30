@@ -1,13 +1,13 @@
 ---
 name: upgrade-test-to-2.18
 description: >
-  Upgrade a test instance under Conf-TEST/compose/<country>/docker-compose.yml from
+  Upgrade a test instance under Conf-TEST/compose/<country>/docker-stack.yml from
   eRegistrations 2.17 to 2.18. Bumps standard unctad images, swaps the minio image and
   healthcheck, and removes deprecated env vars. Strict mode — aborts on anything
   unexpected. Commits on a fresh feature branch, pushes, and opens a pull request
   against master (gh on GitHub origins, manual link on Bitbucket origins).
-  Compose-shape instances only — swarm stacks (docker-stack.yml) are out of scope and
-  must be routed elsewhere by the upgrade-eregistrations-instance orchestrator.
+  Swarm-stack (docker-stack.yml) shape only — instances still on docker-compose.yml
+  must run /docker-swarm-migration first to convert to swarm before this skill applies.
 license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master with a clean tracked tree. Requires an authenticated CLI for the host VCS (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
@@ -20,18 +20,18 @@ metadata:
 
 # Upgrade test instance from 2.17 to 2.18
 
-You are performing a mechanical eRegistrations 2.17 → 2.18 upgrade of a single test instance. The target file is `Conf-TEST/compose/<country>/docker-compose.yml`. The upgrade applies five fixed transformations (image bumps, minio swap, healthcheck rewrite, two env-var deletions). Operate in **strict mode**: any anomaly pauses for explicit user confirmation, with `abort` as the default.
+You are performing a mechanical eRegistrations 2.17 → 2.18 upgrade of a single test instance. The target file is `Conf-TEST/compose/<country>/docker-stack.yml`. The upgrade applies five fixed transformations (image bumps, minio swap, healthcheck rewrite, two env-var deletions). Operate in **strict mode**: any anomaly pauses for explicit user confirmation, with `abort` as the default.
 
-The skill is invoked as `/upgrade-test-to-2.18` with no arguments. It is also routed to by the `upgrade-eregistrations-instance` orchestrator when it detects a `Conf-TEST` compose-shape instance on `unctad/*:2.17` images.
+The skill is invoked as `/upgrade-test-to-2.18` with no arguments. It is also routed to by the `upgrade-eregistrations-instance` orchestrator when it detects a `Conf-TEST` swarm-stack instance on `unctad/*:2.17` images.
 
 When the upgrade is approved, the skill commits on a fresh branch `chore/upgrade-test-<country>-2.18`, pushes it, and opens a pull request against `master` via `gh`.
 
 ## Scope (intentionally narrow)
 
-- **In scope:** a single `Conf-TEST/compose/<country>/docker-compose.yml` whose `unctad/*` images are pinned at `:2.17`.
-- **Out of scope:** any `docker-stack.yml` (swarm), Coolify-managed instances, anything outside `Conf-TEST`, simultaneous upgrades of multiple instances, version pairs other than 2.17 → 2.18.
+- **In scope:** a single `Conf-TEST/compose/<country>/docker-stack.yml` whose `unctad/*` images are pinned at `:2.17`.
+- **Out of scope:** instances still on `docker-compose.yml` (refuse and point at `/docker-swarm-migration`), Coolify-managed instances, anything outside `Conf-TEST`, simultaneous upgrades of multiple instances, version pairs other than 2.17 → 2.18.
 
-If the target file is a `docker-stack.yml`, abort and tell the user to use the orchestrator (`/upgrade-eregistrations-instance`) — swarm stacks need a different sub-skill that doesn't exist yet.
+If the target instance has only `docker-compose.yml` (no `docker-stack.yml`), abort with: "`<country>` is still on docker-compose.yml. Run `/docker-swarm-migration` first to convert the instance to swarm, then re-run this skill." The 2.17 → 2.18 upgrade flow assumes the swarm migration has already happened — see TOBE-17731.
 
 ## STEP 0: Pre-flight git checks
 
@@ -81,7 +81,7 @@ upgrade.
 1. **Find candidates.** Run:
 
    ```bash
-   for f in Conf-TEST/compose/*/docker-compose.yml; do
+   for f in Conf-TEST/compose/*/docker-stack.yml; do
      if grep -q 'unctad/.*:2\.17' "$f"; then
        echo "$(basename "$(dirname "$f")")"
      fi
@@ -89,10 +89,10 @@ upgrade.
    ```
 
 2. **No candidates found.** If the loop produced zero lines, print:
-   "Nothing to upgrade — no Conf-TEST compose-shape instance contains
-   `unctad/*:2.17`. Note: `docker-stack.yml` (swarm) instances are
-   intentionally not handled by this skill — see
-   `/upgrade-eregistrations-instance`." Exit 0. Do not abort.
+   "Nothing to upgrade — no Conf-TEST swarm-stack instance contains
+   `unctad/*:2.17`. Note: instances still on `docker-compose.yml`
+   must run `/docker-swarm-migration` first to convert to swarm
+   before this skill applies." Exit 0. Do not abort.
 
 3. **Present the list.** Print one country per line, prefixed with
    `- `, then ask:
@@ -106,7 +106,7 @@ upgrade.
    instance picked, exiting."
 
 6. **Confirm the target file exists.** Compute
-   `TARGET=Conf-TEST/compose/<answer>/docker-compose.yml`. Run
+   `TARGET=Conf-TEST/compose/<answer>/docker-stack.yml`. Run
    `test -f "$TARGET"`. If missing, abort: "$TARGET not found." (This
    should not happen if the candidate list was built correctly.)
 
@@ -356,7 +356,7 @@ the error, exit, let the user re-run.
 ```
 ## Summary
 
-Mechanical upgrade of `Conf-TEST/compose/<country>/docker-compose.yml`
+Mechanical upgrade of `Conf-TEST/compose/<country>/docker-stack.yml`
 from eRegistrations 2.17 to 2.18.
 
 ## Transformations applied

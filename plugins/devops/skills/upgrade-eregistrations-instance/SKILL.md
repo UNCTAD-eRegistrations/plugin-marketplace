@@ -5,10 +5,12 @@ description: >
   version. Resolves the instance from a natural-language phrase like "lesotho test" or
   "kenya live 2.17-to-2.18", detects the deployment shape (docker-compose vs
   docker-stack/swarm), confirms the source version, and dispatches to the matching
-  upgrade sub-skill. Today the only registered route is `(test, 2.17→2.18, compose)` →
+  upgrade sub-skill. Today the only registered route is `(test, 2.17→2.18, swarm)` →
   `/upgrade-test-to-2.18`. Other `(env, from→to, shape)` triples abort cleanly with
   a "no sub-skill registered" message rather than guessing or silently degrading.
-  Strict mode. Refuses `docker-stack.yml`; use `/docker-swarm-migration` first.
+  Strict mode. The 2.17 → 2.18 upgrade assumes the instance has already been migrated
+  to swarm — instances still on `docker-compose.yml` route to `/docker-swarm-migration`
+  first.
 license: UNCTAD-Internal
 compatibility: Requires the eRegistrations deployment-config repo on disk and an authenticated CLI for the host VCS (gh for GitHub origins; for Bitbucket origins the sub-skill prints a manual PR link after push). Sub-skills may add their own preconditions.
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(test *), Bash(grep *), Bash(ls *), Bash(basename *), Bash(dirname *), Bash(gh *), Skill, AskUserQuestion
@@ -40,12 +42,12 @@ You **never** apply transformations yourself. All edit logic lives in the sub-sk
 
 | Env  | From | To   | Shape   | Sub-skill                 | Notes |
 |------|------|------|---------|---------------------------|-------|
-| test | 2.17 | 2.18 | compose | `/upgrade-test-to-2.18`   | Conf-TEST docker-compose.yml only. |
-| dev  | 2.17 | 2.18 | compose | _(unregistered)_          | Anomaly thresholds differ (`BUILD_TYPE=DEV`, `EREGISTRATIONS_VERSION=DEV`). Write `/upgrade-dev-to-2.18` from the test sub-skill template when needed. |
-| preview | 2.17 | 2.18 | compose | _(unregistered)_       | Same shape as test; same thresholds. Add `/upgrade-preview-to-2.18` when first preview instance is upgraded. |
-| prelive | 2.17 | 2.18 | compose | _(unregistered)_       | Same shape as test; same thresholds. Add `/upgrade-prelive-to-2.18` when first prelive instance is upgraded. |
-| live | 2.17 | 2.18 | compose | _(unregistered)_          | Needs a LIVE confirmation rail (retype-country) before commit. Add `/upgrade-live-to-2.18` for the 8 live instances per TOBE-17813. |
-| any  | any  | any  | swarm   | _(unregistered)_          | Stack-shape upgrades aren't handled here. Use `/docker-swarm-migration` to convert first, or write a swarm-aware sub-skill. |
+| test | 2.17 | 2.18 | swarm   | `/upgrade-test-to-2.18`   | Conf-TEST docker-stack.yml only. Compose-only instances must be migrated to swarm first via `/docker-swarm-migration`. |
+| dev  | 2.17 | 2.18 | swarm   | _(unregistered)_          | Anomaly thresholds differ (`BUILD_TYPE=DEV`, `EREGISTRATIONS_VERSION=DEV`). Write `/upgrade-dev-to-2.18` from the test sub-skill template when needed. |
+| preview | 2.17 | 2.18 | swarm | _(unregistered)_         | Same shape as test; same thresholds. Add `/upgrade-preview-to-2.18` when first preview instance is upgraded. |
+| prelive | 2.17 | 2.18 | swarm | _(unregistered)_         | Same shape as test; same thresholds. Add `/upgrade-prelive-to-2.18` when first prelive instance is upgraded. |
+| live | 2.17 | 2.18 | swarm   | _(unregistered)_          | Needs a LIVE confirmation rail (retype-country) before commit. Add `/upgrade-live-to-2.18` for the 8 live instances per TOBE-17813. |
+| any  | any  | any  | compose | _(unregistered)_          | Compose-shape upgrades aren't handled here. Run `/docker-swarm-migration` first to convert the instance to swarm, then re-run this orchestrator. |
 | any  | any  | any  | coolify | _(unregistered)_          | Coolify-managed instances aren't part of this repo. Out of scope. |
 
 Add a row here when you write a new sub-skill. The orchestrator body otherwise stays unchanged. The shipped v1 of this skill (commit `55fb29a`, parametrised monolith) is the template body for any new env sub-skill — the five transformation rules and anomaly thresholds it documents are correct.
@@ -133,7 +135,7 @@ If `y`, continue.
 Look up `(<env>, <from>, <to>, <shape>)` in the dispatch table.
 
 - **Match found.** Print the routing decision, then invoke the sub-skill via the `Skill` tool. Example for the only registered route today:
-  > "Routing to `/upgrade-test-to-2.18` (test, compose, 2.17 → 2.18)."
+  > "Routing to `/upgrade-test-to-2.18` (test, swarm, 2.17 → 2.18)."
   Call `Skill(skill="upgrade-test-to-2.18")`. The sub-skill handles its own pre-flight (it duplicates a few checks so it can also be invoked standalone), anomaly scan, edits, and PR creation.
 
 - **No match.** Print:
@@ -148,8 +150,7 @@ Look up `(<env>, <from>, <to>, <shape>)` in the dispatch table.
 After the sub-skill returns control, if it produced a PR or branch URL:
 
 1. Print a short verification checklist tailored to the shape:
-   - **compose**: "After the PR merges and CI redeploys: hit the instance's `/health` (BPA, DS), confirm `bpa-frontend` and `ds-backend` pods are on `:<to>`, smoke a known service flow."
-   - **swarm**: same, plus `docker stack ps` and `docker service ls` showing the new image digests.
+   - **swarm** (the only currently routed shape): "After the PR merges and CI redeploys: `docker stack ps <stack>` and `docker service ls` should show the new image digests for `bpa-frontend`, `bpa-backend`, `ds-backend`, `ds-frontend`. Hit the instance's `/health` (BPA, DS) and smoke a known service flow."
 2. Offer (don't auto-execute) to post a Jira comment on TOBE-17814 with the PR URL and the routing decision.
    - If the user answers `y`, draft the comment in ADF (per project convention — markdown renders `\n` literally in Jira) and post via the Atlassian MCP tooling.
    - If `N` or empty, exit cleanly.
