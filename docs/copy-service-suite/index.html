@@ -2414,7 +2414,7 @@ td {
 <details class="intro-section" open>
   <summary><h2>طريقة عمل جديدة</h2></summary>
   <div class="content">
-    <p class="intro-lede">يقدّم هذا الدليل كيفية أتمتة المهام المتكررة في eRegistrations بشكل تدريجي، ويعرّف مفاهيم جديدة سنستخدمها لهذا الغرض: <span class="term" data-def="تعليمات مكتوبة بلغة بشرية، يقرأها الوكيل ويحوّلها إلى أفعال باستخدام الأدوات المتاحة. (Skill)">المهارات</span>، <span class="term" data-def="ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما. (Country file)">ملفات البلد</span>، <span class="term" data-def="مجموعة من المهارات تعمل معًا، حيث تستدعي المهارة الرئيسية مهارات متخصصة عند الحاجة. (Suite)">الحزم</span>، والتعاون بين الإنسان و<span class="term" data-def="برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام. (AI agent)">الوكيل الذكي</span>.</p>
+    <p class="intro-lede">يقدّم هذا الدليل كيفية أتمتة المهام المتكررة في eRegistrations بشكل تدريجي، ويعرّف مفاهيم جديدة سنستخدمها لهذا الغرض: <span class="term" data-def="تعليمات مكتوبة بلغة بشرية، يقرأها الوكيل ويحوّلها إلى أفعال باستخدام الأدوات المتاحة. (Skill)">المهارات</span>، <span class="term" data-def="ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما. (Country file)">ملفات البلد</span>، <span class="term" data-def="مجموعة من المهارات تعمل معًا، حيث تستدعي المهارة الرئيسية مهارات متخصصة عند الحاجة. (Suite)">الحُزَم</span>، والتعاون بين الإنسان و<span class="term" data-def="برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام. (AI agent)">الوكيل الذكي</span>.</p>
     <p class="glossary-hint">💡 مرّر فوق المصطلحات المظلّلة (أو انقرها على الجوال) لمعرفة تعريفها.</p>
     <div class="intro-cards">
       <details class="intro-card" open>
@@ -2423,12 +2423,12 @@ td {
       </details>
       <details class="intro-card">
         <summary><h3>ما هو ملف البلد؟</h3></summary>
-        <p>ذاكرة مشتركة بين البشر والوكلاء. يجمع ملف البلد ما يحتاج الفريق والوكلاء معرفته عن بلد ما: كيفية تنظيم المثيلات والخدمات وقواعد بيانات GDB، والقرارات المتخذة، والدروس المستفادة من عمليات التنفيذ السابقة.</p>
+        <p>ذاكرة مشتركة بين البشر والوكلاء. يجمع ملف البلد ما يحتاج الفريق والوكلاء معرفته عن بلد ما: كيفية تنظيم البيئات والخدمات وقواعد بيانات GDB، والقرارات المتخذة، والدروس المستفادة من عمليات التنفيذ السابقة.</p>
         <p>تقوم المهارات بتحديثه أثناء العمل، ويمكن للفريق تحريره مباشرة وإضافة ملاحظات أو سياق.</p>
       </details>
       <details class="intro-card">
-        <summary><h3>لماذا حزمة؟</h3></summary>
-        <p>بعض المهام أكبر من أن تتولاها مهارة واحدة. تجمع الحزمة عدة مهارات معًا بحيث يمكن للمهارة الرئيسية استدعاء المهارة المتخصصة عند ظهور سؤال محدد.</p>
+        <summary><h3>لماذا حُزْمة؟</h3></summary>
+        <p>بعض المهام أكبر من أن تتولاها مهارة واحدة. تجمع الحُزْمة عدة مهارات معًا بحيث يمكن للمهارة الرئيسية استدعاء المهارة المتخصصة عند ظهور سؤال محدد.</p>
       </details>
       <details class="intro-card">
         <summary><h3>ما الذي يتغير بالنسبة للفريق؟</h3></summary>
@@ -2444,15 +2444,15 @@ td {
 <details class="intro-section">
   <summary><h2>هدف مهارة &laquo;نسخ خدمة فوق خدمة قائمة&raquo;</h2></summary>
   <div class="content">
-    <p>حزمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من <span class="term" data-def="نسخة منشورة من منصة eRegistrations تعمل لبلد أو بيئة محددة، مثل cuba أو cuba-dev. (Instance)">مثيل</span> eRegistrations فوق نفس الخدمات في مثيل آخر، مع الحفاظ على معرّفات الخدمات و<span class="term" data-def="قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية. (Generic Database)">قواعد بيانات GDB</span> ومراجع <span class="term" data-def="تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا. (BOT)">BOT</span> وخيارات الاستعادة.</p>
-    <p>نستخدم هذه الحزمة بشكل خاص عند الترقية. على سبيل المثال، عند نقل مثيل من eR 2.13 إلى 2.18، ننسخ الخدمات إلى مثيل يعمل عليه الإصدار الجديد مسبقًا، ونختبرها ونصلح الأخطاء هناك، ثم نعيدها لتتم الترقية بمخاطر أقل. طوّرت روكسانا <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارة ترقية</a> منفصلة لترقية المثيل نفسه.</p>
+    <p>حُزْمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من <span class="term" data-def="بيئة تشغيل لمنصة eRegistrations تخدم بلدًا أو حالة استخدام معيّنة، مثل cuba (الإنتاج) و cuba-dev (التطوير). (Instance / Environment)">بيئة</span> eRegistrations فوق نفس الخدمات في بيئة أخرى، مع الحفاظ على معرّفات الخدمات و<span class="term" data-def="قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية. (Generic Database)">قواعد بيانات GDB</span> ومراجع <span class="term" data-def="تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا. (BOT)">BOT</span> وخيارات الاستعادة.</p>
+    <p>نستخدم هذه الحُزْمة بشكل خاص عند الترقية. على سبيل المثال، عند نقل بيئة من eR 2.13 إلى 2.18، ننسخ الخدمات إلى بيئة تعمل بالإصدار الجديد مسبقًا، ونختبرها ونصلح الأخطاء هناك، ثم نعيدها لتتم الترقية بمخاطر أقل. طوّرت روكسانا <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارة ترقية</a> منفصلة لترقية البيئة نفسها.</p>
   </div>
 </details>
 </div>
 
 <details class="part-wrapper">
   <summary><h2>كيف تعمل المهارة</h2></summary>
-  <p class="part-intro">تقود المهارة الرئيسية المشغّل عبر العملية بأكملها: اختيار البلد، اختيار المثيلات، اختيار الخدمات، حل مسائل GDB، دمج الخدمات، التحقق من المثيل الوجهة وتقديم التقرير.</p>
+  <p class="part-intro">تقود المهارة الرئيسية المشغّل عبر العملية بأكملها: اختيار البلد، اختيار البيئات، اختيار الخدمات، حل مسائل GDB، دمج الخدمات، التحقق من بيئة الوجهة وتقديم التقرير.</p>
 
 <!-- المرحلة ١ -->
 <details class="phase-section">
@@ -2473,10 +2473,10 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">س: ما هو المثيل <span class="term" data-def="المثيل الذي تُنسخ منه الخدمات. (Origin instance)">المصدر</span> و<span class="term" data-def="المثيل الذي تُنسخ إليه الخدمات. (Destination instance)">الوجهة</span>؟</div>
+      <div class="step-title">س: ما هي البيئة <span class="term" data-def="البيئة التي تُنسخ منها الخدمات. (Origin)">المَصْدَر</span> و<span class="term" data-def="البيئة التي تُنسخ إليها الخدمات. (Destination)">الوِجهة</span>؟</div>
       <div class="response-hint">بعد إجابة المستخدم</div>
       <div class="detail">
-        <p>يتصل بكلا المثيلين ويكتشف إصدارات BPA تلقائيًا.</p>
+        <p>يتصل بكلتا البيئتين ويكتشف إصدارات BPA تلقائيًا.</p>
         <p>يعرض: المصدر: cuba-dev (v2.18) &#10003; &mdash; الوجهة: cuba (v2.13) &#10003;</p>
         <p>يحدّث ملف البلد بالإصدارات المكتشفة.</p>
       </div>
@@ -2485,7 +2485,7 @@ td {
     <div class="step">
       <div class="step-title">الجرد (تلقائي)</div>
       <div class="detail">
-        <p>يسرد الخدمات في كلا المثيلين.</p>
+        <p>يسرد الخدمات في كلتا البيئتين.</p>
         <p>يعرض جدول مقارنة: فقط الخدمات الموجودة في <strong>كليهما</strong> (معرّفات متطابقة).</p>
         <p>لكل خدمة متطابقة، يعرض جميع قواعد بيانات GDB المرتبطة عبر BOT (الاسم + الإصدار).</p>
       </div>
@@ -2531,7 +2531,7 @@ td {
           <div class="gdb-case">
             <div class="case-label">GDB غير موجودة في الوجهة</div>
             <div class="case-detail">
-              <p><span class="mono">gdb copy</span> ينشئها (نفس الاسم، نفس <span class="term" data-def="هيكل قاعدة البيانات: تعريف الحقول وأنواعها وعلاقاتها. (Schema)">المخطط</span>). ينسخ البيانات من المصدر عند الحاجة.</p>
+              <p><span class="mono">gdb copy</span> ينشئها (نفس الاسم، نفس <span class="term" data-def="هيكل قاعدة البيانات: تعريف الحقول وأنواعها وعلاقاتها. (Schema)">المُخَطَّط</span>). ينسخ البيانات من المصدر عند الحاجة.</p>
             </div>
           </div>
 
@@ -2562,7 +2562,7 @@ td {
               <p><span class="mono">gdb copy</span> يحصل على قيمة <span class="mono">field_map</span> من compare.</p>
               <p>يعرض للمستخدم: خطة <span class="term" data-def="نقل البيانات من إصدار قديم لقاعدة البيانات إلى إصدار جديد، مع تحويل الحقول عند الضرورة. (Migration)">الترحيل</span> مع تعيين الحقول + الحقول التي ستفقد بياناتها.</p>
               <p>يسأل: قبول / تعديل / إلغاء؟</p>
-              <p>ينشئ إصدارًا جديدًا من GDB في الوجهة بمخطط المصدر. يرحّل البيانات من الوجهة (الإصدار القديم &rarr; الجديد) مع تحويل الحقول.</p>
+              <p>ينشئ إصدارًا جديدًا من GDB في الوجهة بمُخَطَّط المصدر. يرحّل البيانات من الوجهة (الإصدار القديم &rarr; الجديد) مع تحويل الحقول.</p>
               <p>يعرض النتائج + عيّنة من السجلات.</p>
               <p>بعد الاستيراد: <span class="mono">bot_update</span> يعيد كتابة مراجع BOT إلى إصدار الوجهة الجديد.</p>
             </div>
@@ -2591,14 +2591,14 @@ td {
       <div class="content">
         <div class="merge-step">
           <strong><span class="term" data-def="حفظ نسخة كاملة من الخدمة قبل أي تغيير، يمكن استعادتها إذا حدث خطأ. (Backup)">النسخ الاحتياطي</span></strong>
-          <p>يحفظ <span class="term" data-def="صورة كاملة للحالة في لحظة معينة، تُستخدم للاستعادة الفورية. (Snapshot)">لقطة</span> كاملة لخدمة الوجهة قبل أي تغيير. في حالة حدوث خطأ، تستعيد هذه اللقطة الخدمة إلى حالتها السابقة بالضبط.</p>
+          <p>يحفظ <span class="term" data-def="صورة كاملة للحالة في لحظة معينة، تُستخدم للاستعادة الفورية. (Snapshot)">لَقْطة</span> كاملة لخدمة الوجهة قبل أي تغيير. في حالة حدوث خطأ، تستعيد هذه اللَّقْطة الخدمة إلى حالتها السابقة بالضبط.</p>
         </div>
         <div class="merge-step">
           <strong>فحص النشر</strong>
           <p>إذا كانت خدمة الوجهة منشورة، فهي نشطة. قد يستخدمها المواطنون والموظفون. السؤال: هل تُدمج في هذه الخدمة النشطة؟ (يُفضّل إلغاء النشر أولًا أو الدمج أثناء فترة الصيانة.)</p>
         </div>
         <div class="merge-step">
-          <strong><span class="term" data-def="إدخال خدمة من ملف خارجي إلى المثيل، مع تنفيذ التحققات اللازمة. (Import)">الاستيراد</span></strong>
+          <strong><span class="term" data-def="إدخال خدمة من ملف خارجي إلى البيئة، مع تنفيذ التحققات اللازمة. (Import)">الاستيراد</span></strong>
           <p>ينفّذ <span class="mono">service_import_on_top</span>.</p>
         </div>
         <div class="merge-step">
@@ -2617,10 +2617,10 @@ td {
 <details class="phase-section">
   <summary>
     <span class="phase-num">٤</span>
-    <h2><span class="term" data-def="فحص المثيل بعد الدمج للتأكد من سلامة جميع المراجع وBOTs. (Verification)">التحقق</span></h2>
+    <h2><span class="term" data-def="فحص البيئة بعد الدمج للتأكد من سلامة جميع المراجع وBOTs. (Verification)">التحقق</span></h2>
   </summary>
   <div class="phase-content">
-    <p>يفحص المثيل الوجهة <strong>بالكامل</strong>، وليس فقط الخدمات المعدّلة &mdash; فتغيير GDB واحد قد يُعطّل BOT في خدمة أخرى.</p>
+    <p>تُفحص بيئة الوجهة <strong>بالكامل</strong>، وليس فقط الخدمات المعدّلة &mdash; فتغيير GDB واحد قد يُعطّل BOT في خدمة أخرى.</p>
     <p>لكل BOT، يتحقق من أن مرجع اسم + إصدار GDB موجود في الوجهة.</p>
     <p>يبلّغ عن أي مراجع معطّلة.</p>
   </div>
@@ -2636,7 +2636,7 @@ td {
     <p>الخدمات المنسوخة (الاسم، المعرّف، audit_id).</p>
     <p>قواعد بيانات GDB المرحّلة (الاسم، تغييرات الإصدار، عدد السجلات).</p>
     <p>سلامة BOT: الكل سليم أو قائمة المشكلات.</p>
-    <p>ملفات النسخ الاحتياطي: مسار اللقطات المحفوظة قبل الدمج &mdash; احتفظ بهذه الملفات حتى يتم التأكد من صحة التشغيل.</p>
+    <p>ملفات النسخ الاحتياطي: مسار اللَّقَطات المحفوظة قبل الدمج &mdash; احتفظ بهذه الملفات حتى يتم التأكد من صحة التشغيل.</p>
     <p>يحدّث ملف البلد بالتقرير الكامل للعملية.</p>
   </div>
 </details>
@@ -2650,34 +2650,34 @@ td {
     <dl style="display:grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; margin: 0;">
       <dt><strong>المهارة</strong> (Skill)</dt>
       <dd>تعليمات مكتوبة بلغة بشرية، يقرأها الوكيل ويحوّلها إلى أفعال باستخدام الأدوات المتاحة.</dd>
-      <dt><strong>الحزمة</strong> (Suite)</dt>
+      <dt><strong>الحُزْمة</strong> (Suite)</dt>
       <dd>مجموعة من المهارات تعمل معًا، حيث تستدعي المهارة الرئيسية مهارات متخصصة عند الحاجة.</dd>
       <dt><strong>ملف البلد</strong> (Country file)</dt>
       <dd>ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما.</dd>
       <dt><strong>الوكيل</strong> (AI agent)</dt>
       <dd>برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام.</dd>
-      <dt><strong>المثيل</strong> (Instance)</dt>
-      <dd>نسخة منشورة من منصة eRegistrations تعمل لبلد أو بيئة محددة، مثل cuba أو cuba-dev.</dd>
+      <dt><strong>البيئة</strong> (Instance / Environment)</dt>
+      <dd>بيئة تشغيل لمنصة eRegistrations تخدم بلدًا أو حالة استخدام معيّنة، مثل cuba (الإنتاج) و cuba-dev (التطوير).</dd>
       <dt><strong>GDB</strong> (Generic Database)</dt>
       <dd>قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية.</dd>
       <dt><strong>BOT</strong></dt>
       <dd>تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا.</dd>
-      <dt><strong>المصدر / الوجهة</strong> (Origin / Destination)</dt>
-      <dd>المثيل الذي تُنسخ منه الخدمات (المصدر) والمثيل الذي تُنسخ إليه (الوجهة).</dd>
-      <dt><strong>المخطط</strong> (Schema)</dt>
+      <dt><strong>المَصْدَر / الوِجهة</strong> (Origin / Destination)</dt>
+      <dd>البيئة التي تُنسخ منها الخدمات (المصدر) والبيئة التي تُنسخ إليها (الوجهة).</dd>
+      <dt><strong>المُخَطَّط</strong> (Schema)</dt>
       <dd>هيكل قاعدة البيانات: تعريف الحقول وأنواعها وعلاقاتها.</dd>
       <dt><strong>الترحيل</strong> (Migration)</dt>
       <dd>نقل البيانات من إصدار قديم لقاعدة البيانات إلى إصدار جديد، مع تحويل الحقول عند الضرورة.</dd>
       <dt><strong>النسخ الاحتياطي</strong> (Backup)</dt>
       <dd>حفظ نسخة كاملة من الخدمة قبل أي تغيير، يمكن استعادتها إذا حدث خطأ.</dd>
-      <dt><strong>اللقطة</strong> (Snapshot)</dt>
+      <dt><strong>اللَّقْطة</strong> (Snapshot)</dt>
       <dd>صورة كاملة للحالة في لحظة معينة، تُستخدم للاستعادة الفورية.</dd>
       <dt><strong>الدمج</strong> (Merge)</dt>
       <dd>استيراد محتوى الخدمة المصدر فوق الخدمة الوجهة مع الحفاظ على المعرّف.</dd>
       <dt><strong>الاستيراد</strong> (Import)</dt>
-      <dd>إدخال خدمة من ملف خارجي إلى المثيل، مع تنفيذ التحققات اللازمة.</dd>
+      <dd>إدخال خدمة من ملف خارجي إلى البيئة، مع تنفيذ التحققات اللازمة.</dd>
       <dt><strong>التحقق</strong> (Verification)</dt>
-      <dd>فحص المثيل بعد الدمج للتأكد من سلامة جميع المراجع وBOTs.</dd>
+      <dd>فحص البيئة بعد الدمج للتأكد من سلامة جميع المراجع وBOTs.</dd>
       <dt><strong>التقرير</strong> (Report)</dt>
       <dd>ملخص نهائي للعملية: الخدمات المنسوخة، تغييرات GDB، حالة BOT، ومسارات النسخ الاحتياطي.</dd>
     </dl>
@@ -2701,11 +2701,11 @@ td {
   <summary><h2>هيكل المجلدات</h2></summary>
   <div class="content">
     <div class="tree">countries/{code}/
-├── case.md          <span class="muted">المركز: المثيلات، القرارات، سجل النسخ</span>
+├── case.md          <span class="muted">المركز: البيئات، القرارات، سِجِلّ النسخ</span>
 ├── boards/          <span class="muted">لوحة القيادة + صفحات كل خدمة</span>
 ├── services/        <span class="muted">توثيق كل خدمة</span>
 ├── bot-recipes/     <span class="muted">وصفات bot والتنفيذات المنجزة</span>
-└── comparisons/     <span class="muted">مقارنات GDB بين المثيلات</span></div>
+└── comparisons/     <span class="muted">مقارنات GDB بين البيئات</span></div>
   </div>
 </details>
 
@@ -2715,13 +2715,13 @@ td {
     <table>
       <tr><th>المهارة</th><th>ما تكتبه</th><th>الموقع</th></tr>
       <tr><td colspan="3" class="group-header">Copy service suite</td></tr>
-      <tr><td class="mono">CST</td><td>سجل النسخ، قرارات GDB، مسارات النسخ الاحتياطي</td><td class="mono">case.md</td></tr>
-      <tr><td class="mono">gdb compare</td><td>مقارنات مخطط GDB</td><td class="mono">comparisons/</td></tr>
+      <tr><td class="mono">CST</td><td>سِجِلّ النسخ، قرارات GDB، مسارات النسخ الاحتياطي</td><td class="mono">case.md</td></tr>
+      <tr><td class="mono">gdb compare</td><td>مقارنات مُخَطَّط GDB</td><td class="mono">comparisons/</td></tr>
       <tr><td class="mono">gdb copy</td><td>نتائج الترحيل</td><td class="mono">comparisons/</td></tr>
-      <tr><td colspan="3" class="group-header">تحليل المثيل</td></tr>
+      <tr><td colspan="3" class="group-header">تحليل البيئة</td></tr>
       <tr><td class="mono">Board</td><td>لوحة القيادة، الخدمات &times; قواعد بيانات GDB</td><td class="mono">boards/</td></tr>
       <tr><td class="mono">bots per page</td><td>تدفق bot لكل خدمة</td><td class="mono">boards/</td></tr>
-      <tr><td class="mono">bots table</td><td>مصفوفة BOT للمثيل بأكمله</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots table</td><td>مصفوفة BOT للبيئة بأكملها</td><td class="mono">boards/</td></tr>
       <tr><td colspan="3" class="group-header">عمل Bot</td></tr>
       <tr><td class="mono">create bots</td><td>وصفات bot، التنفيذات، الثوابت</td><td class="mono">bot-recipes/</td></tr>
       <tr><td colspan="3" class="group-header">توثيق الخدمة</td></tr>
@@ -2739,10 +2739,10 @@ td {
   <div class="content">
     <div class="section-item">
       <span class="section-desc">جدول الطوبولوجيا مع إصدارات BPA وروابط Board</span>
-      <span class="section-label">المثيلات</span>
+      <span class="section-label">البيئات</span>
     </div>
     <div class="section-item">
-      <span class="section-desc">الخدمات المتطابقة (في كلا المثيلين) مع قواعد بيانات GDB</span>
+      <span class="section-desc">الخدمات المتطابقة (في كلتا البيئتين) مع قواعد بيانات GDB</span>
       <span class="section-label">الخدمات</span>
     </div>
     <div class="section-item">
@@ -2762,8 +2762,8 @@ td {
       <span class="section-label">جرد GDB</span>
     </div>
     <div class="section-item">
-      <span class="section-desc">سجل عمليات النسخ</span>
-      <span class="section-label">سجل النسخ</span>
+      <span class="section-desc">سِجِلّ عمليات النسخ</span>
+      <span class="section-label">سِجِلّ النسخ</span>
     </div>
     <div class="section-item">
       <span class="section-desc">الخيارات المتخذة (مطابقة الأسماء، التأجيلات)</span>
