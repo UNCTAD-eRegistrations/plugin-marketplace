@@ -14,8 +14,10 @@
   --border: oklch(0.89 0.008 75);
   --surface: oklch(0.995 0.004 75);
   --highlight: oklch(0.935 0.02 80);
+  --sage: #dbe1dd;
   --warn-bg: oklch(0.94 0.04 85);
   --warn-fg: oklch(0.40 0.06 60);
+  --detail-fg: oklch(0.40 0.013 52);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,7 +34,7 @@ body {
 .container {
   max-width: 54rem;
   margin: 0 auto;
-  padding: 3.5rem 2.5rem 5rem;
+  padding: 2.1rem 2.5rem 5rem;
 }
 
 h1 {
@@ -98,13 +100,18 @@ a:hover { border-bottom-color: var(--accent); }
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .title-row {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.title-row h1 + .chained-label {
+  flex-shrink: 0;
 }
 
 .chained-label {
@@ -114,7 +121,7 @@ a:hover { border-bottom-color: var(--accent); }
 }
 
 .skill-tag {
-  background: var(--highlight);
+  background: var(--sage);
   color: var(--muted);
   padding: 0.15rem 0.5rem;
   border-radius: 3px;
@@ -131,9 +138,9 @@ a:hover { border-bottom-color: var(--accent); }
   color: var(--accent);
 }
 
-/* --- Page nav --- */
+/* --- Page nav (hidden for now) --- */
 .page-nav {
-  display: flex;
+  display: none;
   gap: 0.2rem;
   margin-bottom: 2rem;
 }
@@ -241,11 +248,13 @@ details > .content {
 }
 
 .phase-num {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.6rem;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
   color: var(--accent);
   line-height: 1;
   flex-shrink: 0;
+  font-variant-numeric: lining-nums;
 }
 
 .phase-section > summary h2 { margin: 0; font-size: 1.35rem; }
@@ -272,7 +281,7 @@ details > .content {
 }
 
 .detail {
-  color: var(--muted);
+  color: var(--detail-fg);
   font-size: 0.875rem;
   padding-left: 0.75rem;
   border-left: 2px solid var(--border);
@@ -280,6 +289,65 @@ details > .content {
 }
 
 .detail p { margin: 0.15rem 0; }
+
+.response-hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-top: 0.1rem;
+  padding-left: 0.25rem;
+}
+
+.skill-comment {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.intro-block {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--fg);
+  margin-bottom: 1.5rem;
+}
+
+.part-wrapper {
+  margin: 0.5rem 0 0.5rem;
+}
+
+.part-wrapper > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.part-wrapper > summary::-webkit-details-marker { display: none; }
+
+.part-wrapper > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.part-wrapper[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.part-wrapper > summary h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
 
 /* --- Cards --- */
 .card {
@@ -399,8 +467,9 @@ td {
   font-weight: 600;
 }
 
-/* --- Page break --- */
+/* --- Page break (hidden for now) --- */
 .page-break {
+  display: none;
   border-top: 1px solid var(--border);
   margin: 4rem 0 2rem;
 }
@@ -610,11 +679,10 @@ td {
 
 /* --- Language toggle --- */
 .lang-toggle {
-  position: absolute;
-  top: 3.5rem;
-  right: 2.5rem;
   display: flex;
   gap: 0.1rem;
+  margin-left: auto;
+  align-self: center;
 }
 
 .lang-toggle button {
@@ -642,7 +710,6 @@ td {
   border-color: var(--accent);
 }
 
-.container { position: relative; }
 .container[data-lang="es"],
 .container[data-lang="fr"] { display: none; }
 </style>
@@ -650,18 +717,17 @@ td {
 <body>
 <div class="container" data-lang="en">
 
-<nav class="lang-toggle">
-  <button class="active" onclick="setLang('en')">en</button>
-  <button onclick="setLang('es')">es</button>
-  <button onclick="setLang('fr')">fr</button>
-</nav>
-
 <!-- PAGE 1 -->
 <div id="page1"></div>
 
 <div class="title-row">
   <h1>Copy service suite</h1>
   <span class="chained-label">3 chained skills</span>
+  <nav class="lang-toggle">
+    <button class="active" onclick="setLang('en')">en</button>
+    <button onclick="setLang('es')">es</button>
+    <button onclick="setLang('fr')">fr</button>
+  </nav>
 </div>
 <div class="part-label">Part 1 &mdash; copy services on top of existing services</div>
 <div class="part-next">Part 2 (planned): copy new services to another instance</div>
@@ -682,38 +748,49 @@ td {
   <a href="#page2">2</a>
 </nav>
 
+<div class="intro-block">
+<p>This document presents 3 skills (i.e. instructions in human language executable by AI) working in coordination to automate the copy of services on top of existing services. We use them when we want to upgrade an instance (for example from 2.13 to 2.18) and make sure that services will keep working after the upgrade.</p>
+<p>In this case, we generally: 1.&nbsp;export the services to another instance where the eR version we want to install on the origin instance is already running, 2.&nbsp;test and fix the services there, and when they function well 3.&nbsp;we import them back on the origin instance, where 4.&nbsp;the eR version upgrade is made (Roxana has developed a <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill</a> for that) and where services continue working smoothly.</p>
+</div>
+
 <details>
-  <summary><h2>Country case</h2></summary>
+  <summary><h2>Country file</h2></summary>
   <div class="content">
-    <p>Each country has a <strong>case file</strong> &mdash; a living record of its instances, services, BOTs, GDBs, and all related knowledge: comparisons, decisions, copy history, and documentation links.</p>
-    <p>12 skills feed into it, updating it automatically when they run. The user can also edit it directly to add notes or decisions.</p>
-    <p>Any skill that works with an instance creates the case file if it doesn't exist yet.</p>
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem">All what AI (and humans) should know</p>
+    <p>&hellip;about how eRegistrations instances, services, GDBs are organized in a country. Skills (= instructions in plain language) describing processes that can be executed by AI, autonomously or in interaction with humans, feed into the country file. The user can also edit the file directly to add notes, decisions or any element of context.</p>
     <p class="location-note">Currently at <span class="mono">2 - eR services/countries/{code}/case.md</span> &mdash; will be published online per instance.</p>
-    <p style="margin-top:0.75rem"><a href="#page2">Sources and structure</a></p>
+    <!-- hidden: <p style="margin-top:0.75rem"><a href="#page2">Content of country files</a></p> -->
   </div>
 </details>
+
+<details class="part-wrapper">
+  <summary><h2>Copy services on top of existing services</h2></summary>
 
 <!-- Phase 1 -->
 <details class="phase-section">
   <summary>
     <span class="phase-num">1</span>
-    <h2>Setup</h2>
+    <h2>Initial questions: what does the human operator want to do</h2>
   </summary>
   <div class="phase-content">
+    <p class="skill-comment">The skill will ask questions and interact with the human operator to understand what must be done.</p>
+
     <div class="step">
-      <div class="step-title">Ask: which country?</div>
+      <div class="step-title">Q: which country?</div>
+      <div class="response-hint">upon human answer</div>
       <div class="detail">
-        <p>Loads country case (creates from template if none exists).</p>
+        <p>Loads country file (creates from template if none exists).</p>
         <p>If Board outputs already exist, loads them.</p>
       </div>
     </div>
 
     <div class="step">
-      <div class="step-title">Ask: origin and destination instances?</div>
+      <div class="step-title">Q: origin and destination instances?</div>
+      <div class="response-hint">upon human answer</div>
       <div class="detail">
         <p>Connects to both, auto-detects BPA versions.</p>
         <p>Shows: Origin: cuba-dev (v2.18) &#10003; &mdash; Dest: cuba (v2.13) &#10003;</p>
-        <p>Updates case file with detected versions.</p>
+        <p>Updates country file with detected versions.</p>
       </div>
     </div>
 
@@ -727,7 +804,8 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">Ask: which services to copy on top?</div>
+      <div class="step-title">Q: which services to copy on top?</div>
+      <div class="response-hint">upon human answer</div>
       <div class="detail">
         <p>User picks from the list shown above.</p>
       </div>
@@ -804,7 +882,7 @@ td {
         </div>
 
         <div class="warning-box">
-          Do not proceed to merge until all GDBs are resolved. Updates case file with GDB decisions and comparison results.
+          Do not proceed to merge until all GDBs are resolved. Updates country file with GDB decisions and comparison results.
         </div>
       </div>
     </details>
@@ -840,7 +918,7 @@ td {
           <p><span class="mono">bot_update</span> for every BOT where origin's name or version differs from destination.</p>
         </div>
         <div class="merge-step">
-          <p>Verifies: service ID preserved, audit logged. Updates case file.</p>
+          <p>Verifies: service ID preserved, audit logged. Updates country file.</p>
         </div>
       </div>
     </details>
@@ -871,12 +949,15 @@ td {
     <p>GDBs migrated (name, version changes, record counts).</p>
     <p>BOT health: all OK or list of issues.</p>
     <p>Backup files: paths to snapshots saved before merge &mdash; keep these until you've verified everything works.</p>
-    <p>Updates case file with full operation log.</p>
+    <p>Updates country file with full operation log.</p>
   </div>
 </details>
 
+</details><!-- /part-wrapper -->
 
-<!-- PAGE 2 -->
+
+<!-- PAGE 2 (hidden for now) -->
+<div style="display:none">
 <div class="page-break" id="page2"></div>
 <div class="page-label">page 2</div>
 
@@ -885,7 +966,7 @@ td {
   <a href="#page2" class="current">2</a>
 </nav>
 
-<h1 style="margin-bottom:1.5rem">Country case &mdash; sources and structure</h1>
+<h1 style="margin-bottom:1.5rem">Country file &mdash; content of country files</h1>
 
 <details>
   <summary><h2>Folder structure</h2></summary>
@@ -900,7 +981,7 @@ td {
 </details>
 
 <details>
-  <summary><h2>Sources &mdash; skills that feed the case</h2></summary>
+  <summary><h2>Sources &mdash; skills that feed the country file</h2></summary>
   <div class="content">
     <table>
       <tr><th>Skill</th><th>What it writes</th><th>Where</th></tr>
@@ -925,7 +1006,7 @@ td {
 </details>
 
 <details>
-  <summary><h2>Case sections</h2></summary>
+  <summary><h2>Country file sections</h2></summary>
   <div class="content">
     <div class="section-item">
       <span class="section-label">Instances</span>
@@ -966,19 +1047,12 @@ td {
   </div>
 </details>
 
-<div class="card" style="margin-top:1.5rem">
-  <p>Any skill that works with an instance checks for the case file. If it doesn't exist, the skill creates it from the template. Skills always save to the country case, never to their own internal directories.</p>
-</div>
+</div><!-- /page2 hidden -->
 
 </div>
 
 <!-- ═══ SPANISH ═══ -->
 <div class="container" data-lang="es">
-<nav class="lang-toggle">
-  <button onclick="setLang('en')">en</button>
-  <button class="active" onclick="setLang('es')">es</button>
-  <button onclick="setLang('fr')">fr</button>
-</nav>
 
 <!-- PAGINA 1 -->
 <div id="page1"></div>
@@ -986,6 +1060,11 @@ td {
 <div class="title-row">
   <h1>Copy service suite</h1>
   <span class="chained-label">3 skills encadenados</span>
+  <nav class="lang-toggle">
+    <button onclick="setLang('en')">en</button>
+    <button class="active" onclick="setLang('es')">es</button>
+    <button onclick="setLang('fr')">fr</button>
+  </nav>
 </div>
 <div class="part-label">Parte 1 &mdash; copiar servicios sobre servicios existentes</div>
 <div class="part-next">Parte 2 (planificada): copiar nuevos servicios a otra instancia</div>
@@ -1006,26 +1085,36 @@ td {
   <a href="#page2">2</a>
 </nav>
 
+<div class="intro-block">
+<p>Este documento presenta 3 skills (es decir, instrucciones en lenguaje humano ejecutables por IA) que trabajan coordinadamente para automatizar la copia de servicios sobre servicios existentes. Los usamos cuando queremos actualizar una instancia (por ejemplo de 2.13 a 2.18) y asegurarnos de que los servicios seguir&aacute;n funcionando despu&eacute;s de la actualizaci&oacute;n.</p>
+<p>En este caso, generalmente: 1.&nbsp;exportamos los servicios a otra instancia donde la versi&oacute;n de eR que queremos instalar en la instancia origen ya est&aacute; funcionando, 2.&nbsp;probamos y corregimos los servicios all&iacute;, y cuando funcionan bien 3.&nbsp;los importamos de vuelta en la instancia origen, donde 4.&nbsp;se realiza la actualizaci&oacute;n de la versi&oacute;n eR (Roxana ha desarrollado un <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill</a> para eso) y donde los servicios siguen funcionando sin problemas.</p>
+</div>
+
 <details>
   <summary><h2>Expediente pa&iacute;s</h2></summary>
   <div class="content">
-    <p>Cada pa&iacute;s tiene un <strong>expediente</strong> &mdash; un registro vivo de sus instancias, servicios, BOTs, GDBs y todo el conocimiento relacionado: comparaciones, decisiones, historial de copias y enlaces a documentaci&oacute;n.</p>
-    <p>12 skills lo alimentan, actualiz&aacute;ndolo autom&aacute;ticamente cuando se ejecutan. El usuario tambi&eacute;n puede editarlo directamente para agregar notas o decisiones.</p>
-    <p>Cualquier skill que trabaje con una instancia crea el expediente si a&uacute;n no existe.</p>
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem">Todo lo que la IA (y los humanos) deben saber</p>
+    <p>&hellip;sobre c&oacute;mo est&aacute;n organizadas las instancias eRegistrations, los servicios y las GDBs en un pa&iacute;s. Los skills (= instrucciones en lenguaje simple) que describen procesos ejecutables por la IA, de forma aut&oacute;noma o en interacci&oacute;n con humanos, alimentan el expediente pa&iacute;s. El usuario tambi&eacute;n puede editarlo directamente para agregar notas, decisiones o cualquier elemento de contexto.</p>
     <p class="location-note">Actualmente en <span class="mono">2 - eR services/countries/{code}/case.md</span> &mdash; se publicar&aacute; en l&iacute;nea por instancia.</p>
-    <p style="margin-top:0.75rem"><a href="#page2">Fuentes y estructura</a></p>
+    <!-- hidden: <p style="margin-top:0.75rem"><a href="#page2">Contenido del expediente país</a></p> -->
   </div>
 </details>
+
+<details class="part-wrapper">
+  <summary><h2>Copiar servicios sobre servicios existentes</h2></summary>
 
 <!-- Fase 1 -->
 <details class="phase-section">
   <summary>
     <span class="phase-num">1</span>
-    <h2>Configuraci&oacute;n</h2>
+    <h2>Preguntas iniciales: &iquest;qu&eacute; quiere hacer el operador humano?</h2>
   </summary>
   <div class="phase-content">
+    <p class="skill-comment">El skill har&aacute; preguntas e interactuar&aacute; con el operador humano para comprender qu&eacute; debe hacerse.</p>
+
     <div class="step">
-      <div class="step-title">Pregunta: &iquest;qu&eacute; pa&iacute;s?</div>
+      <div class="step-title">Q: &iquest;qu&eacute; pa&iacute;s?</div>
+      <div class="response-hint">tras la respuesta humana</div>
       <div class="detail">
         <p>Carga el expediente pa&iacute;s (lo crea a partir de una plantilla si no existe).</p>
         <p>Si ya existen resultados de Board, los carga.</p>
@@ -1033,7 +1122,8 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">Pregunta: &iquest;instancias de origen y destino?</div>
+      <div class="step-title">Q: &iquest;instancias de origen y destino?</div>
+      <div class="response-hint">tras la respuesta humana</div>
       <div class="detail">
         <p>Se conecta a ambas, detecta autom&aacute;ticamente las versiones BPA.</p>
         <p>Muestra: Origen: cuba-dev (v2.18) &#10003; &mdash; Destino: cuba (v2.13) &#10003;</p>
@@ -1051,7 +1141,8 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">Pregunta: &iquest;qu&eacute; servicios copiar encima?</div>
+      <div class="step-title">Q: &iquest;qu&eacute; servicios copiar encima?</div>
+      <div class="response-hint">tras la respuesta humana</div>
       <div class="detail">
         <p>El usuario elige de la lista mostrada arriba.</p>
       </div>
@@ -1199,8 +1290,11 @@ td {
   </div>
 </details>
 
+</details><!-- /part-wrapper -->
 
-<!-- PAGINA 2 -->
+
+<!-- PAGINA 2 (hidden for now) -->
+<div style="display:none">
 <div class="page-break" id="page2"></div>
 <div class="page-label">p&aacute;gina 2</div>
 
@@ -1209,7 +1303,7 @@ td {
   <a href="#page2" class="current">2</a>
 </nav>
 
-<h1 style="margin-bottom:1.5rem">Expediente pa&iacute;s &mdash; fuentes y estructura</h1>
+<h1 style="margin-bottom:1.5rem">Expediente pa&iacute;s &mdash; contenido del expediente</h1>
 
 <details>
   <summary><h2>Estructura de carpetas</h2></summary>
@@ -1290,19 +1384,12 @@ td {
   </div>
 </details>
 
-<div class="card" style="margin-top:1.5rem">
-  <p>Cualquier skill que trabaje con una instancia busca el expediente. Si no existe, el skill lo crea a partir de la plantilla. Los skills siempre guardan en el expediente pa&iacute;s, nunca en sus propios directorios internos.</p>
-</div>
+</div><!-- /page2 hidden -->
 
 </div>
 
 <!-- ═══ FRENCH ═══ -->
 <div class="container" data-lang="fr">
-<nav class="lang-toggle">
-  <button onclick="setLang('en')">en</button>
-  <button onclick="setLang('es')">es</button>
-  <button class="active" onclick="setLang('fr')">fr</button>
-</nav>
 
 <!-- PAGE 1 -->
 <div id="page1"></div>
@@ -1310,6 +1397,11 @@ td {
 <div class="title-row">
   <h1>Copy service suite</h1>
   <span class="chained-label">3 skills cha&icirc;n&eacute;s</span>
+  <nav class="lang-toggle">
+    <button onclick="setLang('en')">en</button>
+    <button onclick="setLang('es')">es</button>
+    <button class="active" onclick="setLang('fr')">fr</button>
+  </nav>
 </div>
 <div class="part-label">Partie 1 &mdash; copier des services par-dessus des services existants</div>
 <div class="part-next">Partie 2 (pr&eacute;vue) : copier de nouveaux services vers une autre instance</div>
@@ -1330,26 +1422,36 @@ td {
   <a href="#page2">2</a>
 </nav>
 
+<div class="intro-block">
+<p>Ce document pr&eacute;sente 3 skills (c&rsquo;est-&agrave;-dire des instructions en langage humain ex&eacute;cutables par l&rsquo;IA) travaillant de mani&egrave;re coordonn&eacute;e pour automatiser la copie de services par-dessus des services existants. Nous les utilisons lorsque nous voulons mettre &agrave; jour une instance (par exemple de 2.13 &agrave; 2.18) et nous assurer que les services continueront &agrave; fonctionner apr&egrave;s la mise &agrave; jour.</p>
+<p>Dans ce cas, nous proc&eacute;dons g&eacute;n&eacute;ralement ainsi : 1.&nbsp;nous exportons les services vers une autre instance o&ugrave; la version eR que nous voulons installer sur l&rsquo;instance d&rsquo;origine est d&eacute;j&agrave; en fonctionnement, 2.&nbsp;nous testons et corrigeons les services l&agrave;-bas, et lorsqu&rsquo;ils fonctionnent bien 3.&nbsp;nous les r&eacute;importons sur l&rsquo;instance d&rsquo;origine, o&ugrave; 4.&nbsp;la mise &agrave; jour de la version eR est effectu&eacute;e (Roxana a d&eacute;velopp&eacute; un <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill</a> pour cela) et o&ugrave; les services continuent &agrave; fonctionner sans probl&egrave;me.</p>
+</div>
+
 <details>
   <summary><h2>Dossier pays</h2></summary>
   <div class="content">
-    <p>Chaque pays poss&egrave;de un <strong>dossier</strong> &mdash; un registre vivant de ses instances, services, BOTs, GDBs et de toutes les connaissances associ&eacute;es : comparaisons, d&eacute;cisions, historique des copies et liens vers la documentation.</p>
-    <p>12 skills l&rsquo;alimentent, le mettant &agrave; jour automatiquement lors de leur ex&eacute;cution. L&rsquo;utilisateur peut &eacute;galement le modifier directement pour ajouter des notes ou des d&eacute;cisions.</p>
-    <p>Tout skill qui travaille avec une instance cr&eacute;e le dossier s&rsquo;il n&rsquo;existe pas encore.</p>
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem">Tout ce que l&rsquo;IA (et les humains) doivent savoir</p>
+    <p>&hellip;sur l&rsquo;organisation des instances eRegistrations, des services et des GDBs dans un pays. Les skills (= instructions en langage courant) d&eacute;crivant des processus ex&eacute;cutables par l&rsquo;IA, de mani&egrave;re autonome ou en interaction avec des humains, alimentent le dossier pays. L&rsquo;utilisateur peut &eacute;galement le modifier directement pour ajouter des notes, des d&eacute;cisions ou tout &eacute;l&eacute;ment de contexte.</p>
     <p class="location-note">Actuellement dans <span class="mono">2 - eR services/countries/{code}/case.md</span> &mdash; sera publi&eacute; en ligne par instance.</p>
-    <p style="margin-top:0.75rem"><a href="#page2">Sources et structure</a></p>
+    <!-- hidden: <p style="margin-top:0.75rem"><a href="#page2">Contenu du dossier pays</a></p> -->
   </div>
 </details>
+
+<details class="part-wrapper">
+  <summary><h2>Copier des services par-dessus des services existants</h2></summary>
 
 <!-- Phase 1 -->
 <details class="phase-section">
   <summary>
     <span class="phase-num">1</span>
-    <h2>Configuration</h2>
+    <h2>Questions initiales : que veut faire l&rsquo;op&eacute;rateur humain ?</h2>
   </summary>
   <div class="phase-content">
+    <p class="skill-comment">Le skill posera des questions et interagira avec l&rsquo;op&eacute;rateur humain pour comprendre ce qui doit &ecirc;tre fait.</p>
+
     <div class="step">
-      <div class="step-title">Demande : quel pays ?</div>
+      <div class="step-title">Q : quel pays ?</div>
+      <div class="response-hint">apr&egrave;s la r&eacute;ponse humaine</div>
       <div class="detail">
         <p>Charge le dossier pays (le cr&eacute;e &agrave; partir d&rsquo;un mod&egrave;le s&rsquo;il n&rsquo;existe pas).</p>
         <p>Si des r&eacute;sultats Board existent d&eacute;j&agrave;, les charge.</p>
@@ -1357,7 +1459,8 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">Demande : instances d&rsquo;origine et de destination ?</div>
+      <div class="step-title">Q : instances d&rsquo;origine et de destination ?</div>
+      <div class="response-hint">apr&egrave;s la r&eacute;ponse humaine</div>
       <div class="detail">
         <p>Se connecte aux deux, d&eacute;tecte automatiquement les versions BPA.</p>
         <p>Affiche : Origine : cuba-dev (v2.18) &#10003; &mdash; Dest : cuba (v2.13) &#10003;</p>
@@ -1375,7 +1478,8 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">Demande : quels services copier par-dessus ?</div>
+      <div class="step-title">Q : quels services copier par-dessus ?</div>
+      <div class="response-hint">apr&egrave;s la r&eacute;ponse humaine</div>
       <div class="detail">
         <p>L&rsquo;utilisateur choisit dans la liste affich&eacute;e ci-dessus.</p>
       </div>
@@ -1523,8 +1627,11 @@ td {
   </div>
 </details>
 
+</details><!-- /part-wrapper -->
 
-<!-- PAGE 2 -->
+
+<!-- PAGE 2 (hidden for now) -->
+<div style="display:none">
 <div class="page-break" id="page2"></div>
 <div class="page-label">page 2</div>
 
@@ -1533,7 +1640,7 @@ td {
   <a href="#page2" class="current">2</a>
 </nav>
 
-<h1 style="margin-bottom:1.5rem">Dossier pays &mdash; sources et structure</h1>
+<h1 style="margin-bottom:1.5rem">Dossier pays &mdash; contenu du dossier</h1>
 
 <details>
   <summary><h2>Structure des dossiers</h2></summary>
@@ -1614,9 +1721,7 @@ td {
   </div>
 </details>
 
-<div class="card" style="margin-top:1.5rem">
-  <p>Tout skill qui travaille avec une instance v&eacute;rifie l&rsquo;existence du dossier. S&rsquo;il n&rsquo;existe pas, le skill le cr&eacute;e &agrave; partir du mod&egrave;le. Les skills enregistrent toujours dans le dossier pays, jamais dans leurs propres r&eacute;pertoires internes.</p>
-</div>
+</div><!-- /page2 hidden -->
 
 </div>
 
@@ -1654,7 +1759,7 @@ Copies one or more eRegistrations services from an origin instance on top of the
 
 *(Skip if the user already said it.)*
 
-Load the country case file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
+Load the country file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
 
 ### Step 2 — Instances
 
@@ -1939,7 +2044,7 @@ Only for Step 2 (GDB didn't exist). For Step 3, data comes from destination's ol
 <script>
 function setLang(lang) {
   document.querySelectorAll('.container[data-lang]').forEach(c => {
-    c.style.display = c.dataset.lang === lang ? '' : 'none';
+    c.style.display = c.dataset.lang === lang ? 'block' : 'none';
   });
   document.querySelectorAll('.lang-toggle button').forEach(b => {
     b.classList.toggle('active', b.textContent.trim() === lang);
