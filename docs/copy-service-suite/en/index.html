@@ -1059,7 +1059,10 @@ td {
 <div class="viewer-panel" id="viewerPanel">
   <div class="viewer-header">
     <span class="viewer-title" id="viewerTitle"></span>
-    <button class="viewer-close" onclick="closeViewer()">&times;</button>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <button class="viewer-close" id="viewerDownload" onclick="downloadSkill()" title="Download .md" style="font-size:0.7rem">&darr;</button>
+      <button class="viewer-close" onclick="closeViewer()">&times;</button>
+    </div>
   </div>
   <div class="viewer-body" id="viewerBody"></div>
 </div>
@@ -1088,7 +1091,7 @@ Copies one or more eRegistrations services from an origin instance on top of the
 
 *(Skip if the user already said it.)*
 
-Load the country file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
+Load the country case file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
 
 ### Step 2 — Instances
 
@@ -1106,6 +1109,8 @@ Validate:
 - BPA version ≥ 1.26.0 on both (required for `service_import_on_top`)
 - If version check fails, abort with explanation
 
+If country case file didn't exist, create it now with the topology and ask user to confirm.
+
 ### Step 3 — Inventory
 
 List services and GDBs on both instances automatically:
@@ -1121,72 +1126,212 @@ Present a comparison table: which services exist on both, which only on origin, 
 
 > **Ask**: Which services do you want to copy on top?
 
-Only services that exist on BOTH instances are eligible.
+Only services that exist on BOTH instances are eligible. If user picks a service that only exists on origin, explain that's a "copy new" operation (not supported by this skill).
 
 ### Step 4 — GDB migration plan
 
-For each selected service, list its BOTs and extract GDB references. For each unique GDB reference, check status on both instances and classify:
+For each selected service, list its BOTs and extract GDB references:
+
+```
+bot_list(instance=origin, service_id=X)
+→ parse bot_service_id: GDB.GDB-{code}({version})-{operation}
+```
+
+For each unique GDB reference, check status on both instances and classify:
 
 | Status | Meaning | Action |
 |--------|---------|--------|
 | ✅ OK | Same code, same schema | None |
-| 🟢 RENAMED | Different code, identical schema | `bot_update` only |
-| ⚠️ SCHEMA_DRIFT | Same code+version, schemas differ | Call `/cs-gdb-copy` |
-| 🔴 MISSING | GDB doesn't exist on destination | Call `/cs-gdb-copy` |
+| 🟢 RENAMED_HARMLESS | Different code, identical schema ($id-by-$id) | `bot_update` only — remap BOT references |
+| ⚠️ SCHEMA_DRIFT | Same code+version, schemas differ structurally | Call `/cs-gdb-copy` to create new version |
+| 🔴 MISSING | GDB doesn't exist on destination | Call `/cs-gdb-copy` to create |
+| 🟠 RENAMED_WITH_DRIFT | Different code AND different schema | **Ask user** — complex case |
+| ⚠️ VERSION_LAG | Destination has older version with old schema | Call `/cs-gdb-copy` to create new version |
+| 🔴 VERSION_INVERTED | Destination has HIGHER version than origin | **Ask user** — cannot auto-resolve |
 
-**Blocking rule**: do NOT proceed to Step 5 until all GDB issues are resolved.
+**Schema comparison procedure** (never infer drift from names):
+1. Get schemas from both instances via `gdb_database_get_by_code`
+2. Flatten `schema.properties` to `(path, $id, type, format)` recursively
+3. Compare $id sets; for matching pairs, compare `(path, type, format)`
+4. If difference set empty AND same `$incrementIndex` → identical
+5. If structural differences exist → real SCHEMA_DRIFT
+
+Present consolidated GDB migration plan across ALL selected services:
+
+> **Ask**: Here's the GDB migration plan. Proceed?
+
+**Blocking rule**: do NOT proceed to Step 5 until all GDB issues are resolved (no MISSING, no SCHEMA_DRIFT rows remaining).
 
 ### Step 5 — Execute GDB migrations
 
 For each GDB that needs work, delegate to the appropriate skill:
 
 - **MISSING** → `/cs-gdb-copy` (create)
-- **SCHEMA_DRIFT** → `/cs-gdb-compare` first, then `/cs-gdb-copy`
-- **RENAMED** → `bot_update` to remap references
+- **SCHEMA_DRIFT / VERSION_LAG** → `/cs-gdb-compare` first (to understand diff), then `/cs-gdb-copy` (to create new version)
+- **RENAMED_HARMLESS** → `bot_update` to remap references (no GDB skill needed)
+- **RENAMED_WITH_DRIFT / VERSION_INVERTED** → follow user's decision from Step 4
+
+After all GDB migrations complete, re-run the classification to confirm all rows are now OK or RENAMED_HARMLESS.
 
 ### Step 6 — Merge services
 
 For each selected service:
 
-1. **Capture rollback baseline**: `service_export_raw` — save locally with timestamp
-2. **Check if destination is published** — if active, ask before merging
-3. **Execute merge**: `service_import_on_top`
-4. **Verify**: confirm ID preserved, audit logged
+1. **Capture rollback baseline**: `service_export_raw(instance=destination, service_id=X)` — save locally with timestamp
+2. **Check if destination is published**:
+   - If active/published → **Ask**: Merge [service name] into published service?
+   - If not published → proceed
+3. **Execute merge**:
+   ```
+   service_import_on_top(
+     source_instance=origin,
+     target_instance=destination,
+     source_service_id=X,
+     target_service_id=X,
+     confirm_merge_into_published=<from user>,
+     include_bots=true,
+     include_catalogs=true,
+     include_determinants=true,
+     include_forms=true,
+     include_roles=true,
+     include_translations=false,
+     include_tutorials=false
+   )
+   ```
+4. **Verify**:
+   - `service_get(destination, X)` — confirm ID preserved
+   - `audit_get(destination, audit_id)` — confirm operation logged
+   - Check for empty-array stripping warnings in response
 
 ### Step 7 — Cross-service verification
 
-After ALL services are merged, verify BOT health across the entire destination instance — not just the services you touched.
+After ALL services are merged, verify BOT health across the entire destination instance — not just the services you touched. One service's GDB change can break another service's BOTs.
+
+```
+For each service on destination:
+  bot_list(destination, service_id)
+  → parse each bot_service_id
+  → gdb_database_get_by_code(destination, code, version)
+  → verify it resolves
+```
+
+Report any broken BOT references.
 
 ### Step 8 — Summary report
 
-Present: services copied, GDBs migrated, BOT health, rollback file paths.
+Present:
+- Services copied (name, ID, audit_id)
+- GDBs migrated (code, old version → new version, record count)
+- BOT health: all OK or list of issues
+- Rollback: per-service export files saved (paths + timestamps)
+
+---
+
+## Country case file
+
+Stored at `2 - eR services/countries/{country}/case.md`. Template:
+
+```markdown
+# {Country} — instance topology
+
+| Instance | MCP name | Role | BPA version |
+|----------|----------|------|-------------|
+| LIVE     | {name}   | Production | {auto} |
+| TEST     | {name}   | Validation | {auto} |
+
+## Services on LIVE
+1. ...
+
+## Notes
+- ...
+```
+
+Updated automatically with detected BPA versions at Step 2.
 
 ---
 
 ## Rollback
 
-`service_import_on_top` audit rows have `rollback_available: false`. Real rollback strategy:
-1. Before each merge, `service_export_raw` captures baseline
-2. If verification fails, re-merge the saved export back
-3. Last resort: `service_delete` + `service_copy` from export
+`service_import_on_top` audit rows have `rollback_available: false` (validated in v1.26.0). The MCP `rollback(audit_id)` will NOT restore pre-merge state.
+
+Real rollback strategy:
+1. Before each merge, `service_export_raw` captures the destination baseline (Step 6.1)
+2. If verification fails, re-merge the saved export back onto the destination using `service_import_on_top`
+3. Last resort: `service_delete` + `service_copy` from export — but this changes the service_id
 
 ---
 
 ## Limitations
 
-1. **Merge is destructive on arrays.** Entities with no matching `businessKey` get deleted.
-2. **Cross-instance auth.** Both instances must have active sessions simultaneously.
-3. **Not atomic.** Concurrent `service_import_on_top` on same destination is undefined.
-4. **Post-merge visibility.** `service_get` returns published version, not merged draft. Use `bot_list`/`role_list` to verify.
+1. **Merge is destructive on arrays.** An entity in destination with no matching `businessKey` in origin gets deleted. This is not "add without removing."
+2. **Cross-instance auth.** Both instances must have active sessions simultaneously. If one expires mid-operation, state may be partial.
+3. **Not atomic.** Two operators running `service_import_on_top` on the same destination concurrently produces undefined results.
+4. **Post-merge visibility.** `service_get` returns the published version (old), not the merged draft. To verify draft content, use `bot_list`/`role_list`/`determinant_list` or `service_export_raw`.
+5. **`analyze_service` tool** listed in MCP catalog but not registered. Returns "No such tool." Use `bot_list`/`role_list`/`determinant_list` instead.
+6. **CAS auth on Cuba** can fail with conflicting SSO cookie from BPA web UI. Workaround: log out of the BPA web UI before `auth_login`.
 
 ---
 
-## Anti-patterns (lessons from Cuba pilot)
+## Troubleshooting — misleading MCP errors
 
-1. **Assuming SCHEMA_DRIFT from name without verifying** — always compare schemas structurally ($id-by-$id).
-2. **Using `gdb_database_create` when code exists** — returns misleading auth error. Use `edit → update`.
-3. **Assuming data persists between versions** — data is per (code, version). New version starts empty.
-4. **`bot_update` pointing to empty version** — verify where data is before remapping.
+| Error message | Real cause | How to tell |
+|---|---|---|
+| `"GDB authentication failed for database"` on `gdb_database_create` | HTTP 500 — catalog has many versions or code already exists | `gdb_auth_diagnose` returns probe 200 + valid token → it's a disguised 500. Use `edit → update`. |
+| `"GDB authentication failed for database"` on any GDB write | Permission denial, valid auth but insufficient scope | `gdb_auth_diagnose` returns limited roles (citizen only) → escalate server-side |
+| `"CAS browser login failed: refresh_token bound to different client_id"` | SSO cookie from BPA web UI conflicting with MCP flow | Log out of BPA web UI, retry `auth_login` |
+| `"CAS auth failed: invalid_request"` | Wrong client secret or unregistered client | Verify `cas_client_id` in profile + secret in keychain match CAS server |
+
+---
+
+## Bot service ID format
+
+```
+GDB.GDB-{catalog_code}({version})-{operation}
+```
+
+- `GDB.` — constant namespace prefix
+- `GDB-` before code is a BOT convention, NOT part of the catalog_code
+- `{catalog_code}` — literal, case-sensitive (`DERECHOS` uppercase, `clientes` lowercase)
+- `{version}` — catalog version the BOT reads
+- `{operation}` — one of: create, read, update, delete, list, exists, read-value, update-or-create, create-entries, update-entries, update-or-create-entries
+
+---
+
+## Anti-patterns (lessons from Cuba pilot, 2026-04-28)
+
+### 1. Assuming SCHEMA_DRIFT from catalog name without verifying
+Cuba had `EMPRESAS IMP-EXP` and cuba-test had `clientes` — different names, identical schemas. We created a redundant v1.5 and had to revert. **Always compare schemas structurally ($id-by-$id).**
+
+### 2. Using `gdb_database_create` when code already exists
+Returns misleading `"GDB authentication failed"`. Actually HTTP 500 on catalogs with many versions. **Use `edit → update` pattern when code exists. Reserve `gdb_database_create` for genuinely new codes.**
+
+### 3. Assuming data persists between versions of the same code
+Data is per `(code, version)`. A new version starts empty even if other versions of the same code have data. **After creating a new version, verify with `gdb_data_count` on both versions.**
+
+### 4. `bot_update` pointing to an empty version
+If the new version has no data, the BOT finds nothing. **Before `bot_update`, verify where the data actually is.**
+
+### 5. Trusting `dry_run` to predict write success
+`dry_run` validates structure and basic permissions but does not execute the real write. Backend errors (500, conflicts) only surface on actual writes.
+
+---
+
+## Edge cases
+
+### Bitacora / dashboard service
+Reads GDBs from most other services. Copying a service whose GDB is also read by Bitacora can break Bitacora's BOTs even though you didn't touch Bitacora. **Step 7 catches this — always run cross-service verification.**
+
+### Service with many GDB references
+One service can have 5-10 BOTs referencing different GDBs. Step 4 must check ALL of them, not just the "main" one.
+
+### GDB with data on both instances
+When destination has production data and origin has test data in the same GDB: **preserve destination data, only update schema.** Never copy data from origin to destination blindly.
+
+### MuleService discovery post-merge
+BOTs use MuleService to find each GDB's swagger URL. After merge, verify with `muleservice_list(destination)`. Stale or missing entries cause runtime failures even when the GDB exists.
+
+### Data sync direction
+Schema travels from origin → destination. Data stays within destination (old version → new version, with schema-aware transformation). **Origin contributes SCHEMA; destination contributes DATA.**
 </script>
 
 <script type="text/plain" id="skill-compare">
@@ -1199,12 +1344,16 @@ Read-only diagnostic: compares the structure of a GDB database between two eRegi
 ## Usage
 
 ```
-/cs-gdb-compare                           # interactive
-/cs-gdb-compare pe                        # compare table "pe" across instances
-/cs-gdb-compare all                       # compare ALL tables
+/cs-gdb-compare                           # interactive — prompts for instances and table
+/cs-gdb-compare pe                        # compare table with code "pe" across default instances
+/cs-gdb-compare all                       # compare ALL tables between two instances
 ```
 
+Called by `/cs-copy-service-on-top` (CST) during Step 4 to classify each GDB before deciding whether to remap BOTs or create a new version.
+
 ## What CST expects back
+
+When called by CST, this skill must return a structured result per GDB:
 
 ```
 {
@@ -1217,82 +1366,193 @@ Read-only diagnostic: compares the structure of a GDB database between two eRegi
 }
 ```
 
+**If verdict is "same"**: CST remaps BOTs to destination's code+version. No GDB work needed.
+**If verdict is "different"**: CST calls `/cs-gdb-copy` with the field_map and resolution_plan.
+
 ---
 
 ## Flow
 
 ### Step 1: Authenticate
 
-Check auth on both instances via `gdb_auth_diagnose`. Login if needed.
+1. Check auth on both instances via `gdb_auth_diagnose`.
+2. If either is unauthenticated:
+   - CAS instances: call `auth_login` via BPA MCP first, then `gdb_auth_login`.
+   - Keycloak instances: call `gdb_auth_login` directly.
+3. Confirm both connected before proceeding.
 
 ### Step 2: Identify tables to compare
 
-- Specific code → find catalog on both instances by `catalog_id`
-- `all` → process all catalogs sequentially
+**If a specific code is given** (e.g., `pe`):
+1. `gdb_catalog_list(instance=origin, code_contains=CODE)` → find catalog.
+2. Note the `catalog_id`.
+3. Find matching catalog on destination by `catalog_id`:
+   - `gdb_catalog_list(instance=destination)` and match by `catalog_id`.
+   - If no match by ID, try matching by code or name similarity — report if ambiguous.
+
+**If `all` is given**:
+1. `gdb_catalog_list(instance=origin, include_databases=true)` → all catalogs.
+2. For each, find match on destination by `catalog_id`.
+3. Process each pair sequentially.
 
 ### Step 3: Fetch schemas
 
-For each table pair, get latest version via `gdb_database_get`. Extract `schema.properties`.
+For each table pair:
+1. From each catalog's `databases` array, pick the **latest version** (highest version number).
+2. Call `gdb_database_get` on both instances in parallel.
+3. Extract `schema.properties` from both responses.
 
 ### Step 4: Compare schemas
 
-Flatten both schemas to `($id, path, type, format)`. Match by `$id`:
+Flatten both schemas to a list of fields with `$id`, path, type, and attributes.
 
-1. **Matched**: same `$id` in both — note name/path changes
-2. **Removed**: `$id` in origin only — flag as data loss risk
-3. **New**: `$id` in destination only — note defaults
+**Flattening rules:**
+- `type: "object"` → recurse into `properties`, prefix path with section name
+- `type: "array"` with `items.properties` → recurse into item properties
+- `type: "catalog"` → note catalog structure (key/value)
+- Record: `$id`, `path`, `type`, `format`, `primaryKey`, `readOnly`, `default`, `foreignKeys`, `triggers`
+
+**Matching logic — match by $id:**
+1. **Matched**: same `$id` in both. Note name/path changes.
+2. **Removed**: `$id` in origin but not destination. **Flag as data loss risk.**
+3. **New**: `$id` in destination but not origin. Note defaults.
 
 ### Step 4b: Semantic field matching
 
-Before declaring any field "removed", check if the same concept exists under a different `$id`.
+**Before declaring any field "removed"**, check if the same concept exists under a different $id.
 
-**Solution hierarchy:**
+**For each unmatched origin $id:**
+1. What data does this field hold? What's its business purpose?
+2. Is there a destination field with the same purpose, even under a different name/$id?
+3. Check for cross-mappings — fields that swapped $ids between instances.
 
-| Priority | Solution | When |
-|----------|----------|------|
-| 1 | Remap in transformation | Concept exists under different $id |
-| 2 | Accept data loss | Field is obsolete |
-| 3 | Reassign $id on destination | Same concept, different $id |
-| 4 | Create field on destination | Concept doesn't exist at all |
+**Solution hierarchy (evaluate in this order):**
 
-**Rule: never default to creating fields.** Re-check whether the concept already exists.
+| Priority | Solution | When | Cost |
+|----------|----------|------|------|
+| 1 | **Remap in transformation** | Concept exists in destination under different $id | Zero — script logic only |
+| 2 | **Accept data loss** | Field is genuinely obsolete | Irreversible — conscious decision |
+| 3 | **Reassign $id on destination** | Same concept, same name, different $id, no cross-mapping | New schema version |
+| 4 | **Create field on destination** | Concept does NOT exist at all | Schema bloat, last resort |
+
+**Rule: never default to creating fields.** If you're about to propose "add this $id," stop and re-check whether the concept already exists under a different $id.
 
 #### Case catalog (12 cases)
 
-- **Case 1** — Remap: same concept, different $id and name
-- **Case 2** — Cross-mapping: $ids swapped between instances
-- **Case 3** — Accept data loss: obsolete field
-- **Case 4** — Reassign $id: same field, diverged $id
-- **Case 5** — Create field: concept genuinely absent
-- **Case 6** — Type change: string → number
-- **Case 7** — Type change: string → catalog
-- **Case 8** — Structural: flat → nested
-- **Case 9** — Split: one source → multiple target
-- **Case 10** — Merge: multiple source → one target
-- **Case 11** — Auto-generated / trigger field
-- **Case 12** — ReadOnly with default
+**Case 1 — Remap: same concept, different $id and name**
+Source $id 62 "num aprobación" → target has no $id 62. But target $id 1 "Numero permiso" is the same concept. Map source $id 62 → target $id 1 in transformation.
+
+**Case 2 — Cross-mapping ($ids swapped)**
+Source: $id 198 "Pais origen", $id 199 "Pais procedencia/origen". Target: $id 199 "Pais origen", $id 231 "Pais procedencia". Mechanical match gets this wrong. Correct: source 198 → target 199, source 199 → target 231.
+
+**Case 3 — Accept data loss: obsolete field**
+Source $id 50 "Observaciones internas" — old workflow artifact, target has no equivalent. Skip in transformation, document the decision.
+
+**Case 4 — Reassign $id: same field, diverged $id**
+Source $id 14 "Fecha aprobacion", target $id 88 "Fecha aprobacion". Same name, type, purpose — $id diverged. No cross-mapping risk. Solution: edit target schema $id 88 → $id 14 (via `/cs-gdb-copy`).
+
+**Case 5 — Create field: concept genuinely absent**
+Source $id 175 "Código arancelario" — target has no tariff code field anywhere. Add $id 175 to target schema — ONLY after confirming cases 1-4 don't apply.
+
+**Case 6 — Type change: string → number**
+Source $id 225 "potencia" is string, target is number. If data is always numeric, conversion is safe. If mixed: parse numeric, null the rest, report losses. Handle in transformation.
+
+**Case 7 — Type change: string → catalog**
+Source $id 160 "Tipo operacion" is string `"Importación"`, target expects `{"key": "IMP", "value": "Importación"}`. Build lookup table from target catalog, map values in transformation.
+
+**Case 8 — Structural: flat → nested**
+Source fields at root, target groups them in sections. $ids match but JSON structure differs. Transformation builds the nested structure — map by $id into target section paths.
+
+**Case 9 — Split: one source → multiple target fields**
+Source $id 209 "Factura/GA/BL" combined text → target split into $ids 209, 228, 229. Parse delimiter if possible, otherwise map full value to primary field.
+
+**Case 10 — Merge: multiple source → one target**
+Source $ids 14 "desde" + 15 "hasta" → target $id 14 "Vigencia" combined. Pick primary source, concatenate if target expects range. Secondary becomes data loss candidate.
+
+**Case 11 — Auto-generated / trigger field**
+Target $id 1 "Numero permiso" has `readOnly: true` + trigger. Check trigger conditions: if fires on empty only, importing data is safe. If unconditional, importing is pointless.
+
+**Case 12 — ReadOnly with default**
+Target $id 244 "Nombre permiso" has `readOnly: true, default: "Permiso equipos electricos"`. Omit from transformation — GDB fills the default on create.
 
 ### Step 5: Count records
 
-`gdb_data_count` — shows scope of potential migration.
+`gdb_data_count(instance=origin, code=CODE)` — shows scope of a potential migration.
 
 ### Step 6: Report
 
-**Verdict**: SAME if all $ids match. DIFFERENT if any structural differences.
+**Verdict**: **SAME** if all $ids match, same structure, same types. **DIFFERENT** if any structural differences exist.
 
-Report includes: fields matched, fields removed (with resolution + case #), fields added, field_map for `/cs-gdb-copy`, and resolution plan.
+```
+## {TABLE_NAME} — origin {code} v{X} vs destination {code} v{Y} ({N} records)
+
+**Verdict: SAME / DIFFERENT**
+
+### Fields matched by $id
+| $id | Origin path | Destination path | Change |
+|-----|-------------|------------------|--------|
+
+### Fields removed (origin only)
+| $id | Origin field | Resolution | Case # |
+|-----|-------------|------------|--------|
+
+### Fields added (destination only)
+| $id | Field | Type | Default |
+|-----|-------|------|---------|
+
+### Summary
+- X matched (safe), Y removed (resolved), Z added
+- Verdict: SAME → CST remaps BOTs
+- Verdict: DIFFERENT → CST calls /cs-gdb-copy with field_map below
+
+### Field map (for /cs-gdb-copy if needed)
+[ {source_id, target_id, source_path, target_path, change_type} ]
+
+### Resolution plan (for DIFFERENT only)
+1. ...
+```
+
+**If processing `all` tables**, one section per table plus a summary:
+
+```
+| Table | Origin ver | Dest ver | Records | Verdict | Action |
+|-------|-----------|----------|---------|---------|--------|
+| pe    | 1.5       | 2.2      | 296     | DIFFERENT | /cs-gdb-copy needed |
+| cli   | 1.4       | 1.4      | 620     | SAME    | BOT remap only |
+```
+
+---
+
+## Known GDB URLs
+
+| Instance | GDB URL |
+|----------|---------|
+| cuba | https://gdb.cuba.eregistrations.org |
+| cuba-test | https://gdb.test.cuba.eregistrations.org |
+| cuba-dev | https://gdb.dev.cuba.eregistrations.org |
+
+For other instances:
+```
+find ~/.cache/uv -name "instances.yaml" -path "*eregistrations_common*"
+```
 </script>
 
 <script type="text/plain" id="skill-copy">
 # GDB copy or create
 
-Creates or updates a GDB database on a destination eRegistrations instance. Three scenarios:
+Creates or updates a GDB database on a destination eRegistrations instance. Handles three scenarios:
 
 1. **GDB missing on destination** → create from scratch with origin schema
-2. **GDB exists but structure differs** → create new version, migrate data with transformation
+2. **GDB exists but structure differs** → create new version with origin schema, migrate destination data with transformation
 3. **Fix $id mismatches** → edit destination schema to realign $ids, then migrate data
 
-When called by CST, receives a `field_map` and `resolution_plan` from `/cs-gdb-compare`.
+When called by CST, receives a `field_map` and `resolution_plan` from `/cs-gdb-compare`. Can also run standalone.
+
+---
+
+## User interactions
+
+This skill asks the user to confirm before every write operation. The user sees clear proposals and decides.
 
 ---
 
@@ -1300,44 +1560,301 @@ When called by CST, receives a `field_map` and `resolution_plan` from `/cs-gdb-c
 
 ### Step 0: Authenticate and identify
 
-Parse args, check auth on both instances, fetch source and destination databases, count records.
+1. Parse args or receive from CST: `code`, `origin_instance`, `destination_instance`, `field_map` (optional)
+2. Check auth on both instances via `gdb_auth_diagnose`. Login if needed.
+3. Fetch source database:
+   ```
+   gdb_database_get_by_code(instance=origin, code=CODE)
+   ```
+4. Fetch destination database (may not exist):
+   ```
+   gdb_database_get_by_code(instance=destination, code=CODE)
+   ```
+5. Count records on both sides:
+   ```
+   gdb_data_count(instance=origin, code=CODE)
+   gdb_data_count(instance=destination, code=CODE)
+   ```
+
+**Show the user:**
+```
+GDB: {code}
+Origin:      {origin} v{X} — {N} records
+Destination: {destination} v{Y} — {M} records (or: does not exist)
+```
 
 ### Step 1: Determine scenario
 
-| Condition | Scenario |
-|-----------|----------|
-| Destination has no GDB with this code | **Create new** → Step 2 |
-| Destination has GDB, same structure | **Already compatible** → Done |
-| Destination has GDB, different structure | **Create new version** → Step 3 |
-| Destination has GDB, $id mismatches only | **Fix $ids** → Step 3 |
+Based on what exists:
+
+| Condition | Scenario | Go to |
+|-----------|----------|-------|
+| Destination has no GDB with this code | **Create new** | Step 2 |
+| Destination has GDB, same structure | **Already compatible** | Done (report to CST) |
+| Destination has GDB, different structure | **Create new version** | Step 3 |
+| Destination has GDB, $id mismatches only | **Fix $ids** | Step 3 |
+
+> **Show the user**: which scenario applies and why.
 
 ### Step 2: Create new GDB on destination
 
-`gdb_database_create` with origin's schema, name, and settings. After creation → Step 5 (version alignment) → Step 6 (copy data).
+> **Ask**: I'll create {code} on {destination} with origin's schema ({N} fields). Proceed?
 
-### Step 3: Create new version or fix $ids
+```
+gdb_database_create(
+  instance=destination,
+  catalog_name=origin.catalog_name,
+  code=origin.code,
+  schema=origin.schema,
+  name=origin.name,
+  number_format=origin.number_format,
+  schema_tags=origin.schema_tags,
+  schema_flags=origin.schema_flags,
+  fields_uniques=origin.fields_uniques,
+  order_fields=origin.order_fields,
+  indexes=origin.indexes,
+  is_draft=false
+)
+```
 
-If structure differs: create new version with origin schema on destination.
-If $id mismatches only: edit destination schema to realign $ids.
+After creation → go to Step 5 (version alignment) → then Step 6 (copy data from origin).
 
-### Step 4: Display migration plan
+### Step 3: Create new version on destination (structure differs)
 
-Show field-by-field mapping with transformations. Flag fields that will lose data. Ask user to confirm.
+This is the complex case. The destination has data in the old structure, and we need to:
+1. Create a new GDB version with origin's structure
+2. Migrate destination's existing data from old version to new version
+3. Transform each record to fit the new structure
+
+> **Show the user the migration plan:**
+
+```
+## Migration plan for {code}
+
+Destination currently: v{Y} with {M} records
+Will create: v{Y+1} with origin's structure
+
+### Field mapping (from /cs-gdb-compare)
+
+| # | Old field (destination v{Y}) | New field (v{Y+1}) | Action |
+|---|-----|-----|--------|
+| 1 | Nombre empresa ($id 219) | Solicitante.Nombre empresa ($id 219) | ✅ Moved to section — auto |
+| 2 | Pais origen ($id 198) | Pais origen ($id 199) | 🔄 Remap $id 198 → 199 |
+| 3 | Observaciones internas ($id 50) | — | ⚠️ DATA LOSS — field removed |
+| 4 | — | Código arancelario ($id 175) | ➕ New field, will be empty |
+
+### Data impact
+
+- {X} fields migrate automatically (same $id, same or moved path)
+- {Y} fields need remapping (different $id, same concept)
+- {Z} fields will lose data — see below
+
+### Fields that will lose data
+
+⚠️ These fields exist in the current destination but NOT in the new structure.
+   Data in these fields will not be migrated.
+
+| Field | Records with data | Proposed resolution | Case |
+|-------|-------------------|-------------------|------|
+| Observaciones internas ($id 50) | 142 of 620 | Accept loss — obsolete workflow field | Case 3 |
+| Factura/GA/BL ($id 209) | 580 of 620 | Split into 3 fields (Factura, GA, BL) | Case 9 |
+```
+
+> **Ask**: Review the plan above.
+> - Accept all proposed resolutions? (Y)
+> - Modify a resolution? (tell me which)
+> - Cancel? (N)
+
+**Only after user confirms**, proceed:
+
+#### 3a. Create new version via edit → update
+
+**Never use `gdb_database_create` when the code already exists** — returns misleading "GDB authentication failed" (actually HTTP 500).
+
+```
+# Create draft from latest published version
+draft = gdb_database_edit(instance=destination, database_id=latest_published_id)
+
+# Update draft with origin's schema and publish
+gdb_database_update(
+  instance=destination,
+  database_id=draft.id,
+  catalog_name=destination.catalog_name,  # keep destination's name
+  code=destination.code,                   # keep destination's code
+  schema=origin.schema,                    # use origin's structure
+  schema_flags=origin.schema_flags,
+  number_format=origin.number_format,
+  is_draft=false
+)
+```
+
+#### 3b. Migrate data (old destination version → new destination version)
+
+**Data direction**: schema comes from origin, data stays within destination. Never copy data from origin to destination blindly — destination is the system of record for its own data.
+
+```
+SCHEMA:  origin          →  destination new version
+DATA:    destination old  →  destination new version (with transformation)
+```
+
+1. **Read all destination records** from old version:
+   ```
+   gdb_data_list(instance=destination, code=CODE, version=OLD_VERSION, page_size=100)
+   # paginate until has_next=false
+   ```
+
+2. **Transform each record** using the field_map:
+   - Matched $ids: copy value to new path
+   - Remapped $ids: copy value to target $id's path
+   - Removed fields: skip (data loss — already confirmed by user)
+   - New fields: omit (let schema defaults fill, or set null)
+   - Type changes: convert (string→number, string→catalog, etc.)
+   - Structural changes: rebuild nested structure from flat fields
+   - ReadOnly + trigger fields: check trigger conditions before including
+   - **Empty date fields**: omit entirely — GDB rejects `""` for `format: "date"`
+
+3. **Insert into new version** via direct HTTP API (MCP tool chokes on >50 records):
+   ```python
+   import urllib.request, urllib.parse, ssl, json, time
+
+   TOKEN = "<from gdb_auth_token(instance=destination)>"
+   encoded_code = urllib.parse.quote(code.lower())
+   url = f"{GDB_URL}/data/{encoded_code}/{NEW_VERSION}/create-entries"
+
+   ssl_ctx = ssl.create_default_context()
+   if "test." in GDB_URL or "dev." in GDB_URL:
+       ssl_ctx.check_hostname = False
+       ssl_ctx.verify_mode = ssl.CERT_NONE
+
+   for chunk in [records[i:i+20] for i in range(0, len(records), 20)]:
+       payload = json.dumps(
+           {"write": [{"content": r} for r in chunk]},
+           ensure_ascii=False
+       ).encode("utf-8")
+       req = urllib.request.Request(url, data=payload, method="POST")
+       req.add_header("Authorization", f"Bearer {TOKEN}")
+       req.add_header("Content-Type", "application/json")
+       resp = urllib.request.urlopen(req, context=ssl_ctx)
+       assert resp.status == 201  # 201 not 200
+       time.sleep(0.5)
+   ```
+
+4. **Verify**:
+   ```
+   gdb_data_count(destination, code, version=NEW_VERSION)
+   ```
+   Must equal old version count (minus intentionally skipped records).
+
+> **Show the user:**
+> ```
+> Migration complete:
+> - Old version: v{Y} — {M} records (untouched)
+> - New version: v{Y+1} — {K} records migrated
+> - Skipped: {S} records (fields removed per your approval)
+> - Spot-check: [show 2-3 sample records side by side]
+> ```
+
+### Step 4: Fix $id mismatches (when schema is right but $ids diverged)
+
+This is Case 4 from `/cs-gdb-compare` — same field name and type, but $ids differ between instances. No cross-mapping risk.
+
+> **Show the user:**
+> ```
+> These fields have the same name and type but different $ids.
+> I'll update the destination schema to match origin's $ids:
+>
+> | Field | Destination $id (current) | Origin $id (will become) |
+> |-------|--------------------------|-------------------------|
+> | Fecha aprobacion | 88 | 14 |
+> | Potencia | 225 | 160 |
+>
+> This creates a new schema version. Existing data is preserved.
+> Proceed? (Y/N)
+> ```
+
+Execute via `edit → update` pattern (same as Step 3a) with modified $ids in the schema.
 
 ### Step 5: Version alignment
 
-Ensure BOTs will reference the correct (code, version) after merge.
+After creating a GDB, it starts at version 1. BOTs may expect a higher version.
 
-### Step 6: Copy data
+**Edit → publish loop** — each cycle bumps version by 0.1:
+```
+while current_version != target_version:
+    draft = gdb_database_edit(instance=destination, database_id=current_id)
+    gdb_database_update(instance=destination, database_id=draft.id,
+        catalog_name=NAME, code=CODE, schema=SCHEMA, is_draft=false)
+    current_id = draft.id
+```
 
-Fetch records from source, transform per field_map, upsert to destination. Show progress and sample results.
+**When gap is too large** (e.g., v1 → v5.3 = 43 iterations):
+
+> **Ask**: Version gap is large ({N} iterations). Two options:
+> 1. Bump all versions (slow but clean)
+> 2. Update BOTs to reference the actual version instead
+>
+> Which do you prefer?
+
+Delegate the loop to a subagent — the schema payload is large and repetitive.
+
+### Step 6: Copy data from origin (new GDB only)
+
+Only for Step 2 (GDB didn't exist on destination). For Step 3, data comes from destination's old version, not from origin.
+
+> **Ask**: Copy {N} records from origin? (Y/N)
+
+Use the same direct HTTP API recipe from Step 3b. No transformation needed — schema is identical.
+
+**Verify**: `gdb_data_count` on destination must match origin.
 
 ---
 
 ## Gotchas
 
-- **`gdb_database_create` on existing code** → HTTP 500 disguised as auth error
-- **Data is per (code, version)** — new version starts empty
+- **Code must be lowercase** in API URLs: `urllib.parse.quote(code.lower())`
+- **Codes with spaces** need URL-encoding
+- **SSL verification** must be disabled for test/dev instances
+- **HTTP 201** is success (not 200)
+- **Empty date fields**: omit entirely, don't pass `""`
+- **`gdb_database_create` on existing code** → HTTP 500 disguised as auth error. Use `edit → update`.
+- **Data is per (code, version)**, NOT per catalog. A new version starts empty. Verified empirically: `gdb_data_count(code, v1.5)` = 0 while `gdb_data_count(code, v1.4)` = 620.
+- **`schema_tags`** don't auto-update when schema changes — pass explicit tags in `update` if paths changed.
+
+---
+
+## Known GDB URLs
+
+| Instance | GDB URL |
+|----------|---------|
+| cuba | https://gdb.cuba.eregistrations.org |
+| cuba-test | https://gdb.test.cuba.eregistrations.org |
+| cuba-dev | https://gdb.dev.cuba.eregistrations.org |
+
+For other instances:
+```
+find ~/.cache/uv -name "instances.yaml" -path "*eregistrations_common*"
+```
+
+---
+
+## Edge cases
+
+### Multiple versions referenced by BOTs
+Different BOTs may reference different versions. The edit → publish loop creates all intermediate versions, so all are available.
+
+### Database code with spaces
+MCP tools handle spaces. Direct API calls need URL-encoding.
+
+### Target already has data
+If destination has records and user wants to copy from origin, warn first. Offer: skip, delete then copy, or merge by primary key.
+
+### Data direction rule
+**Schema from origin → destination. Data stays within destination (old version → new version).** Origin's data is irrelevant when updating an existing GDB — destination is the system of record.
+
+### When NOT to migrate data
+- Seed catalogs hydrated from another source
+- Old version has 0 records
+- Destructive schema change where user chose "accept loss" for critical fields — escalate before proceeding
 </script>
 
 <script>
@@ -1444,6 +1961,26 @@ function openViewer(key) {
   document.getElementById('viewerPanel').classList.add('open');
   document.getElementById('viewerBackdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+const skillFiles = {
+  cst: 'cs-copy-service-on-top',
+  compare: 'gdb-schema-compare',
+  copy: 'gdb-copy'
+};
+
+function downloadSkill() {
+  const title = document.getElementById('viewerTitle').textContent;
+  const key = Object.keys(skillNames).find(k => skillNames[k] === title);
+  if (!key) return;
+  const src = document.getElementById(skillSources[key]);
+  if (!src) return;
+  const blob = new Blob([src.textContent.trim()], {type: 'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (skillFiles[key] || key) + '.md';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function closeViewer() {
