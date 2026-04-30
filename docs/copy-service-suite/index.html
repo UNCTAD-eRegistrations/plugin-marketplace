@@ -813,7 +813,8 @@ td {
 .container[data-lang="sp"],
 .container[data-lang="fr"],
 .container[data-lang="fa"],
-.container[data-lang="ar"] { display: none; }
+.container[data-lang="ar"],
+.container[data-lang="el"] { display: none; }
 
 /* --- RTL support for Farsi --- */
 .container[data-lang="fa"] { direction: rtl; text-align: right; }
@@ -858,6 +859,7 @@ td {
     <button onclick="setLang('fr')">fr</button>
     <button onclick="setLang('fa')">فا</button>
     <button onclick="setLang('ar')">عر</button>
+    <button onclick="setLang('el')">ΕΛ</button>
   </nav>
 </div>
 <div class="part-label">Part 1 &mdash; copy services on top of existing service</div>
@@ -1226,6 +1228,7 @@ td {
     <button onclick="setLang('fr')">fr</button>
     <button onclick="setLang('fa')">فا</button>
     <button onclick="setLang('ar')">عر</button>
+    <button onclick="setLang('el')">ΕΛ</button>
   </nav>
 </div>
 <div class="part-label">Parte 1 &mdash; copiar servicios sobre servicios existentes</div>
@@ -1283,7 +1286,7 @@ td {
   </div>
 </details>
 <details class="intro-section">
-  <summary><h2>Prop&oacute;sito del skill &ldquo;copy service on top of existing service&rdquo;</h2></summary>
+  <summary><h2>Prop&oacute;sito del skill &ldquo;copiar servicio sobre servicio existente&rdquo;</h2></summary>
   <div class="content">
     <p>La Copy service suite es un primer ejemplo de este enfoque. Ayuda a copiar servicios existentes desde una instancia eRegistrations encima de los mismos servicios en otra instancia, protegiendo IDs de servicio, GDBs, referencias de BOTs y opciones de recuperaci&oacute;n.</p>
     <p>La usamos especialmente durante actualizaciones. Por ejemplo, al pasar una instancia de eR 2.13 a 2.18, podemos copiar los servicios a una instancia que ya funciona con la nueva versi&oacute;n, probarlos y corregirlos all&iacute;, y luego importarlos de vuelta para que la actualizaci&oacute;n ocurra con menos riesgo. Roxana desarroll&oacute; un <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill de actualizaci&oacute;n</a> separado para la actualizaci&oacute;n de la instancia.</p>
@@ -1594,6 +1597,7 @@ td {
     <button class="active" onclick="setLang('fr')">fr</button>
     <button onclick="setLang('fa')">فا</button>
     <button onclick="setLang('ar')">عر</button>
+    <button onclick="setLang('el')">ΕΛ</button>
   </nav>
 </div>
 <div class="part-label">Partie 1 &mdash; copier des services par-dessus des services existants</div>
@@ -1651,7 +1655,7 @@ td {
   </div>
 </details>
 <details class="intro-section">
-  <summary><h2>Objectif du skill &laquo; copy service on top of existing service &raquo;</h2></summary>
+  <summary><h2>Objectif du skill &laquo; copier un service par-dessus un service existant &raquo;</h2></summary>
   <div class="content">
     <p>La Copy service suite est un premier exemple de cette approche. Elle aide &agrave; copier des services existants depuis une instance eRegistrations par-dessus les m&ecirc;mes services dans une autre instance, tout en prot&eacute;geant les IDs de service, les GDBs, les r&eacute;f&eacute;rences BOT et les options de restauration.</p>
     <p>Nous l&rsquo;utilisons surtout pendant les mises &agrave; jour. Par exemple, pour passer une instance de eR 2.13 &agrave; 2.18, nous pouvons copier les services vers une instance o&ugrave; la nouvelle version fonctionne d&eacute;j&agrave;, les tester et les corriger l&agrave;-bas, puis les r&eacute;importer afin que la mise &agrave; jour se fasse avec moins de risque. Roxana a d&eacute;velopp&eacute; un <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill de mise &agrave; jour</a> s&eacute;par&eacute; pour la mise &agrave; jour de l&rsquo;instance elle-m&ecirc;me.</p>
@@ -1962,6 +1966,7 @@ td {
     <button onclick="setLang('fr')">fr</button>
     <button class="active" onclick="setLang('fa')">فا</button>
     <button onclick="setLang('ar')">عر</button>
+    <button onclick="setLang('el')">ΕΛ</button>
   </nav>
 </div>
 <div class="part-label">بخش ۱ &mdash; کپی سرویس‌ها روی سرویس‌های موجود</div>
@@ -2019,7 +2024,7 @@ td {
   </div>
 </details>
 <details class="intro-section">
-  <summary><h2>هدف مهارت &laquo;copy service on top of existing service&raquo;</h2></summary>
+  <summary><h2>هدف مهارت &laquo;کپی سرویس روی سرویس موجود&raquo;</h2></summary>
   <div class="content">
     <p>مجموعه Copy service suite نمونه‌ای اولیه از این رویکرد است. به ما کمک می‌کند سرویس‌های موجود را از یک نمونه eRegistrations روی همان سرویس‌ها در نمونه دیگر کپی کنیم، در حالی که شناسه‌های سرویس، GDB‌ها، ارجاعات BOT و گزینه‌های بازگردانی حفظ می‌شوند.</p>
     <p>ما از این مجموعه به‌ویژه هنگام ارتقا استفاده می‌کنیم. مثلاً هنگام انتقال یک نمونه از eR 2.13 به 2.18، سرویس‌ها را به نمونه‌ای کپی می‌کنیم که نسخه جدید قبلاً روی آن اجرا می‌شود، آنها را آنجا آزمایش و رفع عیب می‌کنیم، و سپس آنها را بازمی‌گردانیم تا ارتقا با ریسک کمتری انجام شود. روکسانا یک <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارت ارتقا</a> جداگانه برای ارتقای خود نمونه توسعه داده است.</p>
@@ -2330,6 +2335,7 @@ td {
     <button onclick="setLang('fr')">fr</button>
     <button onclick="setLang('fa')">فا</button>
     <button class="active" onclick="setLang('ar')">عر</button>
+    <button onclick="setLang('el')">ΕΛ</button>
   </nav>
 </div>
 <div class="part-label">الجزء ١ &mdash; نسخ الخدمات فوق الخدمات القائمة</div>
@@ -2387,7 +2393,7 @@ td {
   </div>
 </details>
 <details class="intro-section">
-  <summary><h2>هدف مهارة &laquo;copy service on top of existing service&raquo;</h2></summary>
+  <summary><h2>هدف مهارة &laquo;نسخ خدمة فوق خدمة قائمة&raquo;</h2></summary>
   <div class="content">
     <p>مجموعة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من مثيل eRegistrations فوق نفس الخدمات في مثيل آخر، مع الحفاظ على معرّفات الخدمات وقواعد البيانات GDB ومراجع BOT وخيارات الاستعادة.</p>
     <p>نستخدم هذه المجموعة بشكل خاص عند الترقية. على سبيل المثال، عند نقل مثيل من eR 2.13 إلى 2.18، ننسخ الخدمات إلى مثيل يعمل عليه الإصدار الجديد مسبقًا، ونختبرها ونصلح الأخطاء هناك، ثم نعيدها لتتم الترقية بمخاطر أقل. طوّرت روكسانا <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارة ترقية</a> منفصلة لترقية المثيل نفسه.</p>
@@ -2676,6 +2682,376 @@ td {
     <div class="section-item">
       <span class="section-desc">نص حر، لا تعيد المهارات كتابته أبدًا</span>
       <span class="section-label">الملاحظات</span>
+    </div>
+  </div>
+</details>
+
+</div><!-- /page2 hidden -->
+
+</div>
+
+
+<!-- ═══ GREEK ═══ -->
+<div class="container" data-lang="el">
+
+<!-- PAGE 1 -->
+<div id="page1"></div>
+
+<div class="title-row">
+  <h1>Copy service suite</h1>
+  <nav class="lang-toggle">
+    <button onclick="setLang('en')">en</button>
+    <button onclick="setLang('sp')">sp</button>
+    <button onclick="setLang('fr')">fr</button>
+    <button onclick="setLang('fa')">فا</button>
+    <button onclick="setLang('ar')">عر</button>
+    <button class="active" onclick="setLang('el')">ΕΛ</button>
+  </nav>
+</div>
+<div class="part-label">&Mu;&#941;&rho;&omicron;&sigmaf; 1 &mdash; copy services on top &sigma;&epsilon; &upsilon;&phi;&iota;&sigma;&tau;&#940;&mu;&epsilon;&nu;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</div>
+
+<details class="access-skills">
+  <summary><span>&#928;&rho;&#972;&sigma;&beta;&alpha;&sigma;&eta; &sigma;&tau;&alpha; skills</span></summary>
+  <div class="content">
+    <div class="skill-bar">
+      <span class="skill-tag" data-skill="cst" onclick="openViewer('cst')">copy service on top</span>
+      <span class="skill-tag" data-skill="compare" onclick="openViewer('compare')">gdb compare</span>
+      <span class="skill-tag" data-skill="copy" onclick="openViewer('copy')">gdb copy</span>
+    </div>
+    <div class="meta">
+      <span>Frank Grozel &amp; Nelson Per&eacute;z Aguirre</span>
+      <span class="meta-sep">&middot;</span>
+      <span>&Epsilon;&nu;&eta;&mu;&#941;&rho;&omega;&sigma;&eta; 2026-04-30</span>
+    </div>
+    <p class="status-note">&Kappa;&alpha;&tau;&#940;&sigma;&tau;&alpha;&sigma;&eta;: &alpha;&upsilon;&tau;&#940; &tau;&alpha; skills &beta;&rho;&#943;&sigma;&kappa;&omicron;&nu;&tau;&alpha;&iota; &alpha;&kappa;&#972;&mu;&eta; &upsilon;&pi;&#972; &alpha;&xi;&iota;&omicron;&lambda;&#972;&gamma;&eta;&sigma;&eta;. &Theta;&alpha; &delta;&eta;&mu;&omicron;&sigma;&iota;&epsilon;&upsilon;&tau;&omicron;&#973;&nu; &sigma;&#973;&nu;&tau;&omicron;&mu;&alpha; &sigma;&tau;&omicron; eRegistrations plugin <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace">marketplace</a>.</p>
+  </div>
+</details>
+
+<nav class="page-nav">
+  <a href="#page1" class="current">1</a>
+  <a href="#page2">2</a>
+</nav>
+
+<div class="intro-block">
+<details class="intro-section" open>
+  <summary><h2>&#904;&nu;&alpha;&sigmaf; &nu;&#941;&omicron;&sigmaf; &tau;&rho;&#972;&pi;&omicron;&sigmaf; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha;&sigmaf;</h2></summary>
+  <div class="content">
+    <p class="intro-lede">&Alpha;&upsilon;&tau;&#972;&sigmaf; &omicron; &omicron;&delta;&eta;&gamma;&#972;&sigmaf; &pi;&alpha;&rho;&omicron;&upsilon;&sigma;&iota;&#940;&zeta;&epsilon;&iota; &pi;&#974;&sigmaf; &theta;&alpha; &alpha;&upsilon;&tau;&omicron;&mu;&alpha;&tau;&omicron;&pi;&omicron;&iota;&omicron;&#973;&mu;&epsilon; &omicron;&lambda;&omicron;&#941;&nu;&alpha; &kappa;&alpha;&iota; &pi;&epsilon;&rho;&iota;&sigma;&sigma;&#972;&tau;&epsilon;&rho;&omicron; &tau;&iota;&sigmaf; &epsilon;&pi;&alpha;&nu;&alpha;&lambda;&alpha;&mu;&beta;&alpha;&nu;&#972;&mu;&epsilon;&nu;&epsilon;&sigmaf; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&epsilon;&sigmaf; &sigma;&tau;&omicron; eRegistrations, &kappa;&alpha;&iota; &tau;&iota;&sigmaf; &nu;&#941;&epsilon;&sigmaf; &#941;&nu;&nu;&omicron;&iota;&epsilon;&sigmaf; &pi;&omicron;&upsilon; &theta;&alpha; &chi;&rho;&eta;&sigma;&iota;&mu;&omicron;&pi;&omicron;&iota;&omicron;&#973;&mu;&epsilon;: skills, &alpha;&rho;&chi;&epsilon;&#943;&alpha; &chi;&#974;&rho;&alpha;&sigmaf;, suites &kappa;&alpha;&iota; &sigma;&upsilon;&nu;&epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha; &alpha;&nu;&theta;&rho;&#974;&pi;&omicron;&upsilon;-&pi;&rho;&#940;&kappa;&tau;&omicron;&rho;&alpha;.</p>
+    <div class="intro-cards">
+      <details class="intro-card" open>
+        <summary><h3>&Tau;&iota; &epsilon;&#943;&nu;&alpha;&iota; &#941;&nu;&alpha; skill;</h3></summary>
+        <p>&#904;&nu;&alpha; skill &epsilon;&#943;&nu;&alpha;&iota; &mu;&iota;&alpha; &omicron;&delta;&eta;&gamma;&#943;&alpha; &gamma;&rho;&alpha;&mu;&mu;&#941;&nu;&eta; &sigma;&epsilon; &kappa;&alpha;&theta;&eta;&mu;&epsilon;&rho;&iota;&nu;&#942; &gamma;&lambda;&#974;&sigma;&sigma;&alpha;. &Epsilon;&#943;&nu;&alpha;&iota; &pi;&rho;&omicron;&gamma;&rho;&alpha;&mu;&mu;&alpha;&tau;&iota;&sigma;&mu;&#972;&sigmaf; &sigma;&epsilon; &alpha;&nu;&theta;&rho;&#974;&pi;&iota;&nu;&eta; &gamma;&lambda;&#974;&sigma;&sigma;&alpha;: &omicron; &pi;&rho;&#940;&kappa;&tau;&omicron;&rho;&alpha;&sigmaf; &tau;&omicron; &delta;&iota;&alpha;&beta;&#940;&zeta;&epsilon;&iota; &kappa;&alpha;&iota; &tau;&omicron; &mu;&epsilon;&tau;&alpha;&tau;&rho;&#941;&pi;&epsilon;&iota; &sigma;&epsilon; &epsilon;&nu;&#941;&rho;&gamma;&epsilon;&iota;&epsilon;&sigmaf; &mu;&epsilon; &tau;&alpha; &delta;&iota;&alpha;&theta;&#941;&sigma;&iota;&mu;&alpha; &epsilon;&rho;&gamma;&alpha;&lambda;&epsilon;&#943;&alpha;.</p>
+      </details>
+      <details class="intro-card">
+        <summary><h3>&Tau;&iota; &epsilon;&#943;&nu;&alpha;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf;;</h3></summary>
+        <p>&Epsilon;&#943;&nu;&alpha;&iota; &eta; &kappa;&omicron;&iota;&nu;&#942; &mu;&nu;&#942;&mu;&eta; &gamma;&iota;&alpha; &alpha;&nu;&theta;&rho;&#974;&pi;&omicron;&upsilon;&sigmaf; &kappa;&alpha;&iota; &pi;&rho;&#940;&kappa;&tau;&omicron;&rho;&epsilon;&sigmaf;. &Tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; &sigma;&upsilon;&gamma;&kappa;&epsilon;&nu;&tau;&rho;&#974;&nu;&epsilon;&iota; &#972;&sigma;&alpha; &chi;&rho;&epsilon;&iota;&#940;&zeta;&epsilon;&tau;&alpha;&iota; &eta; &omicron;&mu;&#940;&delta;&alpha; &kappa;&alpha;&iota; &omicron;&iota; &pi;&rho;&#940;&kappa;&tau;&omicron;&rho;&epsilon;&sigmaf; &nu;&alpha; &gamma;&nu;&omega;&rho;&#943;&zeta;&omicron;&upsilon;&nu; &gamma;&iota;&alpha; &mu;&iota;&alpha; &chi;&#974;&rho;&alpha;: &pi;&#974;&sigmaf; &epsilon;&#943;&nu;&alpha;&iota; &omicron;&rho;&gamma;&alpha;&nu;&omega;&mu;&#941;&nu;&alpha; &tau;&alpha; instances, &omicron;&iota; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &kappa;&alpha;&iota; &omicron;&iota; GDB, &pi;&omicron;&iota;&epsilon;&sigmaf; &alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf; &lambda;&#942;&phi;&theta;&eta;&kappa;&alpha;&nu; &kappa;&alpha;&iota; &tau;&iota; &#941;&gamma;&iota;&nu;&epsilon; &sigma;&epsilon; &pi;&rho;&omicron;&eta;&gamma;&omicron;&#973;&mu;&epsilon;&nu;&epsilon;&sigmaf; &epsilon;&kappa;&tau;&epsilon;&lambda;&#941;&sigma;&epsilon;&iota;&sigmaf;.</p>
+        <p>&Tau;&alpha; skills &tau;&omicron; &epsilon;&nu;&eta;&mu;&epsilon;&rho;&#974;&nu;&omicron;&upsilon;&nu; &kappa;&alpha;&theta;&#974;&sigmaf; &epsilon;&rho;&gamma;&#940;&zeta;&omicron;&nu;&tau;&alpha;&iota;, &kappa;&alpha;&iota; &eta; &omicron;&mu;&#940;&delta;&alpha; &mu;&pi;&omicron;&rho;&epsilon;&#943; &nu;&alpha; &tau;&omicron; &epsilon;&pi;&epsilon;&xi;&epsilon;&rho;&gamma;&alpha;&sigma;&tau;&epsilon;&#943; &alpha;&pi;&epsilon;&upsilon;&theta;&epsilon;&#943;&alpha;&sigmaf; &gamma;&iota;&alpha; &nu;&alpha; &pi;&rho;&omicron;&sigma;&theta;&#941;&sigma;&epsilon;&iota; &sigma;&eta;&mu;&epsilon;&iota;&#974;&sigma;&epsilon;&iota;&sigmaf; &#942; &pi;&lambda;&alpha;&#943;&sigma;&iota;&omicron;.</p>
+      </details>
+      <details class="intro-card">
+        <summary><h3>&Gamma;&iota;&alpha;&tau;&#943; suite;</h3></summary>
+        <p>&Kappa;&#940;&pi;&omicron;&iota;&epsilon;&sigmaf; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&epsilon;&sigmaf; &epsilon;&#943;&nu;&alpha;&iota; &pi;&omicron;&lambda;&#973; &mu;&epsilon;&gamma;&#940;&lambda;&epsilon;&sigmaf; &gamma;&iota;&alpha; &#941;&nu;&alpha; skill. &#904;&nu;&alpha; suite &omicron;&mu;&alpha;&delta;&omicron;&pi;&omicron;&iota;&epsilon;&#943; &pi;&omicron;&lambda;&lambda;&#940; skills &#974;&sigma;&tau;&epsilon; &tau;&omicron; &kappa;&#973;&rho;&iota;&omicron; skill &nu;&alpha; &mu;&pi;&omicron;&rho;&epsilon;&#943; &nu;&alpha; &kappa;&alpha;&lambda;&#941;&sigma;&epsilon;&iota; &#941;&nu;&alpha; &epsilon;&xi;&epsilon;&iota;&delta;&iota;&kappa;&epsilon;&upsilon;&mu;&#941;&nu;&omicron; skill &#972;&tau;&alpha;&nu; &epsilon;&mu;&phi;&alpha;&nu;&iota;&sigma;&tau;&epsilon;&#943; &#941;&nu;&alpha; &sigma;&upsilon;&gamma;&kappa;&epsilon;&kappa;&rho;&iota;&mu;&#941;&nu;&omicron; &zeta;&#942;&tau;&eta;&mu;&alpha;.</p>
+      </details>
+      <details class="intro-card">
+        <summary><h3>&Tau;&iota; &alpha;&lambda;&lambda;&#940;&zeta;&epsilon;&iota; &gamma;&iota;&alpha; &tau;&eta;&nu; &omicron;&mu;&#940;&delta;&alpha;;</h3></summary>
+        <p>&Epsilon;&mu;&epsilon;&#943;&sigmaf; &kappa;&rho;&alpha;&tau;&#940;&mu;&epsilon; &tau;&eta;&nu; &kappa;&rho;&#943;&sigma;&eta;. &Omicron; &pi;&rho;&#940;&kappa;&tau;&omicron;&rho;&alpha;&sigmaf; &alpha;&nu;&alpha;&lambda;&alpha;&mu;&beta;&#940;&nu;&epsilon;&iota; &tau;&eta;&nu; &epsilon;&pi;&alpha;&nu;&alpha;&lambda;&eta;&pi;&tau;&iota;&kappa;&#942; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha;: &delta;&iota;&alpha;&beta;&#940;&zeta;&epsilon;&iota; &pi;&lambda;&alpha;&#943;&sigma;&iota;&omicron;, &epsilon;&lambda;&#941;&gamma;&chi;&epsilon;&iota; &sigma;&upsilon;&sigma;&tau;&#942;&mu;&alpha;&tau;&alpha;, &kappa;&alpha;&lambda;&epsilon;&#943; &epsilon;&rho;&gamma;&alpha;&lambda;&epsilon;&#943;&alpha;, &pi;&rho;&omicron;&epsilon;&tau;&omicron;&iota;&mu;&#940;&zeta;&epsilon;&iota; &alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf; &kappa;&alpha;&iota; &epsilon;&kappa;&tau;&epsilon;&lambda;&epsilon;&#943; &epsilon;&gamma;&kappa;&epsilon;&kappa;&rho;&iota;&mu;&#941;&nu;&alpha; &beta;&#942;&mu;&alpha;&tau;&alpha;. &Mu;&epsilon;&tau;&#940; &alpha;&pi;&#972; &kappa;&#940;&theta;&epsilon; &epsilon;&kappa;&tau;&#941;&lambda;&epsilon;&sigma;&eta;, &alpha;&nu;&alpha;&phi;&#941;&rho;&epsilon;&iota; &tau;&iota; &#941;&gamma;&iota;&nu;&epsilon; &kappa;&alpha;&iota; &kappa;&alpha;&tau;&alpha;&gamma;&rho;&#940;&phi;&epsilon;&iota; &delta;&iota;&delta;&#940;&gamma;&mu;&alpha;&tau;&alpha; &gamma;&iota;&alpha; &tau;&eta;&nu; &epsilon;&pi;&#972;&mu;&epsilon;&nu;&eta; &#941;&kappa;&delta;&omicron;&sigma;&eta;.</p>
+      </details>
+      <details class="intro-card">
+        <summary><h3>&Pi;&omicron;&#973; &theta;&alpha; &epsilon;&#943;&nu;&alpha;&iota; &delta;&iota;&alpha;&theta;&#941;&sigma;&iota;&mu;&alpha; &tau;&alpha; skills;</h3></summary>
+        <p>&#908;&lambda;&alpha; &tau;&alpha; skills &theta;&alpha; &delta;&eta;&mu;&omicron;&sigma;&iota;&epsilon;&upsilon;&tau;&omicron;&#973;&nu; &sigma;&tau;&omicron; eRegistrations plugin <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace">marketplace</a>, &#972;&pi;&omicron;&upsilon; &theta;&alpha; &omicron;&rho;&gamma;&alpha;&nu;&#974;&nu;&omicron;&nu;&tau;&alpha;&iota; &kappa;&alpha;&iota; &theta;&alpha; &delta;&iota;&alpha;&chi;&epsilon;&iota;&rho;&#943;&zeta;&omicron;&nu;&tau;&alpha;&iota; &alpha;&pi;&#972; &tau;&omicron;&nu; Mehdi.</p>
+      </details>
+    </div>
+  </div>
+</details>
+<details class="intro-section">
+  <summary><h2>&Sigma;&kappa;&omicron;&pi;&#972;&sigmaf; &tau;&omicron;&upsilon; skill &ldquo;αντιγραφή υπηρεσίας πάνω σε υπάρχουσα υπηρεσία&rdquo;</h2></summary>
+  <div class="content">
+    <p>&Tau;&omicron; Copy service suite &epsilon;&#943;&nu;&alpha;&iota; &#941;&nu;&alpha; &pi;&rho;&#974;&tau;&omicron; &pi;&alpha;&rho;&#940;&delta;&epsilon;&iota;&gamma;&mu;&alpha; &alpha;&upsilon;&tau;&#942;&sigmaf; &tau;&eta;&sigmaf; &pi;&rho;&omicron;&sigma;&#941;&gamma;&gamma;&iota;&sigma;&eta;&sigmaf;. &Mu;&alpha;&sigmaf; &beta;&omicron;&eta;&theta;&#940; &nu;&alpha; &alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&psi;&omicron;&upsilon;&mu;&epsilon; &upsilon;&phi;&iota;&sigma;&tau;&#940;&mu;&epsilon;&nu;&epsilon;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &alpha;&pi;&#972; &#941;&nu;&alpha; instance &tau;&omicron;&upsilon; eRegistrations &pi;&#940;&nu;&omega; &alpha;&pi;&#972; &tau;&iota;&sigmaf; &#943;&delta;&iota;&epsilon;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &sigma;&epsilon; &#940;&lambda;&lambda;&omicron; instance, &pi;&rho;&omicron;&sigma;&tau;&alpha;&tau;&epsilon;&#973;&omicron;&nu;&tau;&alpha;&sigmaf; &tau;&alpha; &alpha;&nu;&alpha;&gamma;&nu;&omega;&rho;&iota;&sigma;&tau;&iota;&kappa;&#940; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&iota;&#974;&nu;, &tau;&iota;&sigmaf; GDB, &tau;&iota;&sigmaf; &alpha;&nu;&alpha;&phi;&omicron;&rho;&#941;&sigmaf; BOT &kappa;&alpha;&iota; &tau;&iota;&sigmaf; &epsilon;&pi;&iota;&lambda;&omicron;&gamma;&#941;&sigmaf; &alpha;&nu;&alpha;&#943;&rho;&epsilon;&sigma;&eta;&sigmaf;.</p>
+    <p>&Tau;&omicron; &chi;&rho;&eta;&sigma;&iota;&mu;&omicron;&pi;&omicron;&iota;&omicron;&#973;&mu;&epsilon; &iota;&delta;&iota;&alpha;&#943;&tau;&epsilon;&rho;&alpha; &kappa;&alpha;&tau;&#940; &tau;&iota;&sigmaf; &alpha;&nu;&alpha;&beta;&alpha;&theta;&mu;&#943;&sigma;&epsilon;&iota;&sigmaf;. &Gamma;&iota;&alpha; &pi;&alpha;&rho;&#940;&delta;&epsilon;&iota;&gamma;&mu;&alpha;, &#972;&tau;&alpha;&nu; &mu;&epsilon;&tau;&alpha;&kappa;&iota;&nu;&omicron;&#973;&mu;&epsilon; &#941;&nu;&alpha; instance &alpha;&pi;&#972; eR 2.13 &sigma;&epsilon; 2.18, &mu;&pi;&omicron;&rho;&omicron;&#973;&mu;&epsilon; &nu;&alpha; &alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&psi;&omicron;&upsilon;&mu;&epsilon; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &sigma;&epsilon; &#941;&nu;&alpha; instance &pi;&omicron;&upsilon; &#942;&delta;&eta; &tau;&rho;&#941;&chi;&epsilon;&iota; &tau;&eta; &nu;&#941;&alpha; &#941;&kappa;&delta;&omicron;&sigma;&eta;, &nu;&alpha; &tau;&iota;&sigmaf; &delta;&omicron;&kappa;&iota;&mu;&#940;&sigma;&omicron;&upsilon;&mu;&epsilon; &kappa;&alpha;&iota; &nu;&alpha; &tau;&iota;&sigmaf; &delta;&iota;&omicron;&rho;&theta;&#974;&sigma;&omicron;&upsilon;&mu;&epsilon; &epsilon;&kappa;&epsilon;&#943;, &kappa;&alpha;&iota; &sigma;&tau;&eta; &sigma;&upsilon;&nu;&#941;&chi;&epsilon;&iota;&alpha; &nu;&alpha; &tau;&iota;&sigmaf; &epsilon;&pi;&alpha;&nu;&alpha;&phi;&#941;&rho;&omicron;&upsilon;&mu;&epsilon; &#974;&sigma;&tau;&epsilon; &eta; &alpha;&nu;&alpha;&beta;&#940;&theta;&mu;&iota;&sigma;&eta; &nu;&alpha; &gamma;&#943;&nu;&epsilon;&iota; &mu;&epsilon; &lambda;&iota;&gamma;&#972;&tau;&epsilon;&rho;&omicron; &rho;&#943;&sigma;&kappa;&omicron;. &Eta; Roxana &#941;&chi;&epsilon;&iota; &alpha;&nu;&alpha;&pi;&tau;&#973;&xi;&epsilon;&iota; &#941;&nu;&alpha; &xi;&epsilon;&chi;&omega;&rho;&iota;&sigma;&tau;&#972; <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">upgrade skill</a> &gamma;&iota;&alpha; &tau;&eta;&nu; &#943;&delta;&iota;&alpha; &tau;&eta;&nu; &alpha;&nu;&alpha;&beta;&#940;&theta;&mu;&iota;&sigma;&eta; &tau;&omicron;&upsilon; instance.</p>
+  </div>
+</details>
+</div>
+
+<details class="part-wrapper">
+  <summary><h2>&Pi;&#974;&sigmaf; &lambda;&epsilon;&iota;&tau;&omicron;&upsilon;&rho;&gamma;&epsilon;&#943; &tau;&omicron; skill</h2></summary>
+  <p class="part-intro">&Tau;&omicron; &kappa;&#973;&rho;&iota;&omicron; skill &kappa;&alpha;&theta;&omicron;&delta;&eta;&gamma;&epsilon;&#943; &tau;&omicron;&nu; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942; &sigma;&epsilon; &#972;&lambda;&eta; &tau;&eta; &delta;&iota;&alpha;&delta;&iota;&kappa;&alpha;&sigma;&#943;&alpha;: &epsilon;&pi;&iota;&lambda;&omicron;&gamma;&#942; &chi;&#974;&rho;&alpha;&sigmaf;, &epsilon;&pi;&iota;&lambda;&omicron;&gamma;&#942; instances, &epsilon;&pi;&iota;&lambda;&omicron;&gamma;&#942; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&iota;&#974;&nu;, &epsilon;&pi;&#943;&lambda;&upsilon;&sigma;&eta; GDB, &sigma;&upsilon;&gamma;&chi;&#974;&nu;&epsilon;&upsilon;&sigma;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&iota;&#974;&nu;, &epsilon;&pi;&alpha;&lambda;&#942;&theta;&epsilon;&upsilon;&sigma;&eta; &tau;&omicron;&upsilon; instance &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973; &kappa;&alpha;&iota; &delta;&eta;&mu;&iota;&omicron;&upsilon;&rho;&gamma;&#943;&alpha; &alpha;&nu;&alpha;&phi;&omicron;&rho;&#940;&sigmaf;.</p>
+
+<!-- Phase 1 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">1</span>
+    <h2>&Alpha;&rho;&chi;&iota;&kappa;&#941;&sigmaf; &epsilon;&rho;&omega;&tau;&#942;&sigma;&epsilon;&iota;&sigmaf;: &tau;&iota; &theta;&#941;&lambda;&epsilon;&iota; &nu;&alpha; &kappa;&#940;&nu;&epsilon;&iota; &omicron; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942;&sigmaf;</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="skill-comment">&Tau;&omicron; skill &theta;&alpha; &kappa;&#940;&nu;&epsilon;&iota; &epsilon;&rho;&omega;&tau;&#942;&sigma;&epsilon;&iota;&sigmaf; &kappa;&alpha;&iota; &theta;&alpha; &alpha;&lambda;&lambda;&eta;&lambda;&epsilon;&pi;&iota;&delta;&rho;&#940;&sigma;&epsilon;&iota; &mu;&epsilon; &tau;&omicron;&nu; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942; &gamma;&iota;&alpha; &nu;&alpha; &kappa;&alpha;&tau;&alpha;&nu;&omicron;&#942;&sigma;&epsilon;&iota; &tau;&iota; &pi;&rho;&#941;&pi;&epsilon;&iota; &nu;&alpha; &gamma;&#943;&nu;&epsilon;&iota;.</p>
+
+    <div class="step">
+      <div class="step-title">&Epsilon;: &pi;&omicron;&iota;&alpha; &chi;&#974;&rho;&alpha;;</div>
+      <div class="response-hint">&mu;&epsilon;&tau;&#940; &alpha;&pi;&#972; &alpha;&pi;&#940;&nu;&tau;&eta;&sigma;&eta; &tau;&omicron;&upsilon; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942;</div>
+      <div class="detail">
+        <p>&Phi;&omicron;&rho;&tau;&#974;&nu;&epsilon;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; (&delta;&eta;&mu;&iota;&omicron;&upsilon;&rho;&gamma;&epsilon;&#943; &alpha;&pi;&#972; &pi;&rho;&#972;&tau;&upsilon;&pi;&omicron; &alpha;&nu; &delta;&epsilon;&nu; &upsilon;&pi;&#940;&rho;&chi;&epsilon;&iota;).</p>
+        <p>&Alpha;&nu; &upsilon;&pi;&#940;&rho;&chi;&omicron;&upsilon;&nu; &#942;&delta;&eta; &alpha;&pi;&omicron;&tau;&epsilon;&lambda;&#941;&sigma;&mu;&alpha;&tau;&alpha; Board, &tau;&alpha; &phi;&omicron;&rho;&tau;&#974;&nu;&epsilon;&iota;.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">&Epsilon;: instances &pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta;&sigmaf; &kappa;&alpha;&iota; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;;</div>
+      <div class="response-hint">&mu;&epsilon;&tau;&#940; &alpha;&pi;&#972; &alpha;&pi;&#940;&nu;&tau;&eta;&sigma;&eta; &tau;&omicron;&upsilon; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942;</div>
+      <div class="detail">
+        <p>&Sigma;&upsilon;&nu;&delta;&#941;&epsilon;&tau;&alpha;&iota; &kappa;&alpha;&iota; &sigma;&tau;&alpha; &delta;&#973;&omicron;, &alpha;&nu;&iota;&chi;&nu;&epsilon;&#973;&epsilon;&iota; &alpha;&upsilon;&tau;&#972;&mu;&alpha;&tau;&alpha; &tau;&iota;&sigmaf; &epsilon;&kappa;&delta;&#972;&sigma;&epsilon;&iota;&sigmaf; BPA.</p>
+        <p>&Epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota;: &Pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta;: cuba-dev (v2.18) &#10003; &mdash; &Pi;&rho;&omicron;&omicron;&rho.: cuba (v2.13) &#10003;</p>
+        <p>&Epsilon;&nu;&eta;&mu;&epsilon;&rho;&#974;&nu;&epsilon;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; &mu;&epsilon; &tau;&iota;&sigmaf; &epsilon;&kappa;&delta;&#972;&sigma;&epsilon;&iota;&sigmaf; &pi;&omicron;&upsilon; &epsilon;&nu;&tau;&omicron;&pi;&#943;&sigma;&tau;&eta;&kappa;&alpha;&nu;.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">&Alpha;&pi;&omicron;&gamma;&rho;&alpha;&phi;&#942; (&alpha;&upsilon;&tau;&#972;&mu;&alpha;&tau;&eta;)</div>
+      <div class="detail">
+        <p>&Kappa;&alpha;&tau;&alpha;&gamma;&rho;&#940;&phi;&epsilon;&iota; &tau;&iota;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &kappa;&alpha;&iota; &sigma;&tau;&alpha; &delta;&#973;&omicron; instances.</p>
+        <p>&Epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota; &pi;&#943;&nu;&alpha;&kappa;&alpha; &sigma;&#973;&gamma;&kappa;&rho;&iota;&sigma;&eta;&sigmaf;: &mu;&#972;&nu;&omicron; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &pi;&omicron;&upsilon; &upsilon;&pi;&#940;&rho;&chi;&omicron;&upsilon;&nu; &kappa;&alpha;&iota; &sigma;&tau;&alpha; <strong>&delta;&#973;&omicron;</strong> (&alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&#943;&chi;&iota;&sigma;&eta; &alpha;&nu;&alpha;&gamma;&nu;&omega;&rho;&iota;&sigma;&tau;&iota;&kappa;&#974;&nu;).</p>
+        <p>&Gamma;&iota;&alpha; &kappa;&#940;&theta;&epsilon; &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&iota;&sigma;&mu;&#941;&nu;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;, &epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota; &#972;&lambda;&epsilon;&sigmaf; &tau;&iota;&sigmaf; GDB &pi;&omicron;&upsilon; &sigma;&upsilon;&nu;&delta;&#941;&omicron;&nu;&tau;&alpha;&iota; &mu;&#941;&sigma;&omega; BOT (&#972;&nu;&omicron;&mu;&alpha; + &#941;&kappa;&delta;&omicron;&sigma;&eta;).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">&Epsilon;: &pi;&omicron;&iota;&epsilon;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &nu;&alpha; &alpha;&nu;&tau;&iota;&gamma;&rho;&alpha;&phi;&omicron;&#973;&nu; &pi;&#940;&nu;&omega;;</div>
+      <div class="response-hint">&mu;&epsilon;&tau;&#940; &alpha;&pi;&#972; &alpha;&pi;&#940;&nu;&tau;&eta;&sigma;&eta; &tau;&omicron;&upsilon; &chi;&epsilon;&iota;&rho;&iota;&sigma;&tau;&#942;</div>
+      <div class="detail">
+        <p>&Omicron; &chi;&rho;&#942;&sigma;&tau;&eta;&sigmaf; &epsilon;&pi;&iota;&lambda;&#941;&gamma;&epsilon;&iota; &alpha;&pi;&#972; &tau;&eta; &lambda;&#943;&sigma;&tau;&alpha; &pi;&omicron;&upsilon; &epsilon;&mu;&phi;&alpha;&nu;&#943;&sigma;&tau;&eta;&kappa;&epsilon; &pi;&alpha;&rho;&alpha;&pi;&#940;&nu;&omega;.</p>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- Phase 2 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">2</span>
+    <h2>&Phi;&#940;&sigma;&eta; GDB</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">&Alpha;&nu;&#940; GDB &pi;&omicron;&upsilon; &alpha;&nu;&alpha;&phi;&#941;&rho;&epsilon;&tau;&alpha;&iota; &alpha;&pi;&#972; &tau;&iota;&sigmaf; &epsilon;&pi;&iota;&lambda;&epsilon;&gamma;&mu;&#941;&nu;&epsilon;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf;</p>
+
+    <details>
+      <summary><h2>&Pi;&#943;&nu;&alpha;&kappa;&alpha;&sigmaf; &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&#943;&alpha;&sigmaf;</h2></summary>
+      <div class="content">
+        <p>&Pi;&rho;&iota;&nu; &alpha;&pi;&#972; &omicron;&pi;&omicron;&iota;&alpha;&delta;&#942;&pi;&omicron;&tau;&epsilon; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha; &sigma;&tau;&iota;&sigmaf; GDB, &epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota; &sigma;&#973;&gamma;&kappa;&rho;&iota;&sigma;&eta; &delta;&#973;&omicron; &sigma;&tau;&eta;&lambda;&#974;&nu;. &Zeta;&eta;&tau;&#940; &alpha;&pi;&#972; &tau;&omicron;&nu; &chi;&rho;&#942;&sigma;&tau;&eta; &nu;&alpha; &epsilon;&pi;&iota;&beta;&epsilon;&beta;&alpha;&iota;&#974;&sigma;&epsilon;&iota; &kappa;&#940;&theta;&epsilon; &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&#943;&chi;&iota;&sigma;&eta; &mdash; &kappa;&#940;&pi;&omicron;&iota;&epsilon;&sigmaf; GDB &mu;&pi;&omicron;&rho;&epsilon;&#943; &nu;&alpha; &#941;&chi;&omicron;&upsilon;&nu; &delta;&iota;&alpha;&phi;&omicron;&rho;&epsilon;&tau;&iota;&kappa;&#940; &omicron;&nu;&#972;&mu;&alpha;&tau;&alpha; &alpha;&lambda;&lambda;&#940; &nu;&alpha; &epsilon;&#943;&nu;&alpha;&iota; &eta; &#943;&delta;&iota;&alpha; &beta;&#940;&sigma;&eta; &delta;&epsilon;&delta;&omicron;&mu;&#941;&nu;&omega;&nu;.</p>
+        <table>
+          <tr><th>GDB &pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta;&sigmaf;</th><th></th><th>GDB &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;</th></tr>
+          <tr><td>Pa&iacute;ses (v5)</td><td style="color:var(--muted)">&harr;</td><td>Pa&iacute;ses (v3)</td></tr>
+          <tr><td>Productos (v2)</td><td style="color:var(--muted)">&harr;</td><td>Products (v2)</td></tr>
+          <tr><td>Certificados (v1)</td><td style="color:var(--muted)">&harr;</td><td><em style="color:var(--muted)">&mdash; &lambda;&epsilon;&#943;&pi;&epsilon;&iota; &mdash;</em></td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary><h2>&Epsilon;&pi;&#943;&lambda;&upsilon;&sigma;&eta; &alpha;&nu;&#940; GDB</h2></summary>
+      <div class="content">
+        <p class="gdb-cases-intro">&Iota;&sigma;&chi;&#973;&epsilon;&iota; &mu;&#943;&alpha; &alpha;&pi;&#972; &tau;&iota;&sigmaf; &pi;&alpha;&rho;&alpha;&kappa;&#940;&tau;&omega; &pi;&epsilon;&rho;&iota;&pi;&tau;&#974;&sigma;&epsilon;&iota;&sigmaf;:</p>
+        <div class="gdb-cases">
+          <div class="gdb-case">
+            <div class="case-label">&Eta; GDB &lambda;&epsilon;&#943;&pi;&epsilon;&iota; &alpha;&pi;&#972; &tau;&omicron;&nu; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&#972;</div>
+            <div class="case-detail">
+              <p>&Tau;&omicron; <span class="mono">gdb copy</span> &tau;&eta;&nu; &delta;&eta;&mu;&iota;&omicron;&upsilon;&rho;&gamma;&epsilon;&#943; (&#943;&delta;&iota;&omicron; &#972;&nu;&omicron;&mu;&alpha;, &#943;&delta;&iota;&omicron; &sigma;&chi;&#942;&mu;&alpha;). &Alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&phi;&epsilon;&iota; &delta;&epsilon;&delta;&omicron;&mu;&#941;&nu;&alpha; &alpha;&pi;&#972; &tau;&eta;&nu; &pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta; &alpha;&nu; &chi;&rho;&epsilon;&iota;&#940;&zeta;&epsilon;&tau;&alpha;&iota;.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">&#906;&delta;&iota;&alpha; &delta;&omicron;&mu;&#942;, &#943;&delta;&iota;&omicron; &#972;&nu;&omicron;&mu;&alpha;, &#943;&delta;&iota;&alpha; &#941;&kappa;&delta;&omicron;&sigma;&eta;</div>
+            <div class="case-detail">
+              <p>&Delta;&epsilon;&nu; &chi;&rho;&epsilon;&iota;&#940;&zeta;&epsilon;&tau;&alpha;&iota; &kappa;&alpha;&mu;&#943;&alpha; &epsilon;&nu;&#941;&rho;&gamma;&epsilon;&iota;&alpha;.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">&#906;&delta;&iota;&alpha; &delta;&omicron;&mu;&#942;, &#943;&delta;&iota;&omicron; &#972;&nu;&omicron;&mu;&alpha;, &delta;&iota;&alpha;&phi;&omicron;&rho;&epsilon;&tau;&iota;&kappa;&#942; &#941;&kappa;&delta;&omicron;&sigma;&eta;</div>
+            <div class="case-detail">
+              <p>&Delta;&epsilon;&nu; &chi;&rho;&epsilon;&iota;&#940;&zeta;&epsilon;&tau;&alpha;&iota; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha; &sigma;&tau;&eta;&nu; GDB. &Mu;&epsilon;&tau;&#940; &tau;&eta;&nu; &epsilon;&iota;&sigma;&alpha;&gamma;&omega;&gamma;&#942;: &tau;&omicron; <span class="mono">bot_update</span> &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&epsilon;&#943; &tau;&alpha; BOT &sigma;&tau;&eta;&nu; &#941;&kappa;&delta;&omicron;&sigma;&eta; &tau;&omicron;&upsilon; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">&#906;&delta;&iota;&alpha; &delta;&omicron;&mu;&#942;, &delta;&iota;&alpha;&phi;&omicron;&rho;&epsilon;&tau;&iota;&kappa;&#972; &#972;&nu;&omicron;&mu;&alpha;</div>
+            <div class="case-detail">
+              <p>&Delta;&epsilon;&nu; &chi;&rho;&epsilon;&iota;&#940;&zeta;&epsilon;&tau;&alpha;&iota; &epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha; &sigma;&tau;&eta;&nu; GDB. &Mu;&epsilon;&tau;&#940; &tau;&eta;&nu; &epsilon;&iota;&sigma;&alpha;&gamma;&omega;&gamma;&#942;: &tau;&omicron; <span class="mono">bot_update</span> &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&epsilon;&#943; &tau;&alpha; BOT &sigma;&tau;&omicron; &#972;&nu;&omicron;&mu;&alpha; + &#941;&kappa;&delta;&omicron;&sigma;&eta; &tau;&omicron;&upsilon; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">&Delta;&iota;&alpha;&phi;&omicron;&rho;&epsilon;&tau;&iota;&kappa;&#942; &delta;&omicron;&mu;&#942;</div>
+            <div class="case-detail">
+              <p>&Tau;&omicron; <span class="mono">gdb copy</span> &lambda;&alpha;&mu;&beta;&#940;&nu;&epsilon;&iota; <span class="mono">field_map</span> &alpha;&pi;&#972; &tau;&omicron; compare.</p>
+              <p>&Epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota; &sigma;&tau;&omicron;&nu; &chi;&rho;&#942;&sigma;&tau;&eta;: &sigma;&chi;&#941;&delta;&iota;&omicron; &mu;&epsilon;&tau;&alpha;&phi;&omicron;&rho;&#940;&sigmaf; &mu;&epsilon; &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&#943;&chi;&iota;&sigma;&eta; &pi;&epsilon;&delta;&#943;&omega;&nu; + &pi;&epsilon;&delta;&#943;&alpha; &pi;&omicron;&upsilon; &theta;&alpha; &chi;&#940;&sigma;&omicron;&upsilon;&nu; &delta;&epsilon;&delta;&omicron;&mu;&#941;&nu;&alpha;.</p>
+              <p>&Rho;&omega;&tau;&#940;: &alpha;&pi;&omicron;&delta;&omicron;&chi;&#942; / &tau;&rho;&omicron;&pi;&omicron;&pi;&omicron;&#943;&eta;&sigma;&eta; / &alpha;&kappa;&#973;&rho;&omega;&sigma;&eta;;</p>
+              <p>&Delta;&eta;&mu;&iota;&omicron;&upsilon;&rho;&gamma;&epsilon;&#943; &nu;&#941;&alpha; &#941;&kappa;&delta;&omicron;&sigma;&eta; GDB &sigma;&tau;&omicron;&nu; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&#972; &mu;&epsilon; &tau;&omicron; &sigma;&chi;&#942;&mu;&alpha; &tau;&eta;&sigmaf; &pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta;&sigmaf;. &Mu;&epsilon;&tau;&alpha;&phi;&#941;&rho;&epsilon;&iota; &delta;&epsilon;&delta;&omicron;&mu;&#941;&nu;&alpha; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973; (&pi;&alpha;&lambda;&iota;&#940; &rarr; &nu;&#941;&alpha; &#941;&kappa;&delta;&omicron;&sigma;&eta;) &mu;&epsilon; &mu;&epsilon;&tau;&alpha;&sigma;&chi;&eta;&mu;&alpha;&tau;&iota;&sigma;&mu;&#972; &pi;&epsilon;&delta;&#943;&omega;&nu;.</p>
+              <p>&Epsilon;&mu;&phi;&alpha;&nu;&#943;&zeta;&epsilon;&iota; &alpha;&pi;&omicron;&tau;&epsilon;&lambda;&#941;&sigma;&mu;&alpha;&tau;&alpha; + &delta;&epsilon;&#943;&gamma;&mu;&alpha;&tau;&alpha; &epsilon;&gamma;&gamma;&rho;&alpha;&phi;&#974;&nu;.</p>
+              <p>&Mu;&epsilon;&tau;&#940; &tau;&eta;&nu; &epsilon;&iota;&sigma;&alpha;&gamma;&omega;&gamma;&#942;: &tau;&omicron; <span class="mono">bot_update</span> &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&epsilon;&#943; &tau;&alpha; BOT &sigma;&tau;&eta; &nu;&#941;&alpha; &#941;&kappa;&delta;&omicron;&sigma;&eta; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="warning-box">
+          &Mu;&eta;&nu; &pi;&rho;&omicron;&chi;&omega;&rho;&#942;&sigma;&epsilon;&tau;&epsilon; &sigma;&tau;&eta; &sigma;&upsilon;&gamma;&chi;&#974;&nu;&epsilon;&upsilon;&sigma;&eta; &#941;&omega;&sigmaf; &#972;&tau;&omicron;&upsilon; &epsilon;&pi;&iota;&lambda;&upsilon;&theta;&omicron;&#973;&nu; &#972;&lambda;&epsilon;&sigmaf; &omicron;&iota; GDB. &Epsilon;&nu;&eta;&mu;&epsilon;&rho;&#974;&nu;&epsilon;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; &mu;&epsilon; &tau;&iota;&sigmaf; &alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf; GDB &kappa;&alpha;&iota; &tau;&alpha; &alpha;&pi;&omicron;&tau;&epsilon;&lambda;&#941;&sigma;&mu;&alpha;&tau;&alpha; &sigma;&#973;&gamma;&kappa;&rho;&iota;&sigma;&eta;&sigmaf;.
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Phase 3 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">3</span>
+    <h2>&Phi;&#940;&sigma;&eta; &sigma;&upsilon;&gamma;&chi;&#974;&nu;&epsilon;&upsilon;&sigma;&eta;&sigmaf;</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">&Alpha;&nu;&#940; &epsilon;&pi;&iota;&lambda;&epsilon;&gamma;&mu;&#941;&nu;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</p>
+
+    <details>
+      <summary><h2>&Alpha;&nu;&tau;&#943;&gamma;&rho;&alpha;&phi;&omicron; &alpha;&sigma;&phi;&alpha;&lambda;&epsilon;&#943;&alpha;&sigmaf;, &#941;&lambda;&epsilon;&gamma;&chi;&omicron;&sigmaf;, &epsilon;&iota;&sigma;&alpha;&gamma;&omega;&gamma;&#942;, &epsilon;&nu;&eta;&mu;&#941;&rho;&omega;&sigma;&eta;</h2></summary>
+      <div class="content">
+        <div class="merge-step">
+          <strong>&Alpha;&nu;&tau;&#943;&gamma;&rho;&alpha;&phi;&omicron; &alpha;&sigma;&phi;&alpha;&lambda;&epsilon;&#943;&alpha;&sigmaf;</strong>
+          <p>&Alpha;&pi;&omicron;&theta;&eta;&kappa;&epsilon;&#973;&epsilon;&iota; &pi;&lambda;&#942;&rho;&epsilon;&sigmaf; &sigma;&tau;&iota;&gamma;&mu;&iota;&#972;&tau;&upsilon;&pi;&omicron; &tau;&eta;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;&sigmaf; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973; &pi;&rho;&iota;&nu; &alpha;&pi;&#972; &omicron;&pi;&omicron;&iota;&alpha;&delta;&#942;&pi;&omicron;&tau;&epsilon; &alpha;&lambda;&lambda;&alpha;&gamma;&#942;. &Alpha;&nu; &kappa;&#940;&tau;&iota; &pi;&#940;&epsilon;&iota; &sigma;&tau;&rho;&alpha;&beta;&#940;, &alpha;&upsilon;&tau;&#972; &tau;&omicron; &sigma;&tau;&iota;&gamma;&mu;&iota;&#972;&tau;&upsilon;&pi;&omicron; &epsilon;&pi;&alpha;&nu;&alpha;&phi;&#941;&rho;&epsilon;&iota; &tau;&eta;&nu; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha; &alpha;&kappa;&rho;&iota;&beta;&#974;&sigmaf; &#972;&pi;&omega;&sigmaf; &#942;&tau;&alpha;&nu;.</p>
+        </div>
+        <div class="merge-step">
+          <strong>&#904;&lambda;&epsilon;&gamma;&chi;&omicron;&sigmaf; &delta;&eta;&mu;&omicron;&sigma;&#943;&epsilon;&upsilon;&sigma;&eta;&sigmaf;</strong>
+          <p>&Alpha;&nu; &eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973; &epsilon;&#943;&nu;&alpha;&iota; &delta;&eta;&mu;&omicron;&sigma;&iota;&epsilon;&upsilon;&mu;&#941;&nu;&eta;, &epsilon;&#943;&nu;&alpha;&iota; &epsilon;&nu;&epsilon;&rho;&gamma;&#942;. &Pi;&omicron;&lambda;&#943;&tau;&epsilon;&sigmaf; &kappa;&alpha;&iota; &upsilon;&pi;&#940;&lambda;&lambda;&eta;&lambda;&omicron;&iota; &mu;&pi;&omicron;&rho;&epsilon;&#943; &nu;&alpha; &tau;&eta; &chi;&rho;&eta;&sigma;&iota;&mu;&omicron;&pi;&omicron;&iota;&omicron;&#973;&nu;. &Rho;&omega;&tau;&#940;: &sigma;&upsilon;&gamma;&chi;&#974;&nu;&epsilon;&upsilon;&sigma;&eta; &sigma;&epsilon; &alpha;&upsilon;&tau;&#942; &tau;&eta;&nu; &epsilon;&nu;&epsilon;&rho;&gamma;&#942; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;; (&Iota;&delta;&alpha;&nu;&iota;&kappa;&#940; &alpha;&pi;&omicron;&delta;&eta;&mu;&omicron;&sigma;&iota;&epsilon;&#973;&sigma;&tau;&epsilon; &pi;&rho;&#974;&tau;&alpha; &#942; &kappa;&#940;&nu;&tau;&epsilon; &tau;&omicron; &sigma;&epsilon; &pi;&epsilon;&rho;&#943;&omicron;&delta;&omicron; &sigma;&upsilon;&nu;&tau;&#942;&rho;&eta;&sigma;&eta;&sigmaf;.)</p>
+        </div>
+        <div class="merge-step">
+          <strong>&Epsilon;&iota;&sigma;&alpha;&gamma;&omega;&gamma;&#942;</strong>
+          <p>&Epsilon;&kappa;&tau;&epsilon;&lambda;&epsilon;&#943; &tau;&omicron; <span class="mono">service_import_on_top</span>.</p>
+        </div>
+        <div class="merge-step">
+          <strong>&Epsilon;&nu;&eta;&mu;&#941;&rho;&omega;&sigma;&eta; Bot</strong>
+          <p><span class="mono">bot_update</span> &gamma;&iota;&alpha; &kappa;&#940;&theta;&epsilon; BOT &#972;&pi;&omicron;&upsilon; &tau;&omicron; &#972;&nu;&omicron;&mu;&alpha; &#942; &eta; &#941;&kappa;&delta;&omicron;&sigma;&eta; &tau;&eta;&sigmaf; &pi;&rho;&omicron;&#941;&lambda;&epsilon;&upsilon;&sigma;&eta;&sigmaf; &delta;&iota;&alpha;&phi;&#941;&rho;&epsilon;&iota; &alpha;&pi;&#972; &tau;&omicron;&nu; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&#972;.</p>
+        </div>
+        <div class="merge-step">
+          <p>&Epsilon;&pi;&alpha;&lambda;&eta;&theta;&epsilon;&#973;&epsilon;&iota;: &delta;&iota;&alpha;&tau;&#942;&rho;&eta;&sigma;&eta; &alpha;&nu;&alpha;&gamma;&nu;&omega;&rho;&iota;&sigma;&tau;&iota;&kappa;&omicron;&#973; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;&sigmaf;, &kappa;&alpha;&tau;&alpha;&gamma;&rho;&alpha;&phi;&#942; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon;. &Epsilon;&nu;&eta;&mu;&epsilon;&rho;&#974;&nu;&epsilon;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf;.</p>
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Phase 4 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">4</span>
+    <h2>&Epsilon;&pi;&alpha;&lambda;&#942;&theta;&epsilon;&upsilon;&sigma;&eta;</h2>
+  </summary>
+  <div class="phase-content">
+    <p>&Epsilon;&lambda;&#941;&gamma;&chi;&epsilon;&iota; <strong>&omicron;&lambda;&#972;&kappa;&lambda;&eta;&rho;&omicron;</strong> &tau;&omicron; instance &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&omicron;&#973;, &#972;&chi;&iota; &mu;&#972;&nu;&omicron; &tau;&iota;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &pi;&omicron;&upsilon; &tau;&rho;&omicron;&pi;&omicron;&pi;&omicron;&iota;&#942;&theta;&eta;&kappa;&alpha;&nu; &mdash; &mu;&iota;&alpha; &alpha;&lambda;&lambda;&alpha;&gamma;&#942; &sigma;&epsilon; GDB &mu;&pi;&omicron;&rho;&epsilon;&#943; &nu;&alpha; &chi;&alpha;&lambda;&#940;&sigma;&epsilon;&iota; &tau;&alpha; BOT &#940;&lambda;&lambda;&eta;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;&sigmaf;.</p>
+    <p>&Gamma;&iota;&alpha; &kappa;&#940;&theta;&epsilon; BOT, &epsilon;&pi;&alpha;&lambda;&eta;&theta;&epsilon;&#973;&epsilon;&iota; &#972;&tau;&iota; &tau;&omicron; &#972;&nu;&omicron;&mu;&alpha; + &#941;&kappa;&delta;&omicron;&sigma;&eta; &tau;&eta;&sigmaf; GDB &upsilon;&pi;&#940;&rho;&chi;&epsilon;&iota; &sigma;&tau;&omicron;&nu; &pi;&rho;&omicron;&omicron;&rho;&iota;&sigma;&mu;&#972;.</p>
+    <p>&Alpha;&nu;&alpha;&phi;&#941;&rho;&epsilon;&iota; &tau;&upsilon;&chi;&#972;&nu; &kappa;&alpha;&tau;&epsilon;&sigma;&tau;&rho;&alpha;&mu;&mu;&#941;&nu;&epsilon;&sigmaf; &alpha;&nu;&alpha;&phi;&omicron;&rho;&#941;&sigmaf;.</p>
+  </div>
+</details>
+
+<!-- Phase 5 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">5</span>
+    <h2>&Alpha;&nu;&alpha;&phi;&omicron;&rho;&#940;</h2>
+  </summary>
+  <div class="phase-content">
+    <p>&Upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &pi;&omicron;&upsilon; &alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&phi;&eta;&kappa;&alpha;&nu; (&#972;&nu;&omicron;&mu;&alpha;, &alpha;&nu;&alpha;&gamma;&nu;&omega;&rho;&iota;&sigma;&tau;&iota;&kappa;&#972;, audit_id).</p>
+    <p>GDB &pi;&omicron;&upsilon; &mu;&epsilon;&tau;&alpha;&phi;&#941;&rho;&theta;&eta;&kappa;&alpha;&nu; (&#972;&nu;&omicron;&mu;&alpha;, &alpha;&lambda;&lambda;&alpha;&gamma;&#941;&sigmaf; &#941;&kappa;&delta;&omicron;&sigma;&eta;&sigmaf;, &alpha;&rho;&iota;&theta;&mu;&#972;&sigmaf; &epsilon;&gamma;&gamma;&rho;&alpha;&phi;&#974;&nu;).</p>
+    <p>&Upsilon;&gamma;&epsilon;&#943;&alpha; BOT: &#972;&lambda;&alpha; &epsilon;&nu;&tau;&#940;&xi;&epsilon;&iota; &#942; &lambda;&#943;&sigma;&tau;&alpha; &pi;&rho;&omicron;&beta;&lambda;&eta;&mu;&#940;&tau;&omega;&nu;.</p>
+    <p>&Alpha;&rho;&chi;&epsilon;&#943;&alpha; &alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&phi;&omega;&nu; &alpha;&sigma;&phi;&alpha;&lambda;&epsilon;&#943;&alpha;&sigmaf;: &delta;&iota;&alpha;&delta;&rho;&omicron;&mu;&#941;&sigmaf; &pi;&rho;&omicron;&sigmaf; &tau;&alpha; &sigma;&tau;&iota;&gamma;&mu;&iota;&#972;&tau;&upsilon;&pi;&alpha; &pi;&omicron;&upsilon; &alpha;&pi;&omicron;&theta;&eta;&kappa;&epsilon;&#973;&tau;&eta;&kappa;&alpha;&nu; &pi;&rho;&iota;&nu; &alpha;&pi;&#972; &tau;&eta; &sigma;&upsilon;&gamma;&chi;&#974;&nu;&epsilon;&upsilon;&sigma;&eta; &mdash; &kappa;&rho;&alpha;&tau;&#942;&sigma;&tau;&epsilon; &tau;&alpha; &mu;&#941;&chi;&rho;&iota; &nu;&alpha; &epsilon;&pi;&alpha;&lambda;&eta;&theta;&epsilon;&#973;&sigma;&epsilon;&tau;&epsilon; &#972;&tau;&iota; &#972;&lambda;&alpha; &lambda;&epsilon;&iota;&tau;&omicron;&upsilon;&rho;&gamma;&omicron;&#973;&nu;.</p>
+    <p>&Epsilon;&nu;&eta;&mu;&epsilon;&rho;&#974;&nu;&epsilon;&iota; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; &mu;&epsilon; &pi;&lambda;&#942;&rho;&epsilon;&sigmaf; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &kappa;&alpha;&tau;&alpha;&gamma;&rho;&alpha;&phi;&#942;&sigmaf; &epsilon;&nu;&epsilon;&rho;&gamma;&epsilon;&iota;&#974;&nu;.</p>
+  </div>
+</details>
+
+</details><!-- /part-wrapper -->
+
+
+<!-- PAGE 2 (hidden for now) -->
+<div style="display:none">
+<div class="page-break" id="page2"></div>
+<div class="page-label">&sigma;&epsilon;&lambda;&#943;&delta;&alpha; 2</div>
+
+<nav class="page-nav">
+  <a href="#page1">1</a>
+  <a href="#page2" class="current">2</a>
+</nav>
+
+<h1 style="margin-bottom:1.5rem">&Alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf; &mdash; &pi;&epsilon;&rho;&iota;&epsilon;&chi;&#972;&mu;&epsilon;&nu;&omicron; &tau;&omega;&nu; &alpha;&rho;&chi;&epsilon;&#943;&omega;&nu; &chi;&#974;&rho;&alpha;&sigmaf;</h1>
+
+<details>
+  <summary><h2>&Delta;&omicron;&mu;&#942; &phi;&alpha;&kappa;&#941;&lambda;&omega;&nu;</h2></summary>
+  <div class="content">
+    <div class="tree">countries/{code}/
+&#9500;&#9472;&#9472; case.md          <span class="muted">&kappa;&#972;&mu;&beta;&omicron;&sigmaf;: instances, &alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf;, &alpha;&rho;&chi;&epsilon;&#943;&omicron; &alpha;&nu;&tau;&iota;&gamma;&rho;&alpha;&phi;&#942;&sigmaf;</span>
+&#9500;&#9472;&#9472; boards/          <span class="muted">&pi;&#943;&nu;&alpha;&kappa;&alpha;&sigmaf; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon; + &sigma;&epsilon;&lambda;&#943;&delta;&epsilon;&sigmaf; &alpha;&nu;&#940; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</span>
+&#9500;&#9472;&#9472; services/        <span class="muted">&tau;&epsilon;&kappa;&mu;&eta;&rho;&#943;&omega;&sigma;&eta; &alpha;&nu;&#940; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</span>
+&#9500;&#9472;&#9472; bot-recipes/     <span class="muted">&pi;&rho;&#972;&tau;&upsilon;&pi;&alpha; &delta;&eta;&mu;&iota;&omicron;&upsilon;&rho;&gamma;&#943;&alpha;&sigmaf; bot &kappa;&alpha;&iota; &omicron;&lambda;&omicron;&kappa;&lambda;&eta;&rho;&omega;&mu;&#941;&nu;&alpha; bot</span>
+&#9492;&#9472;&#9472; comparisons/     <span class="muted">&sigma;&upsilon;&gamma;&kappa;&rho;&#943;&sigma;&epsilon;&iota;&sigmaf; GDB &mu;&epsilon;&tau;&alpha;&xi;&#973; instances</span></div>
+  </div>
+</details>
+
+<details>
+  <summary><h2>&Pi;&eta;&gamma;&#941;&sigmaf; &mdash; skills &pi;&omicron;&upsilon; &tau;&rho;&omicron;&phi;&omicron;&delta;&omicron;&tau;&omicron;&#973;&nu; &tau;&omicron; &alpha;&rho;&chi;&epsilon;&#943;&omicron; &chi;&#974;&rho;&alpha;&sigmaf;</h2></summary>
+  <div class="content">
+    <table>
+      <tr><th>Skill</th><th>&Tau;&iota; &gamma;&rho;&#940;&phi;&epsilon;&iota;</th><th>&Pi;&omicron;&#973;</th></tr>
+      <tr><td colspan="3" class="group-header">Copy service suite</td></tr>
+      <tr><td class="mono">CST</td><td>&alpha;&rho;&chi;&epsilon;&#943;&omicron; &alpha;&nu;&tau;&iota;&gamma;&rho;&alpha;&phi;&#942;&sigmaf;, &alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf; GDB, &delta;&iota;&alpha;&delta;&rho;&omicron;&mu;&#941;&sigmaf; &alpha;&nu;&tau;&iota;&gamma;&rho;&#940;&phi;&omega;&nu;</td><td class="mono">case.md</td></tr>
+      <tr><td class="mono">gdb compare</td><td>&sigma;&upsilon;&gamma;&kappa;&rho;&#943;&sigma;&epsilon;&iota;&sigmaf; &sigma;&chi;&eta;&mu;&#940;&tau;&omega;&nu; GDB</td><td class="mono">comparisons/</td></tr>
+      <tr><td class="mono">gdb copy</td><td>&alpha;&pi;&omicron;&tau;&epsilon;&lambda;&#941;&sigma;&mu;&alpha;&tau;&alpha; &mu;&epsilon;&tau;&alpha;&phi;&omicron;&rho;&#940;&sigmaf;</td><td class="mono">comparisons/</td></tr>
+      <tr><td colspan="3" class="group-header">&Alpha;&nu;&#940;&lambda;&upsilon;&sigma;&eta; instance</td></tr>
+      <tr><td class="mono">Board</td><td>&pi;&#943;&nu;&alpha;&kappa;&alpha;&sigmaf; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon;, &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; &times; GDB</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots per page</td><td>&rho;&omicron;&#942; bot &alpha;&nu;&#940; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots table</td><td>&pi;&#943;&nu;&alpha;&kappa;&alpha;&sigmaf; BOT &sigma;&epsilon; &epsilon;&pi;&#943;&pi;&epsilon;&delta;&omicron; instance</td><td class="mono">boards/</td></tr>
+      <tr><td colspan="3" class="group-header">&Epsilon;&rho;&gamma;&alpha;&sigma;&#943;&alpha; Bot</td></tr>
+      <tr><td class="mono">create bots</td><td>&pi;&rho;&#972;&tau;&upsilon;&pi;&alpha; bot, &upsilon;&lambda;&omicron;&pi;&omicron;&iota;&#942;&sigma;&epsilon;&iota;&sigmaf;, &sigma;&tau;&alpha;&theta;&epsilon;&rho;&#941;&sigmaf;</td><td class="mono">bot-recipes/</td></tr>
+      <tr><td colspan="3" class="group-header">&Tau;&epsilon;&kappa;&mu;&eta;&rho;&#943;&omega;&sigma;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&iota;&#974;&nu;</td></tr>
+      <tr><td class="mono">bpa service doc</td><td>&epsilon;&gamma;&chi;&epsilon;&iota;&rho;&#943;&delta;&iota;&omicron; &sigma;&chi;&epsilon;&delta;&iota;&alpha;&sigma;&tau;&#942;</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service manual</td><td>&epsilon;&gamma;&chi;&epsilon;&iota;&rho;&#943;&delta;&iota;&omicron; &chi;&rho;&#942;&sigma;&tau;&eta; &gamma;&iota;&alpha; &pi;&omicron;&lambda;&#943;&tau;&epsilon;&sigmaf;</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service review</td><td>&alpha;&nu;&#940;&lambda;&upsilon;&sigma;&eta; &alpha;&pi;&#972; &#940;&kappa;&rho;&eta; &sigma;&epsilon; &#940;&kappa;&rho;&eta;</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">one sheet</td><td>&pi;&lambda;&#941;&gamma;&mu;&alpha; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon; &alpha;&nu;&#940; &pi;&epsilon;&delta;&#943;&omicron;</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">eregistrations docs</td><td>&tau;&epsilon;&chi;&nu;&iota;&kappa;&#942; &alpha;&nu;&alpha;&phi;&omicron;&rho;&#940; Excel</td><td class="mono">services/</td></tr>
+    </table>
+  </div>
+</details>
+
+<details>
+  <summary><h2>&Epsilon;&nu;&#972;&tau;&eta;&tau;&epsilon;&sigmaf; &alpha;&rho;&chi;&epsilon;&#943;&omicron;&upsilon; &chi;&#974;&rho;&alpha;&sigmaf;</h2></summary>
+  <div class="content">
+    <div class="section-item">
+      <span class="section-label">Instances</span>
+      <span class="section-desc">&Pi;&#943;&nu;&alpha;&kappa;&alpha;&sigmaf; &tau;&omicron;&pi;&omicron;&lambda;&omicron;&gamma;&#943;&alpha;&sigmaf; &mu;&epsilon; &epsilon;&kappa;&delta;&#972;&sigma;&epsilon;&iota;&sigmaf; BPA, &sigma;&upsilon;&nu;&delta;&#941;&sigma;&mu;&omicron;&upsilon;&sigmaf; Board</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf;</span>
+      <span class="section-desc">&Alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&iota;&sigma;&mu;&#941;&nu;&epsilon;&sigmaf; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&epsilon;&sigmaf; (&kappa;&alpha;&iota; &sigma;&tau;&alpha; &delta;&#973;&omicron; instances) &mu;&epsilon; GDB</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Boards</span>
+      <span class="section-desc">&Sigma;&upsilon;&nu;&delta;&#941;&sigma;&mu;&omicron;&iota; &pi;&rho;&omicron;&sigmaf; &pi;&#943;&nu;&alpha;&kappa;&alpha; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon; &kappa;&alpha;&iota; &sigma;&epsilon;&lambda;&#943;&delta;&epsilon;&sigmaf; &alpha;&nu;&#940; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&#943;&alpha;</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Tau;&epsilon;&kappa;&mu;&eta;&rho;&#943;&omega;&sigma;&eta; &upsilon;&pi;&eta;&rho;&epsilon;&sigma;&iota;&#974;&nu;</span>
+      <span class="section-desc">&Epsilon;&gamma;&chi;&epsilon;&iota;&rho;&#943;&delta;&iota;&alpha; &sigma;&chi;&epsilon;&delta;&iota;&alpha;&sigma;&tau;&#942;, &epsilon;&gamma;&chi;&epsilon;&iota;&rho;&#943;&delta;&iota;&alpha; &pi;&omicron;&lambda;&iota;&tau;&#974;&nu;, &alpha;&xi;&iota;&omicron;&lambda;&omicron;&gamma;&#942;&sigma;&epsilon;&iota;&sigmaf;, &phi;&#973;&lambda;&lambda;&alpha; &epsilon;&lambda;&#941;&gamma;&chi;&omicron;&upsilon;</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Pi;&rho;&#972;&tau;&upsilon;&pi;&alpha; Bot</span>
+      <span class="section-desc">&Pi;&rho;&#972;&tau;&upsilon;&pi;&alpha; &alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&#943;&chi;&iota;&sigma;&eta;&sigmaf;, &kappa;&alpha;&tau;&#940;&lambda;&omicron;&gamma;&omicron;&iota; &sigma;&tau;&alpha;&theta;&epsilon;&rho;&#974;&nu;, &omicron;&lambda;&omicron;&kappa;&lambda;&eta;&rho;&omega;&mu;&#941;&nu;&epsilon;&sigmaf; &upsilon;&lambda;&omicron;&pi;&omicron;&iota;&#942;&sigma;&epsilon;&iota;&sigmaf;</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Alpha;&pi;&omicron;&gamma;&rho;&alpha;&phi;&#942; GDB</span>
+      <span class="section-desc">&Alpha;&pi;&omicron;&tau;&epsilon;&lambda;&#941;&sigma;&mu;&alpha;&tau;&alpha; &sigma;&upsilon;&gamma;&kappa;&rho;&#943;&sigma;&epsilon;&omega;&nu;</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Alpha;&rho;&chi;&epsilon;&#943;&omicron; &alpha;&nu;&tau;&iota;&gamma;&rho;&alpha;&phi;&#942;&sigmaf;</span>
+      <span class="section-desc">&Iota;&sigma;&tau;&omicron;&rho;&iota;&kappa;&#972; &epsilon;&nu;&epsilon;&rho;&gamma;&epsilon;&iota;&#974;&nu; &alpha;&nu;&tau;&iota;&gamma;&rho;&alpha;&phi;&#942;&sigmaf;</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Alpha;&pi;&omicron;&phi;&#940;&sigma;&epsilon;&iota;&sigmaf;</span>
+      <span class="section-desc">&Epsilon;&pi;&iota;&lambda;&omicron;&gamma;&#941;&sigmaf; &pi;&omicron;&upsilon; &#941;&gamma;&iota;&nu;&alpha;&nu; (&alpha;&nu;&tau;&iota;&sigma;&tau;&omicron;&iota;&chi;&#943;&sigma;&epsilon;&iota;&sigmaf; &omicron;&nu;&omicron;&mu;&#940;&tau;&omega;&nu;, &alpha;&nu;&alpha;&beta;&omicron;&lambda;&#941;&sigmaf;)</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">&Sigma;&eta;&mu;&epsilon;&iota;&#974;&sigma;&epsilon;&iota;&sigmaf;</span>
+      <span class="section-desc">&Epsilon;&lambda;&epsilon;&#973;&theta;&epsilon;&rho;&eta; &mu;&omicron;&rho;&phi;&#942;, &delta;&epsilon;&nu; &alpha;&nu;&tau;&iota;&kappa;&alpha;&theta;&#943;&sigma;&tau;&alpha;&nu;&tau;&alpha;&iota; &pi;&omicron;&tau;&#941; &alpha;&pi;&#972; skills</span>
     </div>
   </div>
 </details>
@@ -3005,7 +3381,7 @@ Only for Step 2 (GDB didn't exist). For Step 3, data comes from destination's ol
 </script>
 
 <script>
-const langLabels = { en: 'en', sp: 'sp', fr: 'fr', fa: 'فا', ar: 'عر' };
+const langLabels = { en: 'en', sp: 'sp', fr: 'fr', fa: 'فا', ar: 'عر', el: 'ΕΛ' };
 function setLang(lang) {
   document.querySelectorAll('.container[data-lang]').forEach(c => {
     c.style.display = c.dataset.lang === lang ? 'block' : 'none';
@@ -3157,7 +3533,7 @@ document.addEventListener('keydown', e => {
 });
 
 const langParam = new URLSearchParams(location.search).get('lang');
-if (langParam && ['en','sp','fr','fa','ar'].includes(langParam)) setLang(langParam);
+if (langParam && ['en','sp','fr','fa','ar','el'].includes(langParam)) setLang(langParam);
 </script>
 </body>
 </html>
