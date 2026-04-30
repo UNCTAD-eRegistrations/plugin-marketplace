@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copy service suite — gu&iacute;a de usuario</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: oklch(0.965 0.008 75);
+  --fg: oklch(0.22 0.015 50);
+  --muted: oklch(0.55 0.012 55);
+  --accent: oklch(0.50 0.08 215);
+  --border: oklch(0.89 0.008 75);
+  --surface: oklch(0.995 0.004 75);
+  --highlight: oklch(0.935 0.02 80);
+  --sage: #dbe1dd;
+  --warn-bg: oklch(0.94 0.04 85);
+  --warn-fg: oklch(0.40 0.06 60);
+  --detail-fg: oklch(0.40 0.013 52);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 54rem;
+  margin: 0 auto;
+  padding: 2.1rem 2.5rem 5rem;
+}
+
+h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+}
+
+h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+strong { font-weight: 600; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid oklch(0.50 0.08 215 / 0.3);
+}
+a:hover { border-bottom-color: var(--accent); }
+
+.mono {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.85em;
+}
+
+.part-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.1rem;
+}
+
+.part-next {
+  color: oklch(0.72 0.01 55);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-bottom: 0.6rem;
+}
+
+.meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: oklch(0.65 0.01 55);
+  font-size: 0.78rem;
+  margin-bottom: 0.8rem;
+}
+
+.meta-sep { color: var(--border); }
+
+.skill-bar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.title-row h1 + .chained-label { flex-shrink: 0; }
+
+.chained-label {
+  color: oklch(0.65 0.01 55);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.skill-tag {
+  background: var(--sage);
+  color: var(--muted);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.skill-tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.page-nav {
+  display: none;
+  gap: 0.2rem;
+  margin-bottom: 2rem;
+}
+
+.page-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: none;
+  transition: all 0.15s ease;
+}
+
+.page-nav a:hover {
+  background: var(--highlight);
+  color: var(--fg);
+  border-bottom: none;
+}
+
+.page-nav a.current {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--border);
+}
+
+details { margin-bottom: 1rem; }
+
+details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+}
+
+details > summary::-webkit-details-marker { display: none; }
+
+details > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 0.25rem;
+}
+
+details[open] > summary::before {
+  transform: rotate(45deg);
+  margin-top: -0.15rem;
+}
+
+details > summary h2 { margin: 0; }
+
+details > .content {
+  padding: 0.5rem 0 0.75rem 1.5rem;
+}
+
+.phase-section { margin-bottom: 0.5rem; }
+
+.phase-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.phase-section > summary::-webkit-details-marker { display: none; }
+.phase-section > summary::before { display: none; }
+
+.phase-section > summary::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.phase-section[open] > summary::after { transform: rotate(45deg); }
+
+.phase-num {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--accent);
+  line-height: 1;
+  flex-shrink: 0;
+  font-variant-numeric: lining-nums;
+}
+
+.phase-section > summary h2 { margin: 0; font-size: 1.35rem; }
+
+.phase-content { padding: 0.75rem 0 0.5rem; }
+
+.phase-note {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.step {
+  margin-bottom: 0.75rem;
+  padding-left: 0.25rem;
+}
+
+.step-title {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.detail {
+  color: var(--detail-fg);
+  font-size: 0.875rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+  margin-top: 0.25rem;
+}
+
+.detail p { margin: 0.15rem 0; }
+
+.response-hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-top: 0.1rem;
+  padding-left: 0.25rem;
+}
+
+.skill-comment {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.intro-block {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--fg);
+  margin-bottom: 1.5rem;
+}
+
+.part-wrapper { margin: 0.5rem 0 0.5rem; }
+
+.part-wrapper > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.part-wrapper > summary::-webkit-details-marker { display: none; }
+
+.part-wrapper > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.part-wrapper[open] > summary::before { transform: rotate(45deg); }
+
+.part-wrapper > summary h2 { margin: 0; font-size: 1.35rem; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.gdb-cases {
+  counter-reset: gdb-case;
+  margin-left: 0.65rem;
+  padding-left: 1.1rem;
+  position: relative;
+}
+
+.gdb-cases::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+.gdb-cases-intro {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.gdb-case {
+  padding: 0.6rem 0 0.6rem 0.75rem;
+  position: relative;
+  counter-increment: gdb-case;
+}
+
+.gdb-case + .gdb-case { border-top: 1px solid var(--border); }
+
+.gdb-case::before {
+  content: counter(gdb-case, lower-alpha);
+  position: absolute;
+  left: -1.75rem;
+  top: 0.6rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.case-label { font-weight: 600; margin-bottom: 0.25rem; }
+
+.case-detail {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding-left: 0.75rem;
+}
+
+.case-detail p { margin: 0.15rem 0; }
+
+.warning-box {
+  background: var(--warn-bg);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+  color: var(--warn-fg);
+  border: 1px solid oklch(0.85 0.05 80);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+
+th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border);
+}
+
+td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.group-header {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 1rem;
+  font-weight: 600;
+}
+
+.page-break {
+  display: none;
+  border-top: 1px solid var(--border);
+  margin: 4rem 0 2rem;
+}
+
+.page-label {
+  color: oklch(0.75 0.01 55);
+  font-size: 0.75rem;
+  text-align: right;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.tree {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+  white-space: pre;
+}
+
+.tree .muted { color: var(--muted); }
+
+.section-item {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+}
+
+.section-label { font-weight: 600; color: var(--fg); }
+.section-desc { color: var(--muted); }
+
+.location-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+.merge-step { margin-bottom: 0.75rem; }
+.merge-step strong { color: var(--fg); }
+.merge-step p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 0.1rem;
+}
+
+.viewer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: oklch(0.15 0.01 50 / 0.3);
+  z-index: 100;
+}
+
+.viewer-backdrop.open { display: block; }
+
+.viewer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(42rem, 85vw);
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 101;
+  display: none;
+  flex-direction: column;
+}
+
+.viewer-panel.open { display: flex; }
+
+.viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.viewer-title {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.viewer-close {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 1.75rem;
+  height: 1.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1rem;
+  transition: all 0.15s;
+}
+
+.viewer-close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.viewer-body h2 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--fg);
+}
+
+.viewer-body h2:first-child { margin-top: 0; }
+
+.viewer-body h3 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.4rem;
+  color: var(--fg);
+}
+
+.viewer-body h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 1rem 0 0.3rem;
+  color: var(--muted);
+}
+
+.viewer-body p {
+  margin: 0.3rem 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--fg);
+}
+
+.viewer-body pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+}
+
+.viewer-body code {
+  background: var(--highlight);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.82em;
+}
+
+.viewer-body pre code { background: none; padding: 0; }
+
+.viewer-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
+.viewer-body ul, .viewer-body ol {
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  margin: 0.3rem 0;
+}
+
+.viewer-body li { margin: 0.15rem 0; }
+
+.viewer-body table { font-size: 0.8rem; margin: 0.5rem 0; }
+
+.lang-toggle {
+  display: flex;
+  gap: 0.1rem;
+  margin-left: auto;
+  align-self: center;
+}
+
+.lang-toggle a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 0.15s;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.lang-toggle a:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.lang-toggle a.active {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div id="page1"></div>
+
+<div class="title-row">
+  <h1>Copy service suite</h1>
+  <span class="chained-label">3 skills encadenados</span>
+  <nav class="lang-toggle">
+    <a href="../en/">en</a>
+    <a href="../sp/" class="active">sp</a>
+    <a href="../fr/">fr</a>
+    <a href="../fa/">فا</a>
+  </nav>
+</div>
+<div class="part-label">Parte 1 &mdash; copiar servicios sobre servicios existentes</div>
+<div class="part-next">Parte 2 (planificada): copiar nuevos servicios a otra instancia</div>
+<div class="meta">
+  <span>Frank Grozel &amp; Nelson Perez</span>
+  <span class="meta-sep">&middot;</span>
+  <span>Actualizado 2026-04-30</span>
+</div>
+
+<div class="skill-bar">
+  <span class="skill-tag" data-skill="cst" onclick="openViewer('cst')">copy service on top</span>
+  <span class="skill-tag" data-skill="compare" onclick="openViewer('compare')">gdb compare</span>
+  <span class="skill-tag" data-skill="copy" onclick="openViewer('copy')">gdb copy</span>
+</div>
+
+<nav class="page-nav">
+  <a href="#page1" class="current">1</a>
+  <a href="#page2">2</a>
+</nav>
+
+<div class="intro-block">
+<p>Los skills pueden encadenarse: un skill puede llamar a otro durante su ejecuci&oacute;n, creando flujos de trabajo coordinados. Esta suite es un ejemplo &mdash; encadena 3 skills que trabajan juntos para automatizar la copia de servicios sobre servicios existentes. Estos skills, y la mayor&iacute;a de los futuros, trabajan en coordinaci&oacute;n con los <strong>expedientes pa&iacute;s</strong>, una base de conocimiento estructurada que captura todo lo que la IA y los humanos necesitan saber sobre c&oacute;mo est&aacute; configurado eRegistrations en un pa&iacute;s determinado. Los skills leen y escriben en los expedientes pa&iacute;s mientras se ejecutan.</p>
+<p>Usamos esta suite cuando queremos actualizar una instancia (por ejemplo de 2.13 a 2.18) y asegurarnos de que los servicios seguir&aacute;n funcionando despu&eacute;s de la actualizaci&oacute;n. En este caso, generalmente: 1.&nbsp;exportamos los servicios a otra instancia donde la versi&oacute;n de eR que queremos instalar en la instancia origen ya est&aacute; funcionando, 2.&nbsp;probamos y corregimos los servicios all&iacute;, y cuando funcionan bien 3.&nbsp;los importamos de vuelta en la instancia origen, donde 4.&nbsp;se realiza la actualizaci&oacute;n de la versi&oacute;n eR (Roxana ha desarrollado un <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">skill</a> para eso) y donde los servicios siguen funcionando sin problemas.</p>
+</div>
+
+<details>
+  <summary><h2>Expediente pa&iacute;s</h2></summary>
+  <div class="content">
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem">Todo lo que la IA (y los humanos) deben saber</p>
+    <p>&hellip;sobre c&oacute;mo est&aacute;n organizadas las instancias eRegistrations, los servicios y las GDBs en un pa&iacute;s. Los skills (= instrucciones en lenguaje simple) que describen procesos ejecutables por la IA, de forma aut&oacute;noma o en interacci&oacute;n con humanos, alimentan el expediente pa&iacute;s. El usuario tambi&eacute;n puede editarlo directamente para agregar notas, decisiones o cualquier elemento de contexto.</p>
+    <p class="location-note">Actualmente en <span class="mono">2 - eR services/countries/{code}/case.md</span> &mdash; se publicar&aacute; en l&iacute;nea por instancia.</p>
+  </div>
+</details>
+
+<details class="part-wrapper">
+  <summary><h2>Copiar servicios sobre servicios existentes</h2></summary>
+
+<!-- Fase 1 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">1</span>
+    <h2>Preguntas iniciales: &iquest;qu&eacute; quiere hacer el operador humano?</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="skill-comment">El skill har&aacute; preguntas e interactuar&aacute; con el operador humano para comprender qu&eacute; debe hacerse.</p>
+
+    <div class="step">
+      <div class="step-title">Q: &iquest;qu&eacute; pa&iacute;s?</div>
+      <div class="response-hint">tras la respuesta humana</div>
+      <div class="detail">
+        <p>Carga el expediente pa&iacute;s (lo crea a partir de una plantilla si no existe).</p>
+        <p>Si ya existen resultados de Board, los carga.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Q: &iquest;instancias de origen y destino?</div>
+      <div class="response-hint">tras la respuesta humana</div>
+      <div class="detail">
+        <p>Se conecta a ambas, detecta autom&aacute;ticamente las versiones BPA.</p>
+        <p>Muestra: Origen: cuba-dev (v2.18) &#10003; &mdash; Destino: cuba (v2.13) &#10003;</p>
+        <p>Actualiza el expediente con las versiones detectadas.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Inventario (autom&aacute;tico)</div>
+      <div class="detail">
+        <p>Lista los servicios en ambas instancias.</p>
+        <p>Muestra tabla comparativa: solo servicios que existen en <strong>ambas</strong> (IDs coincidentes).</p>
+        <p>Para cada servicio coincidente, muestra todas las GDBs vinculadas por BOTs (nombre + versi&oacute;n).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Q: &iquest;qu&eacute; servicios copiar encima?</div>
+      <div class="response-hint">tras la respuesta humana</div>
+      <div class="detail">
+        <p>El usuario elige de la lista mostrada arriba.</p>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- Fase 2 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">2</span>
+    <h2>Fase GDB</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">Por cada GDB referenciada por los servicios seleccionados</p>
+
+    <details>
+      <summary><h2>Tabla de correspondencia</h2></summary>
+      <div class="content">
+        <p>Antes de cualquier trabajo con GDBs, mostrar una comparaci&oacute;n en dos columnas. Pedir al usuario que confirme cada coincidencia &mdash; algunas GDBs pueden tener nombres diferentes pero ser la misma base de datos.</p>
+        <table>
+          <tr><th>GDB origen</th><th></th><th>GDB destino</th></tr>
+          <tr><td>Pa&iacute;ses (v5)</td><td style="color:var(--muted)">&harr;</td><td>Pa&iacute;ses (v3)</td></tr>
+          <tr><td>Productos (v2)</td><td style="color:var(--muted)">&harr;</td><td>Products (v2)</td></tr>
+          <tr><td>Certificados (v1)</td><td style="color:var(--muted)">&harr;</td><td><em style="color:var(--muted)">&mdash; falta &mdash;</em></td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary><h2>Resoluci&oacute;n por GDB</h2></summary>
+      <div class="content">
+        <p class="gdb-cases-intro">Se aplica uno de los siguientes casos:</p>
+        <div class="gdb-cases">
+          <div class="gdb-case">
+            <div class="case-label">GDB falta en destino</div>
+            <div class="case-detail">
+              <p><span class="mono">gdb copy</span> la crea (mismo nombre, mismo esquema). Copia datos del origen si es necesario.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">Misma estructura, mismo nombre, misma versi&oacute;n</div>
+            <div class="case-detail">
+              <p>No hay nada que hacer.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">Misma estructura, mismo nombre, versi&oacute;n diferente</div>
+            <div class="case-detail">
+              <p>No se necesita trabajo en GDB. Despu&eacute;s de importar: <span class="mono">bot_update</span> reasigna los BOTs a la versi&oacute;n del destino.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">Misma estructura, nombre diferente</div>
+            <div class="case-detail">
+              <p>No se necesita trabajo en GDB. Despu&eacute;s de importar: <span class="mono">bot_update</span> reasigna los BOTs al nombre + versi&oacute;n del destino.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">Estructura diferente</div>
+            <div class="case-detail">
+              <p><span class="mono">gdb copy</span> recibe <span class="mono">field_map</span> de compare.</p>
+              <p>Muestra al usuario: plan de migraci&oacute;n con mapeo de campos + campos que perder&aacute;n datos.</p>
+              <p>Pregunta: &iquest;aceptar / modificar / cancelar?</p>
+              <p>Crea nueva versi&oacute;n de GDB en destino con el esquema del origen. Migra datos del destino (versi&oacute;n antigua &rarr; nueva) con transformaci&oacute;n de campos.</p>
+              <p>Muestra resultados + registros de ejemplo.</p>
+              <p>Despu&eacute;s de importar: <span class="mono">bot_update</span> reasigna los BOTs a la nueva versi&oacute;n del destino.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="warning-box">
+          No proceder a la fusi&oacute;n hasta que todas las GDBs est&eacute;n resueltas. Actualiza el expediente con las decisiones de GDB y los resultados de comparaci&oacute;n.
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Fase 3 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">3</span>
+    <h2>Fase de fusi&oacute;n</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">Por cada servicio seleccionado</p>
+
+    <details>
+      <summary><h2>Respaldo, verificaci&oacute;n, importaci&oacute;n, actualizaci&oacute;n</h2></summary>
+      <div class="content">
+        <div class="merge-step">
+          <strong>Respaldo</strong>
+          <p>Guarda una copia completa del servicio de destino antes de cualquier cambio. Si algo sale mal, esta copia restaura el servicio a su estado exacto anterior.</p>
+        </div>
+        <div class="merge-step">
+          <strong>Verificaci&oacute;n de publicaci&oacute;n</strong>
+          <p>Si el servicio de destino est&aacute; publicado, est&aacute; en producci&oacute;n. Ciudadanos y funcionarios podr&iacute;an estar us&aacute;ndolo. Pregunta: &iquest;fusionar en este servicio en producci&oacute;n? (Idealmente despublicar primero o hacerlo durante mantenimiento.)</p>
+        </div>
+        <div class="merge-step">
+          <strong>Importaci&oacute;n</strong>
+          <p>Ejecuta <span class="mono">service_import_on_top</span>.</p>
+        </div>
+        <div class="merge-step">
+          <strong>Actualizaci&oacute;n de bots</strong>
+          <p><span class="mono">bot_update</span> para cada BOT donde el nombre o la versi&oacute;n del origen difiere del destino.</p>
+        </div>
+        <div class="merge-step">
+          <p>Verifica: ID de servicio preservado, auditor&iacute;a registrada. Actualiza el expediente.</p>
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Fase 4 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">4</span>
+    <h2>Verificaci&oacute;n</h2>
+  </summary>
+  <div class="phase-content">
+    <p>Verifica la instancia de destino <strong>completa</strong>, no solo los servicios modificados &mdash; un cambio en una GDB puede romper los BOTs de otro servicio.</p>
+    <p>Para cada BOT, verifica que su referencia de nombre + versi&oacute;n de GDB exista en el destino.</p>
+    <p>Reporta cualquier referencia rota.</p>
+  </div>
+</details>
+
+<!-- Fase 5 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">5</span>
+    <h2>Informe</h2>
+  </summary>
+  <div class="phase-content">
+    <p>Servicios copiados (nombre, ID, audit_id).</p>
+    <p>GDBs migradas (nombre, cambios de versi&oacute;n, cantidad de registros).</p>
+    <p>Estado de BOTs: todo OK o lista de problemas.</p>
+    <p>Archivos de respaldo: rutas a las copias guardadas antes de la fusi&oacute;n &mdash; conservarlas hasta verificar que todo funciona.</p>
+    <p>Actualiza el expediente con el registro completo de la operaci&oacute;n.</p>
+  </div>
+</details>
+
+</details><!-- /part-wrapper -->
+
+
+<!-- PAGINA 2 (hidden for now) -->
+<div style="display:none">
+<div class="page-break" id="page2"></div>
+<div class="page-label">p&aacute;gina 2</div>
+
+<nav class="page-nav">
+  <a href="#page1">1</a>
+  <a href="#page2" class="current">2</a>
+</nav>
+
+<h1 style="margin-bottom:1.5rem">Expediente pa&iacute;s &mdash; contenido del expediente</h1>
+
+<details>
+  <summary><h2>Estructura de carpetas</h2></summary>
+  <div class="content">
+    <div class="tree">countries/{code}/
+├── case.md          <span class="muted">centro: instancias, decisiones, registro de copias</span>
+├── boards/          <span class="muted">cockpit + p&aacute;ginas por servicio</span>
+├── services/        <span class="muted">documentaci&oacute;n por servicio</span>
+├── bot-recipes/     <span class="muted">patrones de creaci&oacute;n de bots y bots completados</span>
+└── comparisons/     <span class="muted">comparaciones de GDB entre instancias</span></div>
+  </div>
+</details>
+
+<details>
+  <summary><h2>Fuentes &mdash; skills que alimentan el expediente</h2></summary>
+  <div class="content">
+    <table>
+      <tr><th>Skill</th><th>Qu&eacute; escribe</th><th>D&oacute;nde</th></tr>
+      <tr><td colspan="3" class="group-header">Copy service suite</td></tr>
+      <tr><td class="mono">CST</td><td>registro de copias, decisiones GDB, rutas de respaldo</td><td class="mono">case.md</td></tr>
+      <tr><td class="mono">gdb compare</td><td>comparaciones de esquemas GDB</td><td class="mono">comparisons/</td></tr>
+      <tr><td class="mono">gdb copy</td><td>resultados de migraci&oacute;n</td><td class="mono">comparisons/</td></tr>
+      <tr><td colspan="3" class="group-header">An&aacute;lisis de instancia</td></tr>
+      <tr><td class="mono">Board</td><td>cockpit, servicios &times; GDBs</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots per page</td><td>flujo de bots por servicio</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots table</td><td>matriz de BOTs de toda la instancia</td><td class="mono">boards/</td></tr>
+      <tr><td colspan="3" class="group-header">Trabajo con bots</td></tr>
+      <tr><td class="mono">create bots</td><td>recetas de bots, implementaciones, constantes</td><td class="mono">bot-recipes/</td></tr>
+      <tr><td colspan="3" class="group-header">Documentaci&oacute;n de servicios</td></tr>
+      <tr><td class="mono">bpa service doc</td><td>manual del dise&ntilde;ador</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service manual</td><td>manual para el ciudadano</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service review</td><td>an&aacute;lisis de extremo a extremo</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">one sheet</td><td>grilla de revisi&oacute;n campo por campo</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">eregistrations docs</td><td>informe t&eacute;cnico en Excel</td><td class="mono">services/</td></tr>
+    </table>
+  </div>
+</details>
+
+<details>
+  <summary><h2>Secciones del expediente</h2></summary>
+  <div class="content">
+    <div class="section-item">
+      <span class="section-label">Instancias</span>
+      <span class="section-desc">Tabla de topolog&iacute;a con versiones BPA, enlaces a Board</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Servicios</span>
+      <span class="section-desc">Servicios coincidentes (en ambas instancias) con GDBs</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Boards</span>
+      <span class="section-desc">Enlaces a cockpit y p&aacute;ginas por servicio</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Documentaci&oacute;n</span>
+      <span class="section-desc">Manuales del dise&ntilde;ador, manuales ciudadanos, revisiones, one-sheets</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Recetas de bots</span>
+      <span class="section-desc">Plantillas de mapeo, cat&aacute;logos de constantes, implementaciones completadas</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Inventario GDB</span>
+      <span class="section-desc">Resultados de comparaci&oacute;n</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Registro de copias</span>
+      <span class="section-desc">Historial de operaciones de copia</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Decisiones</span>
+      <span class="section-desc">Elecciones realizadas (coincidencias de nombres, aplazamientos)</span>
+    </div>
+    <div class="section-item">
+      <span class="section-label">Notas</span>
+      <span class="section-desc">Texto libre, nunca sobrescrito por skills</span>
+    </div>
+  </div>
+</details>
+
+</div><!-- /page2 hidden -->
+
+</div>
+
+<!-- Skill viewer -->
+<div class="viewer-backdrop" id="viewerBackdrop" onclick="closeViewer()"></div>
+<div class="viewer-panel" id="viewerPanel">
+  <div class="viewer-header">
+    <span class="viewer-title" id="viewerTitle"></span>
+    <button class="viewer-close" onclick="closeViewer()">&times;</button>
+  </div>
+  <div class="viewer-body" id="viewerBody"></div>
+</div>
+
+<!-- Skill source files (hidden, read by JS) -->
+<script type="text/plain" id="skill-cst">
+# Copy service on top of other
+
+Copies one or more eRegistrations services from an origin instance on top of the same services in a destination instance, **preserving service IDs**. Equivalent to the BPA UI button "Import on top of this service", but automated, with GDB precheck and orchestration.
+
+## When to use
+
+- Propagate improved services from dev/test to live (or between any two instances).
+- Re-apply configuration after a rollback.
+- Sync a fix between sibling instances (e.g. cuba ↔ cuba-test).
+
+**Do not use** if the service does not exist on the destination — that requires "Copy new service from instance" (future skill, uses `service_copy`).
+
+---
+
+## Wizard flow
+
+### Step 1 — Country
+
+> **Ask**: Which country?
+
+*(Skip if the user already said it.)*
+
+Load the country file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
+
+### Step 2 — Instances
+
+> **Ask**: What instances are involved? Which is origin (where the services are) and which is destination (where you want to copy them)?
+
+Connect to both instances via `connection_status`. Auto-detect BPA versions — never ask. Show:
+
+```
+Origin:      {name} — BPA {version} — connected ✓
+Destination: {name} — BPA {version} — connected ✓
+```
+
+Validate:
+- Both instances connected
+- BPA version ≥ 1.26.0 on both (required for `service_import_on_top`)
+- If version check fails, abort with explanation
+
+### Step 3 — Inventory
+
+List services and GDBs on both instances automatically:
+
+```
+service_list(instance=origin)
+service_list(instance=destination)
+gdb_catalog_list(instance=origin)
+gdb_catalog_list(instance=destination)
+```
+
+Present a comparison table: which services exist on both, which only on origin, which only on destination.
+
+> **Ask**: Which services do you want to copy on top?
+
+Only services that exist on BOTH instances are eligible.
+
+### Step 4 — GDB migration plan
+
+For each selected service, list its BOTs and extract GDB references. For each unique GDB reference, check status on both instances and classify:
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| ✅ OK | Same code, same schema | None |
+| 🟢 RENAMED | Different code, identical schema | `bot_update` only |
+| ⚠️ SCHEMA_DRIFT | Same code+version, schemas differ | Call `/cs-gdb-copy` |
+| 🔴 MISSING | GDB doesn't exist on destination | Call `/cs-gdb-copy` |
+
+**Blocking rule**: do NOT proceed to Step 5 until all GDB issues are resolved.
+
+### Step 5 — Execute GDB migrations
+
+For each GDB that needs work, delegate to the appropriate skill:
+
+- **MISSING** → `/cs-gdb-copy` (create)
+- **SCHEMA_DRIFT** → `/cs-gdb-compare` first, then `/cs-gdb-copy`
+- **RENAMED** → `bot_update` to remap references
+
+### Step 6 — Merge services
+
+For each selected service:
+
+1. **Capture rollback baseline**: `service_export_raw` — save locally with timestamp
+2. **Check if destination is published** — if active, ask before merging
+3. **Execute merge**: `service_import_on_top`
+4. **Verify**: confirm ID preserved, audit logged
+
+### Step 7 — Cross-service verification
+
+After ALL services are merged, verify BOT health across the entire destination instance — not just the services you touched.
+
+### Step 8 — Summary report
+
+Present: services copied, GDBs migrated, BOT health, rollback file paths.
+
+---
+
+## Rollback
+
+`service_import_on_top` audit rows have `rollback_available: false`. Real rollback strategy:
+1. Before each merge, `service_export_raw` captures baseline
+2. If verification fails, re-merge the saved export back
+3. Last resort: `service_delete` + `service_copy` from export
+
+---
+
+## Limitations
+
+1. **Merge is destructive on arrays.** Entities with no matching `businessKey` get deleted.
+2. **Cross-instance auth.** Both instances must have active sessions simultaneously.
+3. **Not atomic.** Concurrent `service_import_on_top` on same destination is undefined.
+4. **Post-merge visibility.** `service_get` returns published version, not merged draft. Use `bot_list`/`role_list` to verify.
+
+---
+
+## Anti-patterns (lessons from Cuba pilot)
+
+1. **Assuming SCHEMA_DRIFT from name without verifying** — always compare schemas structurally ($id-by-$id).
+2. **Using `gdb_database_create` when code exists** — returns misleading auth error. Use `edit → update`.
+3. **Assuming data persists between versions** — data is per (code, version). New version starts empty.
+4. **`bot_update` pointing to empty version** — verify where data is before remapping.
+</script>
+
+<script type="text/plain" id="skill-compare">
+# GDB schema compare
+
+Read-only diagnostic: compares the structure of a GDB database between two eRegistrations instances. Returns a verdict (same or different) with enough detail for the caller (CST or human) to decide the next action.
+
+**This skill does NOT modify anything.** It compares and reports. Schema fixes and data migration are handled by `/cs-gdb-copy`.
+
+## Usage
+
+```
+/cs-gdb-compare                           # interactive
+/cs-gdb-compare pe                        # compare table "pe" across instances
+/cs-gdb-compare all                       # compare ALL tables
+```
+
+## What CST expects back
+
+```
+{
+  verdict: "same" | "different",
+  origin: { code, version, catalog_id },
+  destination: { code, version, catalog_id },
+  field_summary: { matched, removed, added },
+  field_map: [ { source_id, target_id, source_path, target_path, change } ],
+  resolution_plan: [ ... ]   # only if verdict is "different"
+}
+```
+
+---
+
+## Flow
+
+### Step 1: Authenticate
+
+Check auth on both instances via `gdb_auth_diagnose`. Login if needed.
+
+### Step 2: Identify tables to compare
+
+- Specific code → find catalog on both instances by `catalog_id`
+- `all` → process all catalogs sequentially
+
+### Step 3: Fetch schemas
+
+For each table pair, get latest version via `gdb_database_get`. Extract `schema.properties`.
+
+### Step 4: Compare schemas
+
+Flatten both schemas to `($id, path, type, format)`. Match by `$id`:
+
+1. **Matched**: same `$id` in both — note name/path changes
+2. **Removed**: `$id` in origin only — flag as data loss risk
+3. **New**: `$id` in destination only — note defaults
+
+### Step 4b: Semantic field matching
+
+Before declaring any field "removed", check if the same concept exists under a different `$id`.
+
+**Solution hierarchy:**
+
+| Priority | Solution | When |
+|----------|----------|------|
+| 1 | Remap in transformation | Concept exists under different $id |
+| 2 | Accept data loss | Field is obsolete |
+| 3 | Reassign $id on destination | Same concept, different $id |
+| 4 | Create field on destination | Concept doesn't exist at all |
+
+**Rule: never default to creating fields.** Re-check whether the concept already exists.
+
+#### Case catalog (12 cases)
+
+- **Case 1** — Remap: same concept, different $id and name
+- **Case 2** — Cross-mapping: $ids swapped between instances
+- **Case 3** — Accept data loss: obsolete field
+- **Case 4** — Reassign $id: same field, diverged $id
+- **Case 5** — Create field: concept genuinely absent
+- **Case 6** — Type change: string → number
+- **Case 7** — Type change: string → catalog
+- **Case 8** — Structural: flat → nested
+- **Case 9** — Split: one source → multiple target
+- **Case 10** — Merge: multiple source → one target
+- **Case 11** — Auto-generated / trigger field
+- **Case 12** — ReadOnly with default
+
+### Step 5: Count records
+
+`gdb_data_count` — shows scope of potential migration.
+
+### Step 6: Report
+
+**Verdict**: SAME if all $ids match. DIFFERENT if any structural differences.
+
+Report includes: fields matched, fields removed (with resolution + case #), fields added, field_map for `/cs-gdb-copy`, and resolution plan.
+</script>
+
+<script type="text/plain" id="skill-copy">
+# GDB copy or create
+
+Creates or updates a GDB database on a destination eRegistrations instance. Three scenarios:
+
+1. **GDB missing on destination** → create from scratch with origin schema
+2. **GDB exists but structure differs** → create new version, migrate data with transformation
+3. **Fix $id mismatches** → edit destination schema to realign $ids, then migrate data
+
+When called by CST, receives a `field_map` and `resolution_plan` from `/cs-gdb-compare`.
+
+---
+
+## Flow
+
+### Step 0: Authenticate and identify
+
+Parse args, check auth on both instances, fetch source and destination databases, count records.
+
+### Step 1: Determine scenario
+
+| Condition | Scenario |
+|-----------|----------|
+| Destination has no GDB with this code | **Create new** → Step 2 |
+| Destination has GDB, same structure | **Already compatible** → Done |
+| Destination has GDB, different structure | **Create new version** → Step 3 |
+| Destination has GDB, $id mismatches only | **Fix $ids** → Step 3 |
+
+### Step 2: Create new GDB on destination
+
+`gdb_database_create` with origin's schema, name, and settings. After creation → Step 5 (version alignment) → Step 6 (copy data).
+
+### Step 3: Create new version or fix $ids
+
+If structure differs: create new version with origin schema on destination.
+If $id mismatches only: edit destination schema to realign $ids.
+
+### Step 4: Display migration plan
+
+Show field-by-field mapping with transformations. Flag fields that will lose data. Ask user to confirm.
+
+### Step 5: Version alignment
+
+Ensure BOTs will reference the correct (code, version) after merge.
+
+### Step 6: Copy data
+
+Fetch records from source, transform per field_map, upsert to destination. Show progress and sample results.
+
+---
+
+## Gotchas
+
+- **`gdb_database_create` on existing code** → HTTP 500 disguised as auth error
+- **Data is per (code, version)** — new version starts empty
+</script>
+
+<script>
+function renderMarkdown(md) {
+  let html = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const lines = html.split('\n');
+  let result = [];
+  let inCode = false;
+  let inList = false;
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith('```')) {
+      if (inCode) {
+        result.push('</code></pre>');
+        inCode = false;
+      } else {
+        if (inList) { result.push('</ul>'); inList = false; }
+        if (inTable) { result.push('</table>'); inTable = false; }
+        result.push('<pre><code>');
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) { result.push(line); continue; }
+
+    if (line.startsWith('|') && line.includes('|', 1)) {
+      if (line.replace(/[|\s-]/g, '') === '') continue;
+      if (inList) { result.push('</ul>'); inList = false; }
+      if (!inTable) { result.push('<table>'); inTable = true; }
+      const cells = line.split('|').filter((_, j) => j > 0 && j < line.split('|').length - 1);
+      const tag = !result.some(r => r.includes('<tr>') && inTable) ? 'th' : 'td';
+      result.push('<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>');
+      continue;
+    } else if (inTable) {
+      result.push('</table>');
+      inTable = false;
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      if (!inList) { result.push('<ul>'); inList = true; }
+      result.push('<li>' + formatInline(line.slice(2)) + '</li>');
+      continue;
+    } else if (inList && line.trim() === '') {
+      result.push('</ul>');
+      inList = false;
+    }
+
+    if (line.startsWith('#### ')) {
+      result.push('<h4>' + formatInline(line.slice(5)) + '</h4>');
+    } else if (line.startsWith('### ')) {
+      result.push('<h3>' + formatInline(line.slice(4)) + '</h3>');
+    } else if (line.startsWith('## ')) {
+      result.push('<h2>' + formatInline(line.slice(3)) + '</h2>');
+    } else if (line.startsWith('# ')) {
+      result.push('<h2>' + formatInline(line.slice(2)) + '</h2>');
+    } else if (line.startsWith('---')) {
+      result.push('<hr>');
+    } else if (line.trim() === '') {
+      result.push('');
+    } else {
+      result.push('<p>' + formatInline(line) + '</p>');
+    }
+  }
+
+  if (inList) result.push('</ul>');
+  if (inTable) result.push('</table>');
+  if (inCode) result.push('</code></pre>');
+
+  return result.join('\n');
+}
+
+function formatInline(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+const skillNames = {
+  cst: 'copy service on top',
+  compare: 'gdb compare',
+  copy: 'gdb copy'
+};
+
+const skillSources = {
+  cst: 'skill-cst',
+  compare: 'skill-compare',
+  copy: 'skill-copy'
+};
+
+function openViewer(key) {
+  const src = document.getElementById(skillSources[key]);
+  if (!src) return;
+  document.getElementById('viewerTitle').textContent = skillNames[key];
+  document.getElementById('viewerBody').innerHTML = renderMarkdown(src.textContent.trim());
+  document.getElementById('viewerPanel').classList.add('open');
+  document.getElementById('viewerBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeViewer() {
+  document.getElementById('viewerPanel').classList.remove('open');
+  document.getElementById('viewerBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeViewer();
+});
+</script>
+</body>
+</html>

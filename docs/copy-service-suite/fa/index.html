@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copy service suite — راهنمای کاربر</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: oklch(0.965 0.008 75);
+  --fg: oklch(0.22 0.015 50);
+  --muted: oklch(0.55 0.012 55);
+  --accent: oklch(0.50 0.08 215);
+  --border: oklch(0.89 0.008 75);
+  --surface: oklch(0.995 0.004 75);
+  --highlight: oklch(0.935 0.02 80);
+  --sage: #dbe1dd;
+  --warn-bg: oklch(0.94 0.04 85);
+  --warn-fg: oklch(0.40 0.06 60);
+  --detail-fg: oklch(0.40 0.013 52);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 54rem;
+  margin: 0 auto;
+  padding: 2.1rem 2.5rem 5rem;
+}
+
+h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+}
+
+h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+strong { font-weight: 600; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid oklch(0.50 0.08 215 / 0.3);
+}
+a:hover { border-bottom-color: var(--accent); }
+
+.mono {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.85em;
+}
+
+/* --- Header --- */
+.part-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.1rem;
+}
+
+.part-next {
+  color: oklch(0.72 0.01 55);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-bottom: 0.6rem;
+}
+
+.meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: oklch(0.65 0.01 55);
+  font-size: 0.78rem;
+  margin-bottom: 0.8rem;
+}
+
+.meta-sep { color: var(--border); }
+
+.skill-bar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.title-row h1 + .chained-label {
+  flex-shrink: 0;
+}
+
+.chained-label {
+  color: oklch(0.65 0.01 55);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.skill-tag {
+  background: var(--sage);
+  color: var(--muted);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.skill-tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- Page nav (hidden for now) --- */
+.page-nav {
+  display: none;
+  gap: 0.2rem;
+  margin-bottom: 2rem;
+}
+
+.page-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: none;
+  transition: all 0.15s ease;
+}
+
+.page-nav a:hover {
+  background: var(--highlight);
+  color: var(--fg);
+  border-bottom: none;
+}
+
+.page-nav a.current {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--border);
+}
+
+/* --- Generic collapsible --- */
+details { margin-bottom: 1rem; }
+
+details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+}
+
+details > summary::-webkit-details-marker { display: none; }
+
+details > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 0.25rem;
+}
+
+details[open] > summary::before {
+  transform: rotate(45deg);
+  margin-top: -0.15rem;
+}
+
+details > summary h2 { margin: 0; }
+
+details > .content {
+  padding: 0.5rem 0 0.75rem 1.5rem;
+}
+
+/* --- Phase sections (collapsible) --- */
+.phase-section {
+  margin-bottom: 0.5rem;
+}
+
+.phase-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.phase-section > summary::-webkit-details-marker { display: none; }
+
+.phase-section > summary::before { display: none; }
+
+.phase-section > summary::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.phase-section[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.phase-num {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--accent);
+  line-height: 1;
+  flex-shrink: 0;
+  font-variant-numeric: lining-nums;
+}
+
+.phase-section > summary h2 { margin: 0; font-size: 1.35rem; }
+
+.phase-content {
+  padding: 0.75rem 0 0.5rem;
+}
+
+.phase-note {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+/* --- Steps --- */
+.step {
+  margin-bottom: 0.75rem;
+  padding-left: 0.25rem;
+}
+
+.step-title {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.detail {
+  color: var(--detail-fg);
+  font-size: 0.875rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+  margin-top: 0.25rem;
+}
+
+.detail p { margin: 0.15rem 0; }
+
+.response-hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-top: 0.1rem;
+  padding-left: 0.25rem;
+}
+
+.skill-comment {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.intro-block {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--fg);
+  margin-bottom: 1.5rem;
+}
+
+.part-wrapper {
+  margin: 0.5rem 0 0.5rem;
+}
+
+.part-wrapper > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.part-wrapper > summary::-webkit-details-marker { display: none; }
+
+.part-wrapper > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.part-wrapper[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.part-wrapper > summary h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+/* --- Cards --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+/* --- GDB branch cases --- */
+.gdb-cases {
+  counter-reset: gdb-case;
+  margin-left: 0.65rem;
+  padding-left: 1.1rem;
+  position: relative;
+}
+
+.gdb-cases::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+.gdb-cases-intro {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.gdb-case {
+  padding: 0.6rem 0 0.6rem 0.75rem;
+  position: relative;
+  counter-increment: gdb-case;
+}
+
+.gdb-case + .gdb-case { border-top: 1px solid var(--border); }
+
+.gdb-case::before {
+  content: counter(gdb-case, lower-alpha);
+  position: absolute;
+  left: -1.75rem;
+  top: 0.6rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.case-label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.case-detail {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding-left: 0.75rem;
+}
+
+.case-detail p { margin: 0.15rem 0; }
+
+/* --- Warning --- */
+.warning-box {
+  background: var(--warn-bg);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+  color: var(--warn-fg);
+  border: 1px solid oklch(0.85 0.05 80);
+}
+
+/* --- Tables --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+
+th {
+  text-align: right;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border);
+}
+
+td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.group-header {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 1rem;
+  font-weight: 600;
+}
+
+/* --- Page break (hidden for now) --- */
+.page-break {
+  display: none;
+  border-top: 1px solid var(--border);
+  margin: 4rem 0 2rem;
+}
+
+.page-label {
+  color: oklch(0.75 0.01 55);
+  font-size: 0.75rem;
+  text-align: right;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* --- Tree --- */
+.tree {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+  white-space: pre;
+  direction: ltr;
+  text-align: left;
+}
+
+.tree .muted { color: var(--muted); }
+
+/* --- Section list --- */
+.section-item {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+}
+
+.section-label {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.section-desc { color: var(--muted); }
+
+.location-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* --- Merge steps --- */
+.merge-step { margin-bottom: 0.75rem; }
+.merge-step strong { color: var(--fg); }
+.merge-step p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 0.1rem;
+}
+
+/* --- Skill viewer panel --- */
+.viewer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: oklch(0.15 0.01 50 / 0.3);
+  z-index: 100;
+}
+
+.viewer-backdrop.open { display: block; }
+
+.viewer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(42rem, 85vw);
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 101;
+  display: none;
+  flex-direction: column;
+}
+
+.viewer-panel.open {
+  display: flex;
+}
+
+.viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.viewer-title {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.viewer-close {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 1.75rem;
+  height: 1.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1rem;
+  transition: all 0.15s;
+}
+
+.viewer-close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.viewer-body h2 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--fg);
+}
+
+.viewer-body h2:first-child { margin-top: 0; }
+
+.viewer-body h3 {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.4rem;
+  color: var(--fg);
+}
+
+.viewer-body h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 1rem 0 0.3rem;
+  color: var(--muted);
+}
+
+.viewer-body p {
+  margin: 0.3rem 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--fg);
+}
+
+.viewer-body pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  direction: ltr;
+  text-align: left;
+}
+
+.viewer-body code {
+  background: var(--highlight);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.82em;
+}
+
+.viewer-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.viewer-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
+.viewer-body ul, .viewer-body ol {
+  padding-right: 1.25rem;
+  padding-left: 0;
+  font-size: 0.875rem;
+  margin: 0.3rem 0;
+}
+
+.viewer-body li { margin: 0.15rem 0; }
+
+.viewer-body table {
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+/* --- Language toggle --- */
+.lang-toggle {
+  display: flex;
+  gap: 0.1rem;
+  margin-left: auto;
+  align-self: center;
+}
+
+.lang-toggle a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 0.15s;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.lang-toggle a:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.lang-toggle a.active {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+  pointer-events: none;
+}
+
+/* --- RTL overrides --- */
+[dir="rtl"] .detail { padding-left: 0; padding-right: 0.75rem; border-left: none; border-right: 2px solid var(--border); }
+[dir="rtl"] .response-hint { padding-left: 0; padding-right: 0.25rem; }
+[dir="rtl"] details > .content { padding-left: 0; padding-right: 1.5rem; }
+[dir="rtl"] .gdb-cases { margin-left: 0; margin-right: 0.65rem; padding-left: 0; padding-right: 1.1rem; }
+[dir="rtl"] .gdb-cases::before { left: auto; right: 0; }
+[dir="rtl"] .gdb-case { padding-left: 0; padding-right: 0.75rem; }
+[dir="rtl"] .gdb-case::before { left: auto; right: -1.75rem; }
+[dir="rtl"] .case-detail { padding-left: 0; padding-right: 0.75rem; }
+[dir="rtl"] .step { padding-left: 0; padding-right: 0.25rem; }
+[dir="rtl"] .page-label { text-align: left; }
+[dir="rtl"] .section-item { grid-template-columns: 1fr 9rem; }
+[dir="rtl"] .lang-toggle { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .phase-section > summary::after { margin-left: 0; margin-right: auto; }
+[dir="rtl"] details > summary::before { margin-right: 0; margin-left: 0.25rem; border-right: none; border-left: 1.5px solid var(--accent); border-bottom: 1.5px solid var(--accent); transform: rotate(45deg); }
+[dir="rtl"] details[open] > summary::before { transform: rotate(-45deg); }
+[dir="rtl"] .viewer-panel { right: auto; left: 0; border-left: none; border-right: 1px solid var(--border); }
+[dir="rtl"] .skill-comment { border-left: none; border-right: 2px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- PAGE 1 -->
+<div id="page1"></div>
+
+<div class="title-row">
+  <h1>Copy service suite</h1>
+  <span class="chained-label">۳ مهارت زنجیره‌ای</span>
+  <nav class="lang-toggle">
+    <a href="../en/">en</a>
+    <a href="../sp/">sp</a>
+    <a href="../fr/">fr</a>
+    <a href="../fa/" class="active">فا</a>
+  </nav>
+</div>
+<div class="part-label">بخش ۱ &mdash; کپی سرویس‌ها روی سرویس‌های موجود</div>
+<div class="part-next">بخش ۲ (برنامه‌ریزی‌شده): کپی سرویس‌های جدید به نمونه دیگر</div>
+<div class="meta">
+  <span>Frank Grozel &amp; Nelson Perez</span>
+  <span class="meta-sep">&middot;</span>
+  <span>به‌روزرسانی ۲۰۲۶-۰۴-۳۰</span>
+</div>
+
+<div class="skill-bar">
+  <span class="skill-tag" data-skill="cst" onclick="openViewer('cst')">copy service on top</span>
+  <span class="skill-tag" data-skill="compare" onclick="openViewer('compare')">gdb compare</span>
+  <span class="skill-tag" data-skill="copy" onclick="openViewer('copy')">gdb copy</span>
+</div>
+
+<nav class="page-nav">
+  <a href="#page1" class="current">1</a>
+  <a href="#page2">2</a>
+</nav>
+
+<div class="intro-block">
+<p>مهارت‌ها می‌توانند به‌صورت زنجیره‌ای عمل کنند: یک مهارت می‌تواند در حین اجرا مهارت دیگری را فراخوانی کند و گردش‌کارهای هماهنگ ایجاد نماید. این مجموعه نمونه‌ای از این قابلیت است &mdash; ۳ مهارت را به هم پیوند می‌دهد که با همکاری یکدیگر فرآیند کپی سرویس‌ها روی سرویس‌های موجود را خودکار می‌کنند. این مهارت‌ها، و بیشتر مهارت‌های آینده، در ارتباط با <strong>فایل‌های کشور</strong> کار می‌کنند &mdash; یک پایگاه دانش ساختاریافته که همه آنچه را که هوش مصنوعی و انسان‌ها برای درک نحوه راه‌اندازی eRegistrations در یک کشور نیاز دارند، ثبت می‌کند. مهارت‌ها در حین اجرا از فایل‌های کشور می‌خوانند و در آنها می‌نویسند.</p>
+<p>ما از این مجموعه زمانی استفاده می‌کنیم که بخواهیم یک نمونه را ارتقا دهیم (مثلاً از 2.13 به 2.18) و مطمئن شویم که سرویس‌ها پس از ارتقا به کار خود ادامه می‌دهند. در این حالت، معمولاً: ۱.&nbsp;سرویس‌ها را به نمونه دیگری صادر می‌کنیم که نسخه eR مورد نظر ما قبلاً روی آن اجرا می‌شود، ۲.&nbsp;سرویس‌ها را آنجا آزمایش و رفع عیب می‌کنیم، و وقتی به‌درستی کار کردند ۳.&nbsp;آنها را به نمونه مبدأ بازمی‌گردانیم، جایی که ۴.&nbsp;ارتقای نسخه eR انجام می‌شود (روکسانا یک <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارت</a> برای این کار توسعه داده است) و سرویس‌ها بدون مشکل به کار خود ادامه می‌دهند.</p>
+</div>
+
+<details>
+  <summary><h2>فایل کشور</h2></summary>
+  <div class="content">
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem">همه آنچه هوش مصنوعی (و انسان‌ها) باید بدانند</p>
+    <p>&hellip;درباره نحوه سازمان‌دهی نمونه‌ها، سرویس‌ها و GDB‌های eRegistrations در یک کشور. مهارت‌ها (= دستورالعمل‌ها به زبان ساده) که فرآیندهایی را توصیف می‌کنند که توسط هوش مصنوعی قابل اجرا هستند &mdash; به‌صورت خودکار یا در تعامل با انسان &mdash; به فایل کشور تغذیه می‌شوند. کاربر نیز می‌تواند فایل را مستقیماً ویرایش کند تا یادداشت‌ها، تصمیمات یا هر عنصر زمینه‌ای را اضافه نماید.</p>
+    <p class="location-note">در حال حاضر در <span class="mono">2 - eR services/countries/{code}/case.md</span> &mdash; به‌صورت آنلاین برای هر نمونه منتشر خواهد شد.</p>
+  </div>
+</details>
+
+<details class="part-wrapper">
+  <summary><h2>کپی سرویس‌ها روی سرویس‌های موجود</h2></summary>
+
+<!-- Phase 1 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">۱</span>
+    <h2>سؤالات اولیه: اپراتور انسانی چه کاری می‌خواهد انجام دهد</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="skill-comment">مهارت سؤالاتی می‌پرسد و با اپراتور انسانی تعامل می‌کند تا بفهمد چه کاری باید انجام شود.</p>
+
+    <div class="step">
+      <div class="step-title">سؤال: کدام کشور؟</div>
+      <div class="response-hint">پس از پاسخ انسان</div>
+      <div class="detail">
+        <p>فایل کشور را بارگذاری می‌کند (در صورت عدم وجود، از الگو ایجاد می‌کند).</p>
+        <p>اگر خروجی‌های Board از قبل وجود داشته باشند، آنها را بارگذاری می‌کند.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">سؤال: نمونه مبدأ و مقصد کدامند؟</div>
+      <div class="response-hint">پس از پاسخ انسان</div>
+      <div class="detail">
+        <p>به هر دو نمونه متصل می‌شود و نسخه‌های BPA را به‌صورت خودکار شناسایی می‌کند.</p>
+        <p>نمایش: مبدأ: cuba-dev (v2.18) &#10003; &mdash; مقصد: cuba (v2.13) &#10003;</p>
+        <p>فایل کشور را با نسخه‌های شناسایی‌شده به‌روزرسانی می‌کند.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">فهرست‌برداری (خودکار)</div>
+      <div class="detail">
+        <p>سرویس‌ها را در هر دو نمونه فهرست می‌کند.</p>
+        <p>جدول مقایسه‌ای نمایش می‌دهد: فقط سرویس‌هایی که در <strong>هر دو</strong> وجود دارند (شناسه‌های مطابق).</p>
+        <p>برای هر سرویس مطابقت‌یافته، تمام GDB‌های مرتبط از طریق BOT‌ها را نشان می‌دهد (نام + نسخه).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">سؤال: کدام سرویس‌ها کپی شوند؟</div>
+      <div class="response-hint">پس از پاسخ انسان</div>
+      <div class="detail">
+        <p>کاربر از فهرست نمایش‌داده‌شده در بالا انتخاب می‌کند.</p>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- Phase 2 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">۲</span>
+    <h2>فاز GDB</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">به ازای هر GDB ارجاع‌شده توسط سرویس‌های انتخاب‌شده</p>
+
+    <details>
+      <summary><h2>جدول تطابق</h2></summary>
+      <div class="content">
+        <p>قبل از هرگونه کار روی GDB، یک مقایسه دو ستونی نمایش دهید. از کاربر بخواهید هر تطابق را تأیید کند &mdash; برخی GDB‌ها ممکن است نام‌های متفاوتی داشته باشند اما پایگاه داده یکسانی باشند.</p>
+        <table>
+          <tr><th>GDB مبدأ</th><th></th><th>GDB مقصد</th></tr>
+          <tr><td>Pa&iacute;ses (v5)</td><td style="color:var(--muted)">&harr;</td><td>Pa&iacute;ses (v3)</td></tr>
+          <tr><td>Productos (v2)</td><td style="color:var(--muted)">&harr;</td><td>Products (v2)</td></tr>
+          <tr><td>Certificados (v1)</td><td style="color:var(--muted)">&harr;</td><td><em style="color:var(--muted)">&mdash; موجود نیست &mdash;</em></td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary><h2>حل و فصل هر GDB</h2></summary>
+      <div class="content">
+        <p class="gdb-cases-intro">یکی از حالات زیر اعمال می‌شود:</p>
+        <div class="gdb-cases">
+          <div class="gdb-case">
+            <div class="case-label">GDB در مقصد موجود نیست</div>
+            <div class="case-detail">
+              <p><span class="mono">gdb copy</span> آن را ایجاد می‌کند (همان نام، همان ساختار). در صورت نیاز، داده‌ها را از مبدأ کپی می‌کند.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">ساختار یکسان، نام یکسان، نسخه یکسان</div>
+            <div class="case-detail">
+              <p>نیازی به اقدام نیست.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">ساختار یکسان، نام یکسان، نسخه متفاوت</div>
+            <div class="case-detail">
+              <p>نیازی به کار روی GDB نیست. پس از ورود: <span class="mono">bot_update</span> ارجاعات BOT‌ها را به نسخه مقصد بازنگاری می‌کند.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">ساختار یکسان، نام متفاوت</div>
+            <div class="case-detail">
+              <p>نیازی به کار روی GDB نیست. پس از ورود: <span class="mono">bot_update</span> ارجاعات BOT‌ها را به نام + نسخه مقصد بازنگاری می‌کند.</p>
+            </div>
+          </div>
+
+          <div class="gdb-case">
+            <div class="case-label">ساختار متفاوت</div>
+            <div class="case-detail">
+              <p><span class="mono">gdb copy</span> مقدار <span class="mono">field_map</span> را از compare دریافت می‌کند.</p>
+              <p>به کاربر نشان می‌دهد: طرح مهاجرت با نگاشت فیلدها + فیلدهایی که داده از دست خواهند داد.</p>
+              <p>می‌پرسد: قبول / تغییر / لغو؟</p>
+              <p>نسخه جدید GDB را در مقصد با ساختار مبدأ ایجاد می‌کند. داده‌ها را از مقصد مهاجرت می‌دهد (نسخه قدیمی &rarr; جدید) با تبدیل فیلد.</p>
+              <p>نتایج + نمونه رکوردها را نمایش می‌دهد.</p>
+              <p>پس از ورود: <span class="mono">bot_update</span> ارجاعات BOT‌ها را به نسخه جدید مقصد بازنگاری می‌کند.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="warning-box">
+          تا زمانی که تمام GDB‌ها حل و فصل نشده‌اند، به مرحله ادغام نروید. فایل کشور را با تصمیمات GDB و نتایج مقایسه به‌روزرسانی می‌کند.
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Phase 3 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">۳</span>
+    <h2>فاز ادغام</h2>
+  </summary>
+  <div class="phase-content">
+    <p class="phase-note">به ازای هر سرویس انتخاب‌شده</p>
+
+    <details>
+      <summary><h2>پشتیبان‌گیری، بررسی، ورود، به‌روزرسانی</h2></summary>
+      <div class="content">
+        <div class="merge-step">
+          <strong>پشتیبان‌گیری</strong>
+          <p>یک تصویر کامل از سرویس مقصد قبل از هرگونه تغییر ذخیره می‌کند. در صورت بروز مشکل، این تصویر سرویس را دقیقاً به حالت قبلی بازمی‌گرداند.</p>
+        </div>
+        <div class="merge-step">
+          <strong>بررسی انتشار</strong>
+          <p>اگر سرویس مقصد منتشرشده باشد، فعال است. شهروندان و کارمندان ممکن است از آن استفاده کنند. سؤال: آیا در این سرویس فعال ادغام شود؟ (بهتر است ابتدا از انتشار خارج شود یا در زمان تعمیرات انجام گیرد.)</p>
+        </div>
+        <div class="merge-step">
+          <strong>ورود</strong>
+          <p><span class="mono">service_import_on_top</span> را اجرا می‌کند.</p>
+        </div>
+        <div class="merge-step">
+          <strong>به‌روزرسانی Bot</strong>
+          <p><span class="mono">bot_update</span> برای هر BOT که نام یا نسخه مبدأ با مقصد متفاوت است.</p>
+        </div>
+        <div class="merge-step">
+          <p>تأیید می‌کند: شناسه سرویس حفظ شده، عملیات ثبت شده. فایل کشور را به‌روزرسانی می‌کند.</p>
+        </div>
+      </div>
+    </details>
+  </div>
+</details>
+
+<!-- Phase 4 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">۴</span>
+    <h2>تأیید و صحت‌سنجی</h2>
+  </summary>
+  <div class="phase-content">
+    <p><strong>کل</strong> نمونه مقصد را بررسی می‌کند، نه فقط سرویس‌های تغییریافته &mdash; یک تغییر GDB می‌تواند BOT‌های سرویس دیگری را خراب کند.</p>
+    <p>برای هر BOT، بررسی می‌کند که ارجاع نام + نسخه GDB آن در مقصد وجود دارد.</p>
+    <p>هرگونه ارجاع شکسته را گزارش می‌دهد.</p>
+  </div>
+</details>
+
+<!-- Phase 5 -->
+<details class="phase-section">
+  <summary>
+    <span class="phase-num">۵</span>
+    <h2>گزارش</h2>
+  </summary>
+  <div class="phase-content">
+    <p>سرویس‌های کپی‌شده (نام، شناسه، audit_id).</p>
+    <p>GDB‌های مهاجرت‌شده (نام، تغییرات نسخه، تعداد رکوردها).</p>
+    <p>سلامت BOT: همه سالم یا فهرست مشکلات.</p>
+    <p>فایل‌های پشتیبان: مسیر تصاویر ذخیره‌شده قبل از ادغام &mdash; این فایل‌ها را تا زمان تأیید صحت عملکرد نگه دارید.</p>
+    <p>فایل کشور را با گزارش کامل عملیات به‌روزرسانی می‌کند.</p>
+  </div>
+</details>
+
+</details><!-- /part-wrapper -->
+
+
+<!-- PAGE 2 (hidden for now) -->
+<div style="display:none">
+<div class="page-break" id="page2"></div>
+<div class="page-label">صفحه ۲</div>
+
+<nav class="page-nav">
+  <a href="#page1">1</a>
+  <a href="#page2" class="current">2</a>
+</nav>
+
+<h1 style="margin-bottom:1.5rem">فایل کشور &mdash; محتوای فایل‌های کشور</h1>
+
+<details>
+  <summary><h2>ساختار پوشه‌ها</h2></summary>
+  <div class="content">
+    <div class="tree">countries/{code}/
+├── case.md          <span class="muted">مرکز: نمونه‌ها، تصمیمات، گزارش کپی</span>
+├── boards/          <span class="muted">داشبورد + صفحات هر سرویس</span>
+├── services/        <span class="muted">مستندات هر سرویس</span>
+├── bot-recipes/     <span class="muted">الگوهای ساخت bot و bot‌های تکمیل‌شده</span>
+└── comparisons/     <span class="muted">مقایسه‌های GDB بین نمونه‌ها</span></div>
+  </div>
+</details>
+
+<details>
+  <summary><h2>منابع &mdash; مهارت‌هایی که فایل کشور را تغذیه می‌کنند</h2></summary>
+  <div class="content">
+    <table>
+      <tr><th>مهارت</th><th>آنچه می‌نویسد</th><th>محل</th></tr>
+      <tr><td colspan="3" class="group-header">Copy service suite</td></tr>
+      <tr><td class="mono">CST</td><td>گزارش کپی، تصمیمات GDB، مسیرهای پشتیبان</td><td class="mono">case.md</td></tr>
+      <tr><td class="mono">gdb compare</td><td>مقایسه‌های ساختار GDB</td><td class="mono">comparisons/</td></tr>
+      <tr><td class="mono">gdb copy</td><td>نتایج مهاجرت</td><td class="mono">comparisons/</td></tr>
+      <tr><td colspan="3" class="group-header">تحلیل نمونه</td></tr>
+      <tr><td class="mono">Board</td><td>داشبورد، سرویس‌ها &times; GDB‌ها</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots per page</td><td>جریان bot هر سرویس</td><td class="mono">boards/</td></tr>
+      <tr><td class="mono">bots table</td><td>ماتریس BOT کل نمونه</td><td class="mono">boards/</td></tr>
+      <tr><td colspan="3" class="group-header">کار Bot</td></tr>
+      <tr><td class="mono">create bots</td><td>دستورالعمل‌های bot، پیاده‌سازی‌ها، ثوابت</td><td class="mono">bot-recipes/</td></tr>
+      <tr><td colspan="3" class="group-header">مستندات سرویس</td></tr>
+      <tr><td class="mono">bpa service doc</td><td>راهنمای طراح</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service manual</td><td>راهنمای شهروند</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">service review</td><td>تحلیل سرتاسری</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">one sheet</td><td>جدول بررسی فیلد‌به‌فیلد</td><td class="mono">services/</td></tr>
+      <tr><td class="mono">eregistrations docs</td><td>گزارش فنی Excel</td><td class="mono">services/</td></tr>
+    </table>
+  </div>
+</details>
+
+<details>
+  <summary><h2>بخش‌های فایل کشور</h2></summary>
+  <div class="content">
+    <div class="section-item">
+      <span class="section-desc">جدول توپولوژی با نسخه‌های BPA، لینک‌های Board</span>
+      <span class="section-label">نمونه‌ها</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">سرویس‌های مطابقت‌یافته (در هر دو نمونه) با GDB‌ها</span>
+      <span class="section-label">سرویس‌ها</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">لینک به داشبورد و صفحات هر سرویس</span>
+      <span class="section-label">Boards</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">راهنماهای طراح، راهنماهای شهروند، بررسی‌ها، one-sheetها</span>
+      <span class="section-label">مستندات سرویس</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">الگوهای نگاشت، فهرست ثوابت، پیاده‌سازی‌های تکمیل‌شده</span>
+      <span class="section-label">دستورالعمل‌های Bot</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">نتایج مقایسه</span>
+      <span class="section-label">فهرست GDB</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">تاریخچه عملیات کپی</span>
+      <span class="section-label">گزارش کپی</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">انتخاب‌های انجام‌شده (تطابق نام‌ها، تعویق‌ها)</span>
+      <span class="section-label">تصمیمات</span>
+    </div>
+    <div class="section-item">
+      <span class="section-desc">متن آزاد، هرگز توسط مهارت‌ها بازنویسی نمی‌شود</span>
+      <span class="section-label">یادداشت‌ها</span>
+    </div>
+  </div>
+</details>
+
+</div><!-- /page2 hidden -->
+
+</div>
+
+<!-- Skill viewer -->
+<div class="viewer-backdrop" id="viewerBackdrop" onclick="closeViewer()"></div>
+<div class="viewer-panel" id="viewerPanel">
+  <div class="viewer-header">
+    <span class="viewer-title" id="viewerTitle"></span>
+    <button class="viewer-close" onclick="closeViewer()">&times;</button>
+  </div>
+  <div class="viewer-body" id="viewerBody"></div>
+</div>
+
+<!-- Skill source files (hidden, read by JS) -->
+<script type="text/plain" id="skill-cst">
+# Copy service on top of other
+
+Copies one or more eRegistrations services from an origin instance on top of the same services in a destination instance, **preserving service IDs**. Equivalent to the BPA UI button "Import on top of this service", but automated, with GDB precheck and orchestration.
+
+## When to use
+
+- Propagate improved services from dev/test to live (or between any two instances).
+- Re-apply configuration after a rollback.
+- Sync a fix between sibling instances (e.g. cuba ↔ cuba-test).
+
+**Do not use** if the service does not exist on the destination — that requires "Copy new service from instance" (future skill, uses `service_copy`).
+
+---
+
+## Wizard flow
+
+### Step 1 — Country
+
+> **Ask**: Which country?
+
+*(Skip if the user already said it.)*
+
+Load the country file from `2 - eR services/countries/{country}/case.md`. If it doesn't exist, create from template after Step 2.
+
+### Step 2 — Instances
+
+> **Ask**: What instances are involved? Which is origin (where the services are) and which is destination (where you want to copy them)?
+
+Connect to both instances via `connection_status`. Auto-detect BPA versions — never ask. Show:
+
+```
+Origin:      {name} — BPA {version} — connected ✓
+Destination: {name} — BPA {version} — connected ✓
+```
+
+Validate:
+- Both instances connected
+- BPA version ≥ 1.26.0 on both (required for `service_import_on_top`)
+- If version check fails, abort with explanation
+
+### Step 3 — Inventory
+
+List services and GDBs on both instances automatically:
+
+```
+service_list(instance=origin)
+service_list(instance=destination)
+gdb_catalog_list(instance=origin)
+gdb_catalog_list(instance=destination)
+```
+
+Present a comparison table: which services exist on both, which only on origin, which only on destination.
+
+> **Ask**: Which services do you want to copy on top?
+
+Only services that exist on BOTH instances are eligible.
+
+### Step 4 — GDB migration plan
+
+For each selected service, list its BOTs and extract GDB references. For each unique GDB reference, check status on both instances and classify:
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| ✅ OK | Same code, same schema | None |
+| 🟢 RENAMED | Different code, identical schema | `bot_update` only |
+| ⚠️ SCHEMA_DRIFT | Same code+version, schemas differ | Call `/cs-gdb-copy` |
+| 🔴 MISSING | GDB doesn't exist on destination | Call `/cs-gdb-copy` |
+
+**Blocking rule**: do NOT proceed to Step 5 until all GDB issues are resolved.
+
+### Step 5 — Execute GDB migrations
+
+For each GDB that needs work, delegate to the appropriate skill:
+
+- **MISSING** → `/cs-gdb-copy` (create)
+- **SCHEMA_DRIFT** → `/cs-gdb-compare` first, then `/cs-gdb-copy`
+- **RENAMED** → `bot_update` to remap references
+
+### Step 6 — Merge services
+
+For each selected service:
+
+1. **Capture rollback baseline**: `service_export_raw` — save locally with timestamp
+2. **Check if destination is published** — if active, ask before merging
+3. **Execute merge**: `service_import_on_top`
+4. **Verify**: confirm ID preserved, audit logged
+
+### Step 7 — Cross-service verification
+
+After ALL services are merged, verify BOT health across the entire destination instance — not just the services you touched.
+
+### Step 8 — Summary report
+
+Present: services copied, GDBs migrated, BOT health, rollback file paths.
+
+---
+
+## Rollback
+
+`service_import_on_top` audit rows have `rollback_available: false`. Real rollback strategy:
+1. Before each merge, `service_export_raw` captures baseline
+2. If verification fails, re-merge the saved export back
+3. Last resort: `service_delete` + `service_copy` from export
+
+---
+
+## Limitations
+
+1. **Merge is destructive on arrays.** Entities with no matching `businessKey` get deleted.
+2. **Cross-instance auth.** Both instances must have active sessions simultaneously.
+3. **Not atomic.** Concurrent `service_import_on_top` on same destination is undefined.
+4. **Post-merge visibility.** `service_get` returns published version, not merged draft. Use `bot_list`/`role_list` to verify.
+
+---
+
+## Anti-patterns (lessons from Cuba pilot)
+
+1. **Assuming SCHEMA_DRIFT from name without verifying** — always compare schemas structurally ($id-by-$id).
+2. **Using `gdb_database_create` when code exists** — returns misleading auth error. Use `edit → update`.
+3. **Assuming data persists between versions** — data is per (code, version). New version starts empty.
+4. **`bot_update` pointing to empty version** — verify where data is before remapping.
+</script>
+
+<script type="text/plain" id="skill-compare">
+# GDB schema compare
+
+Read-only diagnostic: compares the structure of a GDB database between two eRegistrations instances. Returns a verdict (same or different) with enough detail for the caller (CST or human) to decide the next action.
+
+**This skill does NOT modify anything.** It compares and reports. Schema fixes and data migration are handled by `/cs-gdb-copy`.
+
+## Usage
+
+```
+/cs-gdb-compare                           # interactive
+/cs-gdb-compare pe                        # compare table "pe" across instances
+/cs-gdb-compare all                       # compare ALL tables
+```
+
+## What CST expects back
+
+```
+{
+  verdict: "same" | "different",
+  origin: { code, version, catalog_id },
+  destination: { code, version, catalog_id },
+  field_summary: { matched, removed, added },
+  field_map: [ { source_id, target_id, source_path, target_path, change } ],
+  resolution_plan: [ ... ]   # only if verdict is "different"
+}
+```
+
+---
+
+## Flow
+
+### Step 1: Authenticate
+
+Check auth on both instances via `gdb_auth_diagnose`. Login if needed.
+
+### Step 2: Identify tables to compare
+
+- Specific code → find catalog on both instances by `catalog_id`
+- `all` → process all catalogs sequentially
+
+### Step 3: Fetch schemas
+
+For each table pair, get latest version via `gdb_database_get`. Extract `schema.properties`.
+
+### Step 4: Compare schemas
+
+Flatten both schemas to `($id, path, type, format)`. Match by `$id`:
+
+1. **Matched**: same `$id` in both — note name/path changes
+2. **Removed**: `$id` in origin only — flag as data loss risk
+3. **New**: `$id` in destination only — note defaults
+
+### Step 4b: Semantic field matching
+
+Before declaring any field "removed", check if the same concept exists under a different `$id`.
+
+**Solution hierarchy:**
+
+| Priority | Solution | When |
+|----------|----------|------|
+| 1 | Remap in transformation | Concept exists under different $id |
+| 2 | Accept data loss | Field is obsolete |
+| 3 | Reassign $id on destination | Same concept, different $id |
+| 4 | Create field on destination | Concept doesn't exist at all |
+
+**Rule: never default to creating fields.** Re-check whether the concept already exists.
+
+#### Case catalog (12 cases)
+
+- **Case 1** — Remap: same concept, different $id and name
+- **Case 2** — Cross-mapping: $ids swapped between instances
+- **Case 3** — Accept data loss: obsolete field
+- **Case 4** — Reassign $id: same field, diverged $id
+- **Case 5** — Create field: concept genuinely absent
+- **Case 6** — Type change: string → number
+- **Case 7** — Type change: string → catalog
+- **Case 8** — Structural: flat → nested
+- **Case 9** — Split: one source → multiple target
+- **Case 10** — Merge: multiple source → one target
+- **Case 11** — Auto-generated / trigger field
+- **Case 12** — ReadOnly with default
+
+### Step 5: Count records
+
+`gdb_data_count` — shows scope of potential migration.
+
+### Step 6: Report
+
+**Verdict**: SAME if all $ids match. DIFFERENT if any structural differences.
+
+Report includes: fields matched, fields removed (with resolution + case #), fields added, field_map for `/cs-gdb-copy`, and resolution plan.
+</script>
+
+<script type="text/plain" id="skill-copy">
+# GDB copy or create
+
+Creates or updates a GDB database on a destination eRegistrations instance. Three scenarios:
+
+1. **GDB missing on destination** → create from scratch with origin schema
+2. **GDB exists but structure differs** → create new version, migrate data with transformation
+3. **Fix $id mismatches** → edit destination schema to realign $ids, then migrate data
+
+When called by CST, receives a `field_map` and `resolution_plan` from `/cs-gdb-compare`.
+
+---
+
+## Flow
+
+### Step 0: Authenticate and identify
+
+Parse args, check auth on both instances, fetch source and destination databases, count records.
+
+### Step 1: Determine scenario
+
+| Condition | Scenario |
+|-----------|----------|
+| Destination has no GDB with this code | **Create new** → Step 2 |
+| Destination has GDB, same structure | **Already compatible** → Done |
+| Destination has GDB, different structure | **Create new version** → Step 3 |
+| Destination has GDB, $id mismatches only | **Fix $ids** → Step 3 |
+
+### Step 2: Create new GDB on destination
+
+`gdb_database_create` with origin's schema, name, and settings. After creation → Step 5 (version alignment) → Step 6 (copy data).
+
+### Step 3: Create new version or fix $ids
+
+If structure differs: create new version with origin schema on destination.
+If $id mismatches only: edit destination schema to realign $ids.
+
+### Step 4: Display migration plan
+
+Show field-by-field mapping with transformations. Flag fields that will lose data. Ask user to confirm.
+
+### Step 5: Version alignment
+
+Ensure BOTs will reference the correct (code, version) after merge.
+
+### Step 6: Copy data
+
+Fetch records from source, transform per field_map, upsert to destination. Show progress and sample results.
+
+---
+
+## Gotchas
+
+- **`gdb_database_create` on existing code** → HTTP 500 disguised as auth error
+- **Data is per (code, version)** — new version starts empty
+</script>
+
+<script>
+function renderMarkdown(md) {
+  let html = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const lines = html.split('\n');
+  let result = [];
+  let inCode = false;
+  let inList = false;
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith('```')) {
+      if (inCode) {
+        result.push('</code></pre>');
+        inCode = false;
+      } else {
+        if (inList) { result.push('</ul>'); inList = false; }
+        if (inTable) { result.push('</table>'); inTable = false; }
+        result.push('<pre><code>');
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) { result.push(line); continue; }
+
+    if (line.startsWith('|') && line.includes('|', 1)) {
+      if (line.replace(/[|\s-]/g, '') === '') continue;
+      if (inList) { result.push('</ul>'); inList = false; }
+      if (!inTable) { result.push('<table>'); inTable = true; }
+      const cells = line.split('|').filter((_, j) => j > 0 && j < line.split('|').length - 1);
+      const tag = !result.some(r => r.includes('<tr>') && inTable) ? 'th' : 'td';
+      result.push('<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>');
+      continue;
+    } else if (inTable) {
+      result.push('</table>');
+      inTable = false;
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      if (!inList) { result.push('<ul>'); inList = true; }
+      result.push('<li>' + formatInline(line.slice(2)) + '</li>');
+      continue;
+    } else if (inList && line.trim() === '') {
+      result.push('</ul>');
+      inList = false;
+    }
+
+    if (line.startsWith('#### ')) {
+      result.push('<h4>' + formatInline(line.slice(5)) + '</h4>');
+    } else if (line.startsWith('### ')) {
+      result.push('<h3>' + formatInline(line.slice(4)) + '</h3>');
+    } else if (line.startsWith('## ')) {
+      result.push('<h2>' + formatInline(line.slice(3)) + '</h2>');
+    } else if (line.startsWith('# ')) {
+      result.push('<h2>' + formatInline(line.slice(2)) + '</h2>');
+    } else if (line.startsWith('---')) {
+      result.push('<hr>');
+    } else if (line.trim() === '') {
+      result.push('');
+    } else {
+      result.push('<p>' + formatInline(line) + '</p>');
+    }
+  }
+
+  if (inList) result.push('</ul>');
+  if (inTable) result.push('</table>');
+  if (inCode) result.push('</code></pre>');
+
+  return result.join('\n');
+}
+
+function formatInline(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+const skillNames = {
+  cst: 'copy service on top',
+  compare: 'gdb compare',
+  copy: 'gdb copy'
+};
+
+const skillSources = {
+  cst: 'skill-cst',
+  compare: 'skill-compare',
+  copy: 'skill-copy'
+};
+
+function openViewer(key) {
+  const src = document.getElementById(skillSources[key]);
+  if (!src) return;
+  document.getElementById('viewerTitle').textContent = skillNames[key];
+  document.getElementById('viewerBody').innerHTML = renderMarkdown(src.textContent.trim());
+  document.getElementById('viewerPanel').classList.add('open');
+  document.getElementById('viewerBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeViewer() {
+  document.getElementById('viewerPanel').classList.remove('open');
+  document.getElementById('viewerBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeViewer();
+});
+</script>
+</body>
+</html>
