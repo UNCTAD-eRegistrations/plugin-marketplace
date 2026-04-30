@@ -2762,6 +2762,9 @@ function downloadSkill() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeViewer();
 });
+
+const langParam = new URLSearchParams(location.search).get('lang');
+if (langParam && ['en','sp','fr','fa'].includes(langParam)) setLang(langParam);
 </script>
 </body>
 </html>
