@@ -2444,7 +2444,7 @@ td {
 <details class="intro-section">
   <summary><h2>هدف مهارة &laquo;نسخ خدمة فوق خدمة قائمة&raquo;</h2></summary>
   <div class="content">
-    <p>حُزْمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من <span class="term" data-def="بيئة تشغيل لمنصة eRegistrations تخدم بلدًا أو حالة استخدام معيّنة، مثل cuba (الإنتاج) و cuba-dev (التطوير). (Instance / Environment)">بيئة</span> eRegistrations فوق نفس الخدمات في بيئة أخرى، مع الحفاظ على معرّفات الخدمات و<span class="term" data-def="قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية. (Generic Database)">قواعد بيانات GDB</span> ومراجع <span class="term" data-def="تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا. (BOT)">BOT</span> وخيارات الاستعادة.</p>
+    <p>حُزْمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من <span class="term" data-def="بيئة تشغيل eRegistrations مستقلة بذاتها. قد تكون بيئة فنية لنفس النظام (تطوير، اختبار، إنتاج)، أو نظامًا منفصلاً لمشروع آخر داخل البلد نفسه. أمثلة: cuba (إنتاج)، cuba-dev (تطوير). (Instance)">بيئة</span> eRegistrations فوق نفس الخدمات في بيئة أخرى، مع الحفاظ على معرّفات الخدمات و<span class="term" data-def="قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية. (Generic Database)">قواعد بيانات GDB</span> ومراجع <span class="term" data-def="تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا. (BOT)">BOT</span> وخيارات الاستعادة.</p>
     <p>نستخدم هذه الحُزْمة بشكل خاص عند الترقية. على سبيل المثال، عند نقل بيئة من eR 2.13 إلى 2.18، ننسخ الخدمات إلى بيئة تعمل بالإصدار الجديد مسبقًا، ونختبرها ونصلح الأخطاء هناك، ثم نعيدها لتتم الترقية بمخاطر أقل. طوّرت روكسانا <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارة ترقية</a> منفصلة لترقية البيئة نفسها.</p>
   </div>
 </details>
@@ -2656,8 +2656,8 @@ td {
       <dd>ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما.</dd>
       <dt><strong>الوكيل</strong> (AI agent)</dt>
       <dd>برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام.</dd>
-      <dt><strong>البيئة</strong> (Instance / Environment)</dt>
-      <dd>بيئة تشغيل لمنصة eRegistrations تخدم بلدًا أو حالة استخدام معيّنة، مثل cuba (الإنتاج) و cuba-dev (التطوير).</dd>
+      <dt><strong>البيئة</strong> (Instance)</dt>
+      <dd>بيئة تشغيل eRegistrations مستقلة بذاتها. قد تكون بيئة فنية لنفس النظام (تطوير، اختبار، إنتاج)، أو نظامًا منفصلاً لمشروع آخر داخل البلد نفسه. أمثلة: cuba (إنتاج)، cuba-dev (تطوير).</dd>
       <dt><strong>GDB</strong> (Generic Database)</dt>
       <dd>قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية.</dd>
       <dt><strong>BOT</strong></dt>
