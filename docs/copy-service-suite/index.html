@@ -843,6 +843,54 @@ td {
 .container[data-lang="ar"] .location-note { direction: ltr; text-align: left; }
 .container[data-lang="ar"] details > summary { direction: rtl; }
 .container[data-lang="ar"] .intro-card { text-align: right; }
+
+/* --- Inline glossary tooltips (AR scope for now) --- */
+.container[data-lang="ar"] .term {
+  border-bottom: 1px dashed var(--accent, #4a90e2);
+  cursor: help;
+  position: relative;
+  outline: none;
+}
+.container[data-lang="ar"] .term:focus {
+  box-shadow: 0 0 0 2px rgba(74,144,226,0.3);
+  border-radius: 2px;
+}
+.container[data-lang="ar"] .term::after {
+  content: attr(data-def);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  width: max-content;
+  max-width: min(340px, 80vw);
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  white-space: normal;
+  text-align: right;
+  direction: rtl;
+  line-height: 1.55;
+  font-weight: normal;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.container[data-lang="ar"] .term:hover::after,
+.container[data-lang="ar"] .term:focus::after,
+.container[data-lang="ar"] .term.is-pinned::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+.glossary-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  font-style: italic;
+}
 </style>
 </head>
 <body>
@@ -2366,7 +2414,8 @@ td {
 <details class="intro-section" open>
   <summary><h2>طريقة عمل جديدة</h2></summary>
   <div class="content">
-    <p class="intro-lede">يقدّم هذا الدليل كيفية أتمتة المهام المتكررة في eRegistrations بشكل تدريجي، ويعرّف مفاهيم جديدة سنستخدمها لهذا الغرض: المهارات، ملفات البلد، الحزم، والتعاون بين الإنسان والوكيل الذكي.</p>
+    <p class="intro-lede">يقدّم هذا الدليل كيفية أتمتة المهام المتكررة في eRegistrations بشكل تدريجي، ويعرّف مفاهيم جديدة سنستخدمها لهذا الغرض: <span class="term" data-def="تعليمات مكتوبة بلغة بشرية، يقرأها الوكيل ويحوّلها إلى أفعال باستخدام الأدوات المتاحة. (Skill)">المهارات</span>، <span class="term" data-def="ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما. (Country file)">ملفات البلد</span>، <span class="term" data-def="مجموعة من المهارات تعمل معًا، حيث تستدعي المهارة الرئيسية مهارات متخصصة عند الحاجة. (Suite)">الحزم</span>، والتعاون بين الإنسان و<span class="term" data-def="برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام. (AI agent)">الوكيل الذكي</span>.</p>
+    <p class="glossary-hint">💡 مرّر فوق المصطلحات المظلّلة (أو انقرها على الجوال) لمعرفة تعريفها.</p>
     <div class="intro-cards">
       <details class="intro-card" open>
         <summary><h3>ما هي المهارة؟</h3></summary>
@@ -2395,7 +2444,7 @@ td {
 <details class="intro-section">
   <summary><h2>هدف مهارة &laquo;نسخ خدمة فوق خدمة قائمة&raquo;</h2></summary>
   <div class="content">
-    <p>حزمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من مثيل eRegistrations فوق نفس الخدمات في مثيل آخر، مع الحفاظ على معرّفات الخدمات وقواعد بيانات GDB ومراجع BOT وخيارات الاستعادة.</p>
+    <p>حزمة Copy service suite هي نموذج أوّلي لهذا النهج. تساعدنا في نسخ الخدمات القائمة من <span class="term" data-def="نسخة منشورة من منصة eRegistrations تعمل لبلد أو بيئة محددة، مثل cuba أو cuba-dev. (Instance)">مثيل</span> eRegistrations فوق نفس الخدمات في مثيل آخر، مع الحفاظ على معرّفات الخدمات و<span class="term" data-def="قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية. (Generic Database)">قواعد بيانات GDB</span> ومراجع <span class="term" data-def="تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا. (BOT)">BOT</span> وخيارات الاستعادة.</p>
     <p>نستخدم هذه الحزمة بشكل خاص عند الترقية. على سبيل المثال، عند نقل مثيل من eR 2.13 إلى 2.18، ننسخ الخدمات إلى مثيل يعمل عليه الإصدار الجديد مسبقًا، ونختبرها ونصلح الأخطاء هناك، ثم نعيدها لتتم الترقية بمخاطر أقل. طوّرت روكسانا <a href="https://github.com/UNCTAD-eRegistrations/plugin-marketplace/tree/main/plugins/devops/skills/upgrade-eregistrations-instance">مهارة ترقية</a> منفصلة لترقية المثيل نفسه.</p>
   </div>
 </details>
@@ -2424,7 +2473,7 @@ td {
     </div>
 
     <div class="step">
-      <div class="step-title">س: ما هو المثيل المصدر والوجهة؟</div>
+      <div class="step-title">س: ما هو المثيل <span class="term" data-def="المثيل الذي تُنسخ منه الخدمات. (Origin instance)">المصدر</span> و<span class="term" data-def="المثيل الذي تُنسخ إليه الخدمات. (Destination instance)">الوجهة</span>؟</div>
       <div class="response-hint">بعد إجابة المستخدم</div>
       <div class="detail">
         <p>يتصل بكلا المثيلين ويكتشف إصدارات BPA تلقائيًا.</p>
@@ -2482,7 +2531,7 @@ td {
           <div class="gdb-case">
             <div class="case-label">GDB غير موجودة في الوجهة</div>
             <div class="case-detail">
-              <p><span class="mono">gdb copy</span> ينشئها (نفس الاسم، نفس المخطط). ينسخ البيانات من المصدر عند الحاجة.</p>
+              <p><span class="mono">gdb copy</span> ينشئها (نفس الاسم، نفس <span class="term" data-def="هيكل قاعدة البيانات: تعريف الحقول وأنواعها وعلاقاتها. (Schema)">المخطط</span>). ينسخ البيانات من المصدر عند الحاجة.</p>
             </div>
           </div>
 
@@ -2511,7 +2560,7 @@ td {
             <div class="case-label">بنية مختلفة</div>
             <div class="case-detail">
               <p><span class="mono">gdb copy</span> يحصل على قيمة <span class="mono">field_map</span> من compare.</p>
-              <p>يعرض للمستخدم: خطة الترحيل مع تعيين الحقول + الحقول التي ستفقد بياناتها.</p>
+              <p>يعرض للمستخدم: خطة <span class="term" data-def="نقل البيانات من إصدار قديم لقاعدة البيانات إلى إصدار جديد، مع تحويل الحقول عند الضرورة. (Migration)">الترحيل</span> مع تعيين الحقول + الحقول التي ستفقد بياناتها.</p>
               <p>يسأل: قبول / تعديل / إلغاء؟</p>
               <p>ينشئ إصدارًا جديدًا من GDB في الوجهة بمخطط المصدر. يرحّل البيانات من الوجهة (الإصدار القديم &rarr; الجديد) مع تحويل الحقول.</p>
               <p>يعرض النتائج + عيّنة من السجلات.</p>
@@ -2532,7 +2581,7 @@ td {
 <details class="phase-section">
   <summary>
     <span class="phase-num">٣</span>
-    <h2>مرحلة الدمج</h2>
+    <h2>مرحلة <span class="term" data-def="استيراد محتوى الخدمة المصدر فوق الخدمة الوجهة مع الحفاظ على المعرّف. (Merge)">الدمج</span></h2>
   </summary>
   <div class="phase-content">
     <p class="phase-note">لكل خدمة مختارة</p>
@@ -2541,15 +2590,15 @@ td {
       <summary><h2>النسخ الاحتياطي، المراجعة، الاستيراد، التحديث</h2></summary>
       <div class="content">
         <div class="merge-step">
-          <strong>النسخ الاحتياطي</strong>
-          <p>يحفظ لقطة كاملة لخدمة الوجهة قبل أي تغيير. في حالة حدوث خطأ، تستعيد هذه اللقطة الخدمة إلى حالتها السابقة بالضبط.</p>
+          <strong><span class="term" data-def="حفظ نسخة كاملة من الخدمة قبل أي تغيير، يمكن استعادتها إذا حدث خطأ. (Backup)">النسخ الاحتياطي</span></strong>
+          <p>يحفظ <span class="term" data-def="صورة كاملة للحالة في لحظة معينة، تُستخدم للاستعادة الفورية. (Snapshot)">لقطة</span> كاملة لخدمة الوجهة قبل أي تغيير. في حالة حدوث خطأ، تستعيد هذه اللقطة الخدمة إلى حالتها السابقة بالضبط.</p>
         </div>
         <div class="merge-step">
           <strong>فحص النشر</strong>
           <p>إذا كانت خدمة الوجهة منشورة، فهي نشطة. قد يستخدمها المواطنون والموظفون. السؤال: هل تُدمج في هذه الخدمة النشطة؟ (يُفضّل إلغاء النشر أولًا أو الدمج أثناء فترة الصيانة.)</p>
         </div>
         <div class="merge-step">
-          <strong>الاستيراد</strong>
+          <strong><span class="term" data-def="إدخال خدمة من ملف خارجي إلى المثيل، مع تنفيذ التحققات اللازمة. (Import)">الاستيراد</span></strong>
           <p>ينفّذ <span class="mono">service_import_on_top</span>.</p>
         </div>
         <div class="merge-step">
@@ -2568,7 +2617,7 @@ td {
 <details class="phase-section">
   <summary>
     <span class="phase-num">٤</span>
-    <h2>التحقق</h2>
+    <h2><span class="term" data-def="فحص المثيل بعد الدمج للتأكد من سلامة جميع المراجع وBOTs. (Verification)">التحقق</span></h2>
   </summary>
   <div class="phase-content">
     <p>يفحص المثيل الوجهة <strong>بالكامل</strong>، وليس فقط الخدمات المعدّلة &mdash; فتغيير GDB واحد قد يُعطّل BOT في خدمة أخرى.</p>
@@ -2581,7 +2630,7 @@ td {
 <details class="phase-section">
   <summary>
     <span class="phase-num">٥</span>
-    <h2>التقرير</h2>
+    <h2><span class="term" data-def="ملخص نهائي للعملية: الخدمات المنسوخة، تغييرات GDB، حالة BOT، ومسارات النسخ الاحتياطي. (Report)">التقرير</span></h2>
   </summary>
   <div class="phase-content">
     <p>الخدمات المنسوخة (الاسم، المعرّف، audit_id).</p>
@@ -2593,6 +2642,47 @@ td {
 </details>
 
 </details><!-- /part-wrapper -->
+
+<details class="glossary-section">
+  <summary><h2>📘 معجم المصطلحات</h2></summary>
+  <div class="content">
+    <p class="glossary-hint">قائمة موحّدة بالمصطلحات الأساسية ومرادفاتها الإنجليزية المعتمدة.</p>
+    <dl style="display:grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; margin: 0;">
+      <dt><strong>المهارة</strong> (Skill)</dt>
+      <dd>تعليمات مكتوبة بلغة بشرية، يقرأها الوكيل ويحوّلها إلى أفعال باستخدام الأدوات المتاحة.</dd>
+      <dt><strong>الحزمة</strong> (Suite)</dt>
+      <dd>مجموعة من المهارات تعمل معًا، حيث تستدعي المهارة الرئيسية مهارات متخصصة عند الحاجة.</dd>
+      <dt><strong>ملف البلد</strong> (Country file)</dt>
+      <dd>ذاكرة مشتركة بين الفريق والوكلاء، تجمع المعلومات والقرارات والدروس المستفادة عن بلد ما.</dd>
+      <dt><strong>الوكيل</strong> (AI agent)</dt>
+      <dd>برنامج ذكاء اصطناعي يقرأ المهارات ويستخدم الأدوات لتنفيذ المهام.</dd>
+      <dt><strong>المثيل</strong> (Instance)</dt>
+      <dd>نسخة منشورة من منصة eRegistrations تعمل لبلد أو بيئة محددة، مثل cuba أو cuba-dev.</dd>
+      <dt><strong>GDB</strong> (Generic Database)</dt>
+      <dd>قاعدة بيانات عامة تستخدمها الخدمات لتخزين القوائم والكتالوجات والبيانات المرجعية.</dd>
+      <dt><strong>BOT</strong></dt>
+      <dd>تكامل آلي يربط حقول النموذج بقاعدة بيانات GDB لجلب البيانات أو حفظها تلقائيًا.</dd>
+      <dt><strong>المصدر / الوجهة</strong> (Origin / Destination)</dt>
+      <dd>المثيل الذي تُنسخ منه الخدمات (المصدر) والمثيل الذي تُنسخ إليه (الوجهة).</dd>
+      <dt><strong>المخطط</strong> (Schema)</dt>
+      <dd>هيكل قاعدة البيانات: تعريف الحقول وأنواعها وعلاقاتها.</dd>
+      <dt><strong>الترحيل</strong> (Migration)</dt>
+      <dd>نقل البيانات من إصدار قديم لقاعدة البيانات إلى إصدار جديد، مع تحويل الحقول عند الضرورة.</dd>
+      <dt><strong>النسخ الاحتياطي</strong> (Backup)</dt>
+      <dd>حفظ نسخة كاملة من الخدمة قبل أي تغيير، يمكن استعادتها إذا حدث خطأ.</dd>
+      <dt><strong>اللقطة</strong> (Snapshot)</dt>
+      <dd>صورة كاملة للحالة في لحظة معينة، تُستخدم للاستعادة الفورية.</dd>
+      <dt><strong>الدمج</strong> (Merge)</dt>
+      <dd>استيراد محتوى الخدمة المصدر فوق الخدمة الوجهة مع الحفاظ على المعرّف.</dd>
+      <dt><strong>الاستيراد</strong> (Import)</dt>
+      <dd>إدخال خدمة من ملف خارجي إلى المثيل، مع تنفيذ التحققات اللازمة.</dd>
+      <dt><strong>التحقق</strong> (Verification)</dt>
+      <dd>فحص المثيل بعد الدمج للتأكد من سلامة جميع المراجع وBOTs.</dd>
+      <dt><strong>التقرير</strong> (Report)</dt>
+      <dd>ملخص نهائي للعملية: الخدمات المنسوخة، تغييرات GDB، حالة BOT، ومسارات النسخ الاحتياطي.</dd>
+    </dl>
+  </div>
+</details>
 
 
 <!-- PAGE 2 (hidden for now) -->
@@ -3534,6 +3624,27 @@ document.addEventListener('keydown', e => {
 
 const langParam = new URLSearchParams(location.search).get('lang');
 if (langParam && ['en','sp','fr','fa','ar','el'].includes(langParam)) setLang(langParam);
+
+// Inline glossary: tap-to-pin on touch devices, ESC to dismiss.
+(function initGlossaryTooltips() {
+  document.querySelectorAll('.term').forEach(function(el) {
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    el.addEventListener('click', function(e) {
+      var wasPinned = el.classList.contains('is-pinned');
+      document.querySelectorAll('.term.is-pinned').forEach(function(t) { t.classList.remove('is-pinned'); });
+      if (!wasPinned) el.classList.add('is-pinned');
+      e.stopPropagation();
+    });
+  });
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.term.is-pinned').forEach(function(t) { t.classList.remove('is-pinned'); });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.term.is-pinned').forEach(function(t) { t.classList.remove('is-pinned'); });
+    }
+  });
+})();
 </script>
 </body>
 </html>
