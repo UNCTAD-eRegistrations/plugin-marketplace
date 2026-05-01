@@ -844,6 +844,40 @@ td {
 .container[data-lang="ar"] details > summary { direction: rtl; }
 .container[data-lang="ar"] .intro-card { text-align: right; }
 
+/* --- RTL chevron fixes for <details>/<summary> (AR scope) --- */
+/* Generic details (incl. intro-section, intro-card, part-wrapper, nested):
+   pin the ::before chevron to the physical right edge of the summary,
+   and flip the closed-state arrow to point left toward the title. */
+.container[data-lang="ar"] details > summary {
+  position: relative;
+  padding-right: 1.1rem;
+}
+.container[data-lang="ar"] details > summary::before {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%) rotate(135deg);
+}
+.container[data-lang="ar"] details[open] > summary::before {
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* Phase-section: ::after chevron sits at flex end via margin-left:auto in LTR.
+   In RTL the natural mirror puts it on the LEFT side (already visible in the
+   current rendering). Just flip the closed-state direction to point left. */
+.container[data-lang="ar"] .phase-section > summary::after {
+  transform: rotate(135deg);
+}
+.container[data-lang="ar"] .phase-section[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+/* Reset Latin-direction quirks for the access-skills toggle (small + muted) */
+.container[data-lang="ar"] .access-skills > summary {
+  padding-right: 0.9rem;
+}
+
 /* --- Inline glossary tooltips (AR scope for now) --- */
 .container[data-lang="ar"] .term {
   border-bottom: 1px dashed var(--accent, #4a90e2);
