@@ -19,7 +19,7 @@ license: UNCTAD-Internal
 compatibility: Requires the eRegistrations deployment-config repo on disk and an authenticated CLI for the host VCS (gh for GitHub origins; for Bitbucket origins the orchestrator prints a manual PR link after push). Sub-skills add their own preconditions.
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(test *), Bash(grep *), Bash(ls *), Bash(basename *), Bash(dirname *), Bash(gh *), Skill, AskUserQuestion
 metadata:
-  version: "3.0.1"
+  version: "3.0.2"
   version-date: "2026-04-30"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country> <env>] [<from>-to-<to>]"
@@ -349,8 +349,8 @@ This PR is the squashed result of <N_completed> chained version step(s):
 
 <aggregate the "Transformations applied" sections from each sub-skill's PR body
 template, deduplicating where they overlap. Each step's transformations are
-documented in its individual SKILL.md; reproduce the bullet list here so the
-reviewer doesn't need to chase three skill files.>
+documented in its individual SKILL.md; reproduce the bullet list here so anyone
+reading the PR doesn't need to chase three skill files.>
 
 ## Anomalies skipped
 
