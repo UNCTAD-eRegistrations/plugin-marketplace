@@ -20,10 +20,13 @@ compatibility: >
   `.env` is sourced on the deployment host. For swarm-post-cleanup stacks
   whose Mongo credentials are hidden inside `*_MONGODB_URI` secrets, a sibling
   `init-swarm.sh` is the canonical source for the user/db/password var
-  mapping; the skill prompts when it cannot be located.
+  mapping; the skill prompts when it cannot be located. The generated script
+  assumes Postgres on the same host as the script (peer auth via
+  `sudo -u postgres psql`) and MongoDB reachable at `$SERVICE_HOST:27017`. For
+  remote/dockerized Postgres, `--pg-tcp` switches to TCP+password.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(test *), Bash(ls *), Bash(grep *), Bash(diff *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
   version-date: "2026-05-04"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<path-to-docker-stack.yml-or-instance-dir>"
@@ -262,25 +265,26 @@ Render `literal` values plain and `envvar` values prefixed with `$`. If pre-flig
 
 ### Phase 3: Connection-credential strategy
 
-The generated script needs:
-- Postgres superuser credentials to run `ALTER USER` on each application role
-- MongoDB admin credentials to run `db.changeUserPassword` on each application user
+The generated script needs to authenticate as a privileged user against each engine to run `ALTER USER` / `db.changeUserPassword`. eRegistrations DB hosts run Postgres and MongoDB on the same machine that operators SSH into, so the defaults are tuned for that:
 
-eRegistrations does **not** standardize where these live — they belong to the DB host bootstrap, not the stack `.env`. The generated script accepts them via env vars (`PG_SUPER_USER`, `PG_SUPER_PASSWORD`, `MONGO_ADMIN_USER`, `MONGO_ADMIN_PASSWORD`) or interactive prompts.
+**Postgres — peer auth via `sudo -u postgres psql` (default).**
+The eRegistrations DB-host operator account has `sudo` rights to switch to the `postgres` OS user, which maps to the `postgres` superuser DB role via peer authentication on the local Unix socket. No password is required, no TCP listener is needed, and there is no superuser password to handle anywhere. The generated script runs:
 
-```
-question: "Where should the generated script source the Postgres + Mongo super-credentials?"
-options:
-  - label: "Env vars or prompt at run time (Recommended)"
-    description: "Operator exports PG_SUPER_PASSWORD / MONGO_ADMIN_PASSWORD before running, or types them when prompted"
-  - label: "Read from .env if present"
-    description: "Source POSTGRES_PASSWORD and MONGO_INITDB_ROOT_PASSWORD from .env, fall back to prompt"
-  - label: "Hard-code into the script"
-    description: "NOT recommended — only for ephemeral lab use"
-default: "Env vars or prompt at run time"
+```bash
+sudo -u "$PG_OS_USER" psql -d postgres -v ON_ERROR_STOP=1 <<< "$(emit_pg_sql)"
 ```
 
-If the user picks "Hard-code", abort and explain: *"Refusing to write a script with embedded super-credentials. Use the recommended option and pass them at runtime."* This is the one case where the skill overrides user choice — the security cost is too high.
+`PG_OS_USER` defaults to `postgres` and is overridable via env var (rare — only matters when the OS user is renamed).
+
+**Postgres — TCP fallback (opt-in).**
+For stacks where peer auth isn't possible (dockerized postgres on the same host, postgres on a remote host, the operator account doesn't have sudo, etc.), pass `--pg-tcp` (or set `PG_VIA=tcp` in the environment). The script then connects via TCP+password using `PG_TCP_USER` / `PG_TCP_PASSWORD` (prompted if unset) at `$SERVICE_HOST:5432`.
+
+**MongoDB — TCP+admin password (always).**
+MongoDB has no OS-level peer auth equivalent. The generated script connects to `mongodb://$MONGO_ADMIN_USER:$MONGO_ADMIN_PASSWORD@$SERVICE_HOST:27017/admin?authSource=admin`. `MONGO_ADMIN_USER` defaults to `admin`; `MONGO_ADMIN_PASSWORD` is prompted at run time (silent) if unset.
+
+The skill does **not** ask the user about these at generation time — the defaults match every standard eRegistrations DB host. The operator chooses TCP at run time only when peer auth isn't an option.
+
+**Hard-coding super-credentials remains forbidden.** The skill never writes `PG_TCP_PASSWORD` or `MONGO_ADMIN_PASSWORD` into the generated script. If asked to, refuse and explain: *"Super-credentials must be passed at runtime via env or prompt. Refusing to embed them in a checked-out file."*
 
 ### Phase 4: Generation
 
@@ -351,14 +355,22 @@ If dry-run was selected, print the rendered script + the discovered user table t
 #   -m, --mongo-only    Only sync MongoDB users
 #   -h, --help          Show this help
 #
-# Required at run-time (env or prompt):
-#   PG_SUPER_USER         (default: postgres)
-#   PG_SUPER_PASSWORD
+# Postgres connection (default: peer auth via sudo):
+#   PG_OS_USER            OS user to sudo to (default: postgres). The matching
+#                         DB role is implied by peer authentication.
+#
+# Postgres connection (TCP override, when peer auth isn't available — pass
+# --pg-tcp or set PG_VIA=tcp):
+#   PG_TCP_USER           (default: postgres)
+#   PG_TCP_PASSWORD       (prompted at run time if unset)
+#
+# MongoDB connection (always TCP):
 #   MONGO_ADMIN_USER      (default: admin)
-#   MONGO_ADMIN_PASSWORD
+#   MONGO_ADMIN_PASSWORD  (prompted at run time if unset)
 #
 # Honoured from .env:
-#   SERVICE_HOST          (default: __SERVICE_HOST_FALLBACK__)
+#   SERVICE_HOST          (default: __SERVICE_HOST_FALLBACK__) — used for Mongo
+#                         and for Postgres only when --pg-tcp is set
 #   plus every password env-var named in PG_USERS / MONGO_USERS below.
 
 set -eu
@@ -370,6 +382,7 @@ MODE="apply"
 OUT_DIR="."
 ENV_FILE="__ENV_FILE_HINT__"
 SCOPE="all"
+PG_VIA="${PG_VIA:-peer}"   # peer (default) | tcp
 
 show_help() {
     sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -382,6 +395,7 @@ while [[ $# -gt 0 ]]; do
         -o|--output-dir) OUT_DIR="${2:?--output-dir requires an argument}"; shift 2 ;;
         -p|--pg-only)    SCOPE="pg"; shift ;;
         -m|--mongo-only) SCOPE="mongo"; shift ;;
+        --pg-tcp)        PG_VIA="tcp"; shift ;;
         -h|--help)       show_help; exit 0 ;;
         -*) echo -e "${RED}Unknown option: $1${NC}" >&2; exit 1 ;;
         *)  ENV_FILE="$1"; shift ;;
@@ -510,10 +524,17 @@ emit_mongo_js() {
 }
 
 apply_pg() {
-    PGPASSWORD="$PG_SUPER_PASSWORD" psql \
-        -h "$SERVICE_HOST" -p 5432 -U "$PG_SUPER_USER" -d postgres \
-        -v ON_ERROR_STOP=1 \
-        <<< "$(emit_pg_sql)"
+    if [ "$PG_VIA" = "tcp" ]; then
+        PGPASSWORD="$PG_TCP_PASSWORD" psql \
+            -h "$SERVICE_HOST" -p 5432 -U "$PG_TCP_USER" -d postgres \
+            -v ON_ERROR_STOP=1 \
+            <<< "$(emit_pg_sql)"
+    else
+        sudo -u "$PG_OS_USER" psql \
+            -d postgres \
+            -v ON_ERROR_STOP=1 \
+            <<< "$(emit_pg_sql)"
+    fi
 }
 
 apply_mongo() {
@@ -526,10 +547,15 @@ preflight
 
 case "$MODE" in
     apply)
-        PG_SUPER_USER="${PG_SUPER_USER:-postgres}"
+        PG_OS_USER="${PG_OS_USER:-postgres}"
+        PG_TCP_USER="${PG_TCP_USER:-postgres}"
         MONGO_ADMIN_USER="${MONGO_ADMIN_USER:-admin}"
-        if [ "$SCOPE" != "mongo" ]; then prompt_if_unset PG_SUPER_PASSWORD 1;    fi
-        if [ "$SCOPE" != "pg"    ]; then prompt_if_unset MONGO_ADMIN_PASSWORD 1; fi
+        if [ "$SCOPE" != "mongo" ] && [ "$PG_VIA" = "tcp" ]; then
+            prompt_if_unset PG_TCP_PASSWORD 1
+        fi
+        if [ "$SCOPE" != "pg" ]; then
+            prompt_if_unset MONGO_ADMIN_PASSWORD 1
+        fi
         ;;
 esac
 
