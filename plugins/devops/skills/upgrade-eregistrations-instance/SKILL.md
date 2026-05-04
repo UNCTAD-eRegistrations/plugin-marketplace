@@ -3,24 +3,25 @@ name: upgrade-eregistrations-instance
 description: >
   Orchestrator for upgrading a single eRegistrations instance to a target platform
   version. Resolves the instance from a natural-language phrase like "lesotho test" or
-  "syria2 test 2.18", auto-detects the source version from `unctad/*` image tags,
-  detects the deployment shape (docker-compose vs docker-stack/swarm), and dispatches
-  to a chain of upgrade sub-skills covering one version step each. For single-step
-  pairs (e.g. 2.17 → 2.18) it forwards to one sub-skill; for multi-step pairs (e.g.
-  2.15 → 2.18) it owns the branch lifecycle: creates one branch, runs sub-skills
-  in chain mode (commit-only), squashes their per-step commits into one, pushes,
-  and opens a single PR. LIVE
-  retype-country rail fires once before the first step in any chain. Other version
-  pairs and the `compose` shape abort cleanly with a "no chain registered" message.
-  The 2.17 → 2.18 upgrade and chains involving it assume the instance has already
-  been migrated to swarm — instances still on `docker-compose.yml` route to
-  `/docker-swarm-migration` first.
+  "syria2 test 2.18", auto-detects the source version from `unctad/*` image tags
+  (with `EREGISTRATIONS_VERSION` as the tiebreaker between 2.14 and 2.15, which both
+  use the `:RC` platform tag; `$<VAR>_VER`-style and pinned-semver tags resolve to
+  2.13), detects the deployment shape (docker-compose vs docker-stack/swarm), and
+  dispatches to a chain of upgrade sub-skills covering one version step each. For
+  single-step pairs (e.g. 2.17 → 2.18) it forwards to one sub-skill; for multi-step
+  pairs (e.g. 2.13 → 2.18) it owns the branch lifecycle: creates one branch, runs
+  sub-skills in chain mode (commit-only), squashes their per-step commits into one,
+  pushes, and opens a single PR. LIVE retype-country rail fires once before the first
+  step in any chain. Supported source versions: 2.13, 2.14, 2.15, 2.16, 2.17. Other
+  version pairs and the `compose` shape abort cleanly with a "no chain registered"
+  message. The chain assumes the instance has already been migrated to swarm —
+  instances still on `docker-compose.yml` route to `/docker-swarm-migration` first.
 license: UNCTAD-Internal
 compatibility: Requires the eRegistrations deployment-config repo on disk and an authenticated CLI for the host VCS (gh for GitHub origins; for Bitbucket origins the orchestrator prints a manual PR link after push). Sub-skills add their own preconditions.
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(test *), Bash(grep *), Bash(ls *), Bash(basename *), Bash(dirname *), Bash(gh *), Skill, AskUserQuestion
 metadata:
-  version: "3.0.2"
-  version-date: "2026-04-30"
+  version: "3.2.0"
+  version-date: "2026-05-04"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country> <env>] [<from>-to-<to>]"
   jira: "TOBE-17814"
@@ -55,12 +56,21 @@ The table maps `(<env>, <from>, <to>, <shape>)` to a **chain** — an ordered li
 | any | 2.15 | 2.16 | swarm | `[/upgrade-2.15-to-2.16]` |
 | any | 2.15 | 2.17 | swarm | `[/upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17]` |
 | any | 2.15 | 2.18 | swarm | `[/upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17, /upgrade-2.17-to-2.18]` |
+| any | 2.14 | 2.15 | swarm | `[/upgrade-2.14-to-2.15]` |
+| any | 2.14 | 2.16 | swarm | `[/upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16]` |
+| any | 2.14 | 2.17 | swarm | `[/upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17]` |
+| any | 2.14 | 2.18 | swarm | `[/upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17, /upgrade-2.17-to-2.18]` |
+| any | 2.13 | 2.14 | swarm | `[/upgrade-2.13-to-2.14]` |
+| any | 2.13 | 2.15 | swarm | `[/upgrade-2.13-to-2.14, /upgrade-2.14-to-2.15]` |
+| any | 2.13 | 2.16 | swarm | `[/upgrade-2.13-to-2.14, /upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16]` |
+| any | 2.13 | 2.17 | swarm | `[/upgrade-2.13-to-2.14, /upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17]` |
+| any | 2.13 | 2.18 | swarm | `[/upgrade-2.13-to-2.14, /upgrade-2.14-to-2.15, /upgrade-2.15-to-2.16, /upgrade-2.16-to-2.17, /upgrade-2.17-to-2.18]` |
 | any | any | any | compose | _(unregistered)_ — run `/docker-swarm-migration` first |
 | any | any | any | coolify | _(unregistered)_ — out of scope (Coolify-managed) |
 
 Each row covers all five envs in one entry; sub-skills handle env-aware anomaly thresholds internally.
 
-To extend: write a new atomic sub-skill (e.g. `/upgrade-2.18-to-2.19`) and add the rows that include it. Adding a 2.14 → 2.18 entry, for instance, would only require a new `/upgrade-2.14-to-2.15` sub-skill plus rows from `(2.14, 2.15)` through `(2.14, 2.18)`.
+To extend: write a new atomic sub-skill (e.g. `/upgrade-2.18-to-2.19` for a future version, or `/upgrade-2.13-to-2.14` for a deeper history reach) and add the rows that include it.
 
 ## Conventions
 
@@ -68,7 +78,7 @@ To extend: write a new atomic sub-skill (e.g. `/upgrade-2.18-to-2.19`) and add t
 - **`<env>`** — one of `dev`, `test`, `preview`, `prelive`, `live`. Maps to `Conf-DEV`, `Conf-TEST`, `Conf-PREVIEW`, `Conf-PRELIVE`, `Conf-LIVE`.
 - **`<country>`** — a folder name under `Conf-<UPPER_ENV>/compose/`.
 - **`<shape>`** — `compose` if `docker-compose.yml` is the authoritative file in the instance dir; `swarm` if `docker-stack.yml`.
-- **Tag-to-version mapping** (used for source-version detection): `:RC` → `2.15`, `:BETA` → `2.16`, `:2.17` → `2.17`, `:2.18` → `2.18`.
+- **Tag-to-version mapping** (used for source-version detection): `$<SERVICE>_VER`-style or pinned-semver tags (e.g. `:1.260.10`, `:5.17.7-0`) → `2.13`, `:RC` → `2.14` *or* `2.15` (ambiguous — disambiguated by `EREGISTRATIONS_VERSION`, see STEP 3), `:BETA` → `2.16`, `:2.17` → `2.17`, `:2.18` → `2.18`.
 
 ## STEP 0: Pre-flight
 
@@ -134,12 +144,19 @@ Auto-detect the source version from the unctad image tags in `<TARGET>`. If `<fr
 
 2. **Map tags to versions** using the table in *Conventions*. Country-specific images on `:DEV` (e.g. `unctad/mule3-kenya:DEV`) and the floating-tag services (`statistics-backend:DEV`, `ds-frontend:DEV` pre-2.17) are noise — count them but don't use them for the dominant-tag decision. Specifically, ignore the `mule3-`, `mule4-`, and `cashier-` country variants and the `:DEV`-tagged statistics/ds-frontend pre-2.17 lines.
 
-3. **Pick the dominant version.** The majority of platform-tag occurrences (after filtering noise) determines `<auto_from>`:
-   - All-`:RC` (or majority `:RC`) → `2.15`
+3. **Pick the dominant version.** The majority of platform-tag occurrences (after filtering noise) determines the candidate. Then:
+   - All-`:RC` (or majority `:RC`) → ambiguous between `2.14` and `2.15`. Disambiguate via the `EREGISTRATIONS_VERSION` env var on the canonical service block (prefer `bpa-frontend`, fall back to `ereg-cms-frontend`):
+     ```bash
+     grep -hE 'EREGISTRATIONS_VERSION=["'"'"']?(2\.14|2\.15)' "$TARGET" | sed -E 's/.*EREGISTRATIONS_VERSION=["'"'"']?(2\.14|2\.15).*/\1/' | sort -u
+     ```
+     - Single line `2.14` → `<auto_from>=2.14`.
+     - Single line `2.15` → `<auto_from>=2.15`.
+     - Both / neither / `DEV` → ambiguous: print the histogram and the env-var lines and ask "RC tag could mean 2.14 or 2.15. What is the source version? (`2.14` / `2.15`)".
+   - Majority `$<VAR>_VER` interpolation (tags matching `\$[A-Z_]+_VER`) **or** majority pinned-semver (tags matching `[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9]+)?` and not `:2.17`/`:2.18`) → `2.13`. The `$<VAR>_VER` and pinned-semver schemes were the 2.13 platform conventions, replaced by `:RC` in 2.14.
    - All-`:BETA` (or majority `:BETA`) → `2.16`
    - All-`:2.17` → `2.17`
    - All-`:2.18` → `2.18`
-   - Otherwise: print the histogram and ask: "Mixed image tags detected. What is the source version? (`2.15` / `2.16` / `2.17` / `2.18`)" and use the user's answer as `<auto_from>`.
+   - Otherwise: print the histogram and ask: "Mixed image tags detected. What is the source version? (`2.13` / `2.14` / `2.15` / `2.16` / `2.17` / `2.18`)" and use the user's answer as `<auto_from>`.
 
 4. **Reconcile with args.** If `<from>` was supplied via args and differs from `<auto_from>`, print both and ask: "Argument `<from>` is `<arg>` but the file looks like `<auto_from>`. Use which? (`<arg>` / `<auto_from>`)" — default to `<auto_from>` on empty input.
 
@@ -149,7 +166,7 @@ Auto-detect the source version from the unctad image tags in `<TARGET>`. If `<fr
    grep -q "image:[[:space:]]*unctad/.*:${FROM_PATTERN}" "$TARGET"
    ```
 
-   Tag-to-grep mapping: `2.15` → `RC`, `2.16` → `BETA`, `2.17` → `2.17`, `2.18` → `2.18`. If the grep finds nothing, exit 0 cleanly: "`<country>` `<env>` has no `unctad/*` images on the `<from>` tag pattern — already on `<to>` or never on `<from>`. Nothing to upgrade."
+   Tag-to-grep mapping: `2.13` → `\$[A-Z_]+_VER\|[0-9][0-9.-]*` (env-var-style or pinned-semver), `2.14` → `RC`, `2.15` → `RC`, `2.16` → `BETA`, `2.17` → `2.17`, `2.18` → `2.18`. If the grep finds nothing, exit 0 cleanly: "`<country>` `<env>` has no `unctad/*` images on the `<from>` tag pattern — already on `<to>` or never on `<from>`. Nothing to upgrade."
 
 6. **Idempotency check.** If `<from> == <to>` (e.g. user asked for 2.18 and file is already 2.18), print: "`<country>` `<env>` is already on `<to>`. Nothing to upgrade." Exit 0.
 
@@ -324,11 +341,11 @@ To add a new upgrade path (e.g. 2.18 → 2.19):
 3. Bump this orchestrator's `metadata.version`.
 4. Update `plugins/devops/README.md` to list the new sub-skill.
 
-To add a new "starting from older version" path (e.g. 2.14 → 2.18):
+To add a new "starting from older version" path (e.g. 2.13 → 2.18):
 
-1. Write `plugins/devops/skills/upgrade-2.14-to-2.15/SKILL.md` (one new atomic skill).
-2. Add tag-to-version mapping for the older tag pattern in *Conventions* and STEP 3 (e.g. `:ALPHA` → `2.14`).
-3. Add rows for `(2.14, 2.15)`, `(2.14, 2.16)`, `(2.14, 2.17)`, `(2.14, 2.18)` — each chains the appropriate sub-skill list.
+1. Write `plugins/devops/skills/upgrade-2.13-to-2.14/SKILL.md` (one new atomic skill).
+2. Add tag-to-version mapping for the older tag pattern in *Conventions* and STEP 3. Note: 2.14 and 2.15 share `:RC` and are disambiguated via `EREGISTRATIONS_VERSION` — replicate that approach if 2.13 also reuses an existing platform tag, otherwise add a new tag-to-version row.
+3. Add rows for `(2.13, 2.14)`, `(2.13, 2.15)`, `(2.13, 2.16)`, `(2.13, 2.17)`, `(2.13, 2.18)` — each chains the appropriate sub-skill list.
 4. Bump version, update README.
 
 ## Reference: Multi-step PR body template
