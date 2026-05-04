@@ -26,7 +26,7 @@ compatibility: >
   remote/dockerized Postgres, `--pg-tcp` switches to TCP+password.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(test *), Bash(ls *), Bash(grep *), Bash(diff *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   version-date: "2026-05-04"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<path-to-docker-stack.yml-or-instance-dir>"
@@ -279,8 +279,11 @@ sudo -u "$PG_OS_USER" psql -d postgres -v ON_ERROR_STOP=1 <<< "$(emit_pg_sql)"
 **Postgres — TCP fallback (opt-in).**
 For stacks where peer auth isn't possible (dockerized postgres on the same host, postgres on a remote host, the operator account doesn't have sudo, etc.), pass `--pg-tcp` (or set `PG_VIA=tcp` in the environment). The script then connects via TCP+password using `PG_TCP_USER` / `PG_TCP_PASSWORD` (prompted if unset) at `$SERVICE_HOST:5432`.
 
-**MongoDB — TCP+admin password (always).**
+**MongoDB — TCP+admin password (default).**
 MongoDB has no OS-level peer auth equivalent. The generated script connects to `mongodb://$MONGO_ADMIN_USER:$MONGO_ADMIN_PASSWORD@$SERVICE_HOST:27017/admin?authSource=admin`. `MONGO_ADMIN_USER` defaults to `admin`; `MONGO_ADMIN_PASSWORD` is prompted at run time (silent) if unset.
+
+**MongoDB — no-auth (opt-in).**
+For hosts where `mongod` runs with auth disabled or accepts localhost connections without credentials (common in single-node DEV/eRegistrations setups where the operator's host is the only thing reaching `mongod`), pass `--mongo-noauth` (or set `MONGO_AUTH=none`). The script then connects to `mongodb://$SERVICE_HOST:27017` with no credentials, and the `MONGO_ADMIN_PASSWORD` prompt is skipped.
 
 The skill does **not** ask the user about these at generation time — the defaults match every standard eRegistrations DB host. The operator chooses TCP at run time only when peer auth isn't an option.
 
@@ -364,9 +367,12 @@ If dry-run was selected, print the rendered script + the discovered user table t
 #   PG_TCP_USER           (default: postgres)
 #   PG_TCP_PASSWORD       (prompted at run time if unset)
 #
-# MongoDB connection (always TCP):
+# MongoDB connection (TCP):
 #   MONGO_ADMIN_USER      (default: admin)
 #   MONGO_ADMIN_PASSWORD  (prompted at run time if unset)
+#   --mongo-noauth        Connect without credentials (use when mongod runs
+#                         with auth disabled or accepts localhost without
+#                         password). MONGO_ADMIN_PASSWORD prompt is skipped.
 #
 # Honoured from .env:
 #   SERVICE_HOST          (default: __SERVICE_HOST_FALLBACK__) — used for Mongo
@@ -382,7 +388,8 @@ MODE="apply"
 OUT_DIR="."
 ENV_FILE="__ENV_FILE_HINT__"
 SCOPE="all"
-PG_VIA="${PG_VIA:-peer}"   # peer (default) | tcp
+PG_VIA="${PG_VIA:-peer}"          # peer (default) | tcp
+MONGO_AUTH="${MONGO_AUTH:-required}"  # required (default) | none
 
 show_help() {
     sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -396,6 +403,7 @@ while [[ $# -gt 0 ]]; do
         -p|--pg-only)    SCOPE="pg"; shift ;;
         -m|--mongo-only) SCOPE="mongo"; shift ;;
         --pg-tcp)        PG_VIA="tcp"; shift ;;
+        --mongo-noauth)  MONGO_AUTH="none"; shift ;;
         -h|--help)       show_help; exit 0 ;;
         -*) echo -e "${RED}Unknown option: $1${NC}" >&2; exit 1 ;;
         *)  ENV_FILE="$1"; shift ;;
@@ -538,9 +546,15 @@ apply_pg() {
 }
 
 apply_mongo() {
-    mongosh --quiet \
-        "mongodb://${MONGO_ADMIN_USER}:${MONGO_ADMIN_PASSWORD}@${SERVICE_HOST}:27017/admin?authSource=admin" \
-        --eval "$(emit_mongo_js)"
+    if [ "$MONGO_AUTH" = "none" ]; then
+        mongosh --quiet \
+            "mongodb://${SERVICE_HOST}:27017" \
+            --eval "$(emit_mongo_js)"
+    else
+        mongosh --quiet \
+            "mongodb://${MONGO_ADMIN_USER}:${MONGO_ADMIN_PASSWORD}@${SERVICE_HOST}:27017/admin?authSource=admin" \
+            --eval "$(emit_mongo_js)"
+    fi
 }
 
 preflight
@@ -553,7 +567,7 @@ case "$MODE" in
         if [ "$SCOPE" != "mongo" ] && [ "$PG_VIA" = "tcp" ]; then
             prompt_if_unset PG_TCP_PASSWORD 1
         fi
-        if [ "$SCOPE" != "pg" ]; then
+        if [ "$SCOPE" != "pg" ] && [ "$MONGO_AUTH" = "required" ]; then
             prompt_if_unset MONGO_ADMIN_PASSWORD 1
         fi
         ;;
