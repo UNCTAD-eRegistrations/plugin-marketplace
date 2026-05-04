@@ -9,7 +9,7 @@ description: >
   pairs (e.g. 2.17 → 2.18) it forwards to one sub-skill; for multi-step pairs (e.g.
   2.15 → 2.18) it owns the branch lifecycle: creates one branch, runs sub-skills
   in chain mode (commit-only), squashes their per-step commits into one, pushes,
-  and opens a single PR with `--assignee @me --reviewer benoumemen`. LIVE
+  and opens a single PR. LIVE
   retype-country rail fires once before the first step in any chain. Other version
   pairs and the `compose` shape abort cleanly with a "no chain registered" message.
   The 2.17 → 2.18 upgrade and chains involving it assume the instance has already
@@ -19,7 +19,7 @@ license: UNCTAD-Internal
 compatibility: Requires the eRegistrations deployment-config repo on disk and an authenticated CLI for the host VCS (gh for GitHub origins; for Bitbucket origins the orchestrator prints a manual PR link after push). Sub-skills add their own preconditions.
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(test *), Bash(grep *), Bash(ls *), Bash(basename *), Bash(dirname *), Bash(gh *), Skill, AskUserQuestion
 metadata:
-  version: "3.0.0"
+  version: "3.0.2"
   version-date: "2026-04-30"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country> <env>] [<from>-to-<to>]"
@@ -176,7 +176,7 @@ Look up `(<env>, <from>, <to>, <shape>)` in the dispatch table.
   > - perform the upgrade manually for now."
   Exit 0 (clean — unregistered combos are expected, not failures).
 
-- **Match found, single-step chain (one sub-skill).** Print: "Routing to `<sub-skill>` (`<env>`, `<shape>`, `<from>` → `<to>`)." Call `Skill(skill="<sub-skill-name>", args="<country> <env> BACKUP_CONFIRMED=1")`. The sub-skill creates its own branch, commits, pushes, and opens its own PR (with `--assignee @me --reviewer benoumemen`). When the sub-skill returns, proceed to STEP 6.
+- **Match found, single-step chain (one sub-skill).** Print: "Routing to `<sub-skill>` (`<env>`, `<shape>`, `<from>` → `<to>`)." Call `Skill(skill="<sub-skill-name>", args="<country> <env> BACKUP_CONFIRMED=1")`. The sub-skill creates its own branch, commits, pushes, and opens its own PR. When the sub-skill returns, proceed to STEP 6.
 
 - **Match found, multi-step chain (two or more sub-skills).** The orchestrator owns the branch lifecycle. Run STEP 5a → 5d below.
 
@@ -277,25 +277,21 @@ After the chain runs (whether complete or partially complete), the branch has `<
        --base master \
        --head "$BRANCH" \
        --title "Upgrade <env>.<country> from <from> to <effective_to>" \
-       --body "<body>" \
-       --assignee @me \
-       --reviewer benoumemen
+       --body "<body>"
      ```
 
-   - **Bitbucket:** print the manual link with a reminder:
+   - **Bitbucket:** print the manual link:
 
      ```
      Branch pushed: $BRANCH
      Open the PR via the Bitbucket web UI at:
      https://bitbucket.org/<workspace>/<repo>/pull-requests/new?source=$BRANCH&dest=master
-     Set the assignee to yourself and the reviewer to `benoumemen` in the Bitbucket UI.
      ```
 
 4. **Print summary:**
    ```
    ✓ Chain complete: <from> → <effective_to> in <N_completed> step(s).
    PR: <url>
-   Assignee: @me   Reviewer: benoumemen
    ```
 
 5. **Switch back to master.** `git checkout master`.
@@ -353,8 +349,8 @@ This PR is the squashed result of <N_completed> chained version step(s):
 
 <aggregate the "Transformations applied" sections from each sub-skill's PR body
 template, deduplicating where they overlap. Each step's transformations are
-documented in its individual SKILL.md; reproduce the bullet list here so the
-reviewer doesn't need to chase three skill files.>
+documented in its individual SKILL.md; reproduce the bullet list here so anyone
+reading the PR doesn't need to chase three skill files.>
 
 ## Anomalies skipped
 
