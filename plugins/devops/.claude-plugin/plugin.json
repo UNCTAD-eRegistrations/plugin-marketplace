@@ -1,7 +1,7 @@
 {
   "name": "devops",
-  "description": "DevOps and deployment skills for eRegistrations infrastructure \u2014 Docker Swarm migration, Bitbucket\u2192GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
-  "version": "2.16.2",
+  "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
+  "version": "2.17.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }
