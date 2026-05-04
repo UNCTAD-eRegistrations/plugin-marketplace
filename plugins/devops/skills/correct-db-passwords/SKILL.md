@@ -23,7 +23,7 @@ compatibility: >
   mapping; the skill prompts when it cannot be located.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(test *), Bash(ls *), Bash(grep *), Bash(diff *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   version-date: "2026-05-04"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<path-to-docker-stack.yml-or-instance-dir>"
@@ -450,10 +450,36 @@ note_missing() {
     elif [ -z "$raw" ]; then
         missing_inputs+=("$label (empty literal)")
     fi
+    return 0
 }
 note_missing_envvar() {
     local label="$1" name="$2"
     [ -z "${!name:-}" ] && missing_inputs+=("$label (\$$name)")
+    return 0
+}
+
+preflight() {
+    local row user_spec db_spec pw_var
+    if [ "$SCOPE" != "mongo" ]; then
+        for row in "${PG_USERS[@]}"; do
+            IFS='|' read -r user_spec db_spec pw_var <<< "$row"
+            note_missing       "Postgres user"     "$user_spec"
+            note_missing       "Postgres database" "$db_spec"
+            note_missing_envvar "Postgres password" "$pw_var"
+        done
+    fi
+    if [ "$SCOPE" != "pg" ]; then
+        for row in "${MONGO_USERS[@]}"; do
+            IFS='|' read -r user_spec db_spec pw_var <<< "$row"
+            note_missing       "Mongo user"     "$user_spec"
+            note_missing_envvar "Mongo password" "$pw_var"
+        done
+    fi
+    if [ "${#missing_inputs[@]}" -gt 0 ]; then
+        echo -e "${RED}Aborted - missing in $ENV_FILE:${NC}" >&2
+        printf '  - %s\n' "${missing_inputs[@]}" >&2
+        exit 1
+    fi
 }
 
 emit_pg_sql() {
@@ -463,9 +489,6 @@ emit_pg_sql() {
         user=$(resolve_kv "$user_spec")
         db=$(resolve_kv "$db_spec")
         pw="${!pw_var:-}"
-        note_missing       "Postgres user"     "$user_spec"
-        note_missing       "Postgres database" "$db_spec"
-        note_missing_envvar "Postgres password" "$pw_var"
         printf -- "-- %s @ %s\n" "$user" "$db"
         printf -- "ALTER USER \"%s\" WITH PASSWORD '%s';\n" "$user" "$(sql_escape "$pw")"
     done
@@ -478,8 +501,6 @@ emit_mongo_js() {
         user=$(resolve_kv "$user_spec")
         db=$(resolve_kv "$db_spec")
         pw="${!pw_var:-}"
-        note_missing       "Mongo user"     "$user_spec"
-        note_missing_envvar "Mongo password" "$pw_var"
         # Empty $db → admin DB (RestHeart-style URIs without path).
         [ -z "$db" ] && db="admin"
         printf "// %s @ %s\n" "$user" "$db"
@@ -489,21 +510,19 @@ emit_mongo_js() {
 }
 
 apply_pg() {
-    local sql; sql=$(emit_pg_sql)
-    if [ "${#missing_inputs[@]}" -gt 0 ]; then return 1; fi
     PGPASSWORD="$PG_SUPER_PASSWORD" psql \
         -h "$SERVICE_HOST" -p 5432 -U "$PG_SUPER_USER" -d postgres \
         -v ON_ERROR_STOP=1 \
-        <<< "$sql"
+        <<< "$(emit_pg_sql)"
 }
 
 apply_mongo() {
-    local js; js=$(emit_mongo_js)
-    if [ "${#missing_inputs[@]}" -gt 0 ]; then return 1; fi
     mongosh --quiet \
         "mongodb://${MONGO_ADMIN_USER}:${MONGO_ADMIN_PASSWORD}@${SERVICE_HOST}:27017/admin?authSource=admin" \
-        --eval "$js"
+        --eval "$(emit_mongo_js)"
 }
+
+preflight
 
 case "$MODE" in
     apply)
@@ -529,13 +548,9 @@ if [ "$SCOPE" != "pg" ]; then
         apply)    echo -e "${CYAN}Applying MongoDB updates…${NC}"; apply_mongo && echo -e "${GREEN}[OK] MongoDB synced${NC}" ;;
     esac
 fi
-
-if [ "${#missing_inputs[@]}" -gt 0 ]; then
-    echo -e "${RED}Aborted — missing in $ENV_FILE:${NC}" >&2
-    printf '  - %s\n' "${missing_inputs[@]}" >&2
-    exit 1
-fi
 ```
+
+The `preflight` call near the top of the script (right after `apply`-mode credential prompts) aborts BEFORE any SQL/JS is emitted when a password env-var is missing. That keeps dry-run output truthful — no misleading `WITH PASSWORD ''` lines, then a confusing trailer.
 
 ## Encoding rules
 
