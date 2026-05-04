@@ -19,7 +19,7 @@ license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master with a clean tracked tree. Requires an authenticated CLI for the host VCS (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
   version-date: "2026-04-30"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1] [CHAIN_MODE=1 CHAIN_BRANCH=<name>]"
@@ -309,9 +309,7 @@ In chain mode, the orchestrator owns the branch lifecycle (creation, push, PR). 
        --base master \
        --head "$BRANCH" \
        --title "Upgrade <env>.<country> from 2.17 to 2.18" \
-       --body "<body>" \
-       --assignee @me \
-       --reviewer benoumemen
+       --body "<body>"
      ```
 
      If `gh pr create` fails, leave the branch pushed and the local commit in place. Print the gh error and tell the user: "PR creation failed; the branch is pushed. Open the PR manually."
@@ -322,7 +320,6 @@ In chain mode, the orchestrator owns the branch lifecycle (creation, push, PR). 
      Branch pushed: $BRANCH
      Open the PR via the Bitbucket web UI at:
      https://bitbucket.org/<workspace>/<repo>/pull-requests/new?source=$BRANCH&dest=master
-     Set the assignee to yourself and the reviewer to `benoumemen` in the Bitbucket UI.
      ```
 
 6. **Print the PR URL** — the URL returned by `gh pr create` (GitHub) or the constructed Bitbucket URL on its own line.

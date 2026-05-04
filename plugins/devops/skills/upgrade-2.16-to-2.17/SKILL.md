@@ -20,7 +20,7 @@ license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master (standalone) or on the orchestrator-supplied chain branch (chain mode), with a clean tracked tree. Requires an authenticated CLI for the host VCS in standalone mode (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   version-date: "2026-04-30"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1] [CHAIN_MODE=1 CHAIN_BRANCH=<name>]"
@@ -235,8 +235,8 @@ In **standalone mode** for live envs:
    ```
 4. Push: `git push -u origin "$BRANCH"`.
 5. Open PR:
-   - GitHub: `gh pr create --base master --head "$BRANCH" --title "Upgrade <env>.<country> from 2.16 to 2.17" --body "<body>" --assignee @me --reviewer benoumemen`
-   - Bitbucket: print manual link with reminder to set assignee + reviewer in the UI.
+   - GitHub: `gh pr create --base master --head "$BRANCH" --title "Upgrade <env>.<country> from 2.16 to 2.17" --body "<body>"`
+   - Bitbucket: print manual link.
 6. Print PR URL.
 7. `git checkout master`.
 
