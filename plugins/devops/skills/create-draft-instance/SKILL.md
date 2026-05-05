@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -334,8 +334,8 @@ templates/<client-id>.default-scopes.json.tpl      # array of scope NAMES
 templates/<client-id>.optional-scopes.json.tpl     # array of scope NAMES
 templates/<client-id>.protocol-mappers.json.tpl    # array of mapper objects (only present if non-empty)
 templates/<client-id>.sa-user.json.tpl             # SA user representation (confidential clients only)
-templates/<client-id>.sa-realm-roles.json.tpl      # SA realm-level role mappings (confidential clients only)
-templates/<client-id>.sa-role-mappings.json.tpl    # SA composite role mappings (confidential clients only)
+templates/<client-id>.sa-realm-roles.json.tpl      # SA realm-level role mappings (FLAT ARRAY of RoleRepresentation; confidential clients only)
+templates/<client-id>.sa-role-mappings.json.tpl    # SA composite role mappings (OBJECT with .realmMappings + .clientMappings; confidential clients only)
 ```
 
 **Refreshing the templates**: edit the `.tpl` files directly when client shape changes (new scopes, new mappers, new redirect URI patterns). Bump `metadata.version-date` in this `SKILL.md` when committing template changes so consumers can see when templates last drifted.
@@ -375,8 +375,8 @@ When the skill produces `init-keycloak-clients.sh` for a new instance, it builds
    - `upsert_client(repr_var)`: POST if new, PUT if exists (matched by `clientId`); for confidential clients also `POST /clients/{uuid}/client-secret` to force-set the secret on update paths
    - `assign_default_scopes(client_uuid, scope_names_var)`: for each scope name, GET `/client-scopes` to find the scope UUID, then PUT `/clients/{uuid}/default-client-scopes/{scope-uuid}`
    - `assign_optional_scopes(...)`: same pattern for optional scopes
-   - `assign_sa_realm_roles(client_uuid, role_names_var)`: skip any role matching `default-roles-*` (KC auto-assigns); for other realm role names, GET `/roles/{name}` to fetch role obj, POST array to `/users/{sa-user-uuid}/role-mappings/realm`
-   - `assign_sa_client_roles(client_uuid, mappings_var)`: parse the `clientMappings` portion of `sa-role-mappings.json.tpl`; for each container clientId, resolve its UUID, fetch each named role, POST to `/users/{sa-user-uuid}/role-mappings/clients/{container-uuid}`
+   - `assign_sa_realm_roles(client_uuid, sa_realm_roles_var)`: input is the **flat array** from `sa-realm-roles.json.tpl` — extract names with `jq -r 'if type == "array" then .[].name else (.realmMappings // [] | .[].name) end'` (the `if` form is defensive in case a future template ships the composite shape instead). Skip any role matching `default-roles-*` (KC auto-assigns); for other realm role names, GET `/roles/{name}` to fetch role obj, POST the accumulated array to `/users/{sa-user-uuid}/role-mappings/realm`
+   - `assign_sa_client_roles(client_uuid, sa_role_mappings_var)`: input is the **composite object** from `sa-role-mappings.json.tpl`; iterate `.clientMappings | keys[]` for container clientIds, resolve each container's UUID, fetch each named role from `.clientMappings[<cid>].mappings[].name`, POST to `/users/{sa-user-uuid}/role-mappings/clients/{container-uuid}`
    - For each of the seven clients, an inline heredoc with the substituted JSON, followed by:
      - `upsert_client "$CLIENT_REPR"` → captures returned/looked-up `client_uuid`
      - `assign_default_scopes` and `assign_optional_scopes`
