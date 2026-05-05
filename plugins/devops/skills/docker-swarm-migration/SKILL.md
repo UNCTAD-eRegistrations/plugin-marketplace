@@ -10,8 +10,8 @@ license: UNCTAD-Internal
 compatibility: Requires access to eRegistrations deployment configuration repositories.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(docker *), Bash(ls *), Bash(diff *), Bash(git *), AskUserQuestion, TodoWrite
 metadata:
-  version: "2.1.0"
-  version-date: "2026-04-24"
+  version: "2.2.0"
+  version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<path-to-docker-compose.yml>"
   jira: "TOBE-17731"
@@ -235,6 +235,10 @@ depends_on:            # Swarm ignores; use healthchecks
 restart: always        # Use deploy.restart_policy instead
 container_name: xxx    # Swarm manages container names automatically
 privileged: true       # NOT supported in Swarm; use cap_add instead
+cpus: 0.25             # Compose v2 only — Swarm REJECTS; move to deploy.resources
+mem_reservation: 256M  # Compose v2 only — Swarm REJECTS; move to deploy.resources.reservations.memory
+mem_limit: 512M        # Compose v2 only — Swarm REJECTS; move to deploy.resources.limits.memory
+cpuset:                # Compose v2 only — Swarm REJECTS (no equivalent in deploy)
 
 # KEEP as-is (supported in Swarm):
 cap_add:               # Supported - use instead of privileged
@@ -271,6 +275,21 @@ deploy:
       cpus: '0.25'
       memory: 256M
 ```
+
+**Compose v2 resource fields (cpus / mem_limit / mem_reservation / cpuset):**
+
+Docker Swarm REJECTS the top-level Compose v2 resource fields outright (`docker stack deploy` errors with `property X is not allowed`). When encountered:
+
+1. If the service already has `deploy.resources` covering the same constraint, DELETE the v2 field — it is redundant duplication, not safe redundancy.
+2. If `deploy.resources` is missing, MOVE the constraint into it before deleting:
+   - `cpus: 0.25` → `deploy.resources.reservations.cpus: "0.25"` (note: must be a string in Swarm)
+   - `mem_reservation: 256M` → `deploy.resources.reservations.memory: 256M`
+   - `mem_limit: 512M` → `deploy.resources.limits.memory: 512M`
+   - `cpuset: "0,1"` → no Swarm equivalent; warn user that pinning to specific cores is lost.
+
+Validation that catches this: `docker compose -f docker-stack.yml config` will quietly accept these fields, but `docker stack deploy -c docker-stack.yml <stack>` rejects them. Phase 7's checklist scans for them explicitly.
+
+Lesson learned (TOBE-17731 / test.angola, 2026-05-05): the source `docker-compose.yml` had both `cpus: 0.25` + `mem_reservation: 256M` AND a matching `deploy.resources.reservations` block. The v2 fields were preserved on the assumption that "Swarm just ignores them" — but Swarm **rejects** them at deploy time. Strip them.
 
 **Privileged mode conversion:**
 
@@ -362,9 +381,35 @@ When encountering `build:` directives:
 
 ### Phase 4: Environment Variable Replacement
 
-Docker Swarm does NOT support .env file variable substitution. All `$VAR` placeholders must be replaced with actual values.
+Docker Swarm does NOT natively expand `$VAR` placeholders at `docker stack deploy` time — but the eRegistrations team has two valid workflows for handling them, and the choice belongs to the user. **Ask, do not decide on their behalf.**
 
-**CRITICAL: Never assume $VAR values without explicit user consent.**
+**CRITICAL: Never assume $VAR values without explicit user consent. Never assume the substitution policy either.**
+
+#### Step 0: Substitution Policy (ASK FIRST)
+
+Before touching any value, ask the user how they want `$VAR` placeholders handled. The two production-validated options:
+
+```
+question: "How should $VAR placeholders in the docker-stack.yml be handled?"
+options:
+  - label: "Keep as $VAR (matches sibling stacks like mali, mali-amm)"
+    description: "Sibling stacks keep $YOUR_DOMAIN_NAME, $SYSTEM_CODE, $MAIL_HOST etc. as placeholders. They're rendered at deploy time via `docker compose -f docker-stack.yml config | docker stack deploy -c -`. Only sensitive vars become DOCKER_SECRET refs. No user values needed in this skill."
+  - label: "Replace all $VAR with literal values"
+    description: "Bake actual values (domain, system code, mail host, db names/users, OAuth client IDs, etc.) into docker-stack.yml. Sensitive vars still become DOCKER_SECRET refs. Skill will collect each value via grouped questions."
+default: NONE — must be answered explicitly
+```
+
+**If user picks "Keep as $VAR"**:
+  - Skip Step 1, 2, 3 of this phase entirely.
+  - Pass through every `$VAR` from the source verbatim into the output.
+  - Phase 7's "no remaining $VAR placeholders" check is **inverted** — the placeholders ARE expected; the check becomes "every $VAR present in source is also present in output (no accidental drops)".
+  - The user is responsible for an `.env` file at deploy time; the stack file does NOT carry deployment-specific values.
+
+**If user picks "Replace all $VAR with literal values"**:
+  - Continue to Step 1 below.
+  - Phase 7's "no remaining $VAR" check stays as written.
+
+**Never present "Keep as $VAR" as an automatic default just because a sibling stack does it** — even if mali keeps `$VAR`, the user may want literals for the new instance, and vice versa. Each instance is a separate decision.
 
 #### Step 1: Variable Assumption Policy
 
@@ -406,14 +451,30 @@ options:
 
 #### Step 3: Query User for Values
 
-Organize variables into logical groups and query:
+A typical eRegistrations migration has 30–50 non-sensitive `$VAR` placeholders. AskUserQuestion only allows 1–4 questions per call with 2–4 options each, so direct one-question-per-variable does NOT scale. Use the **grouped-presets-with-override** pattern below.
 
-- **Group 1: Domain & Infrastructure** — YOUR_DOMAIN_NAME, SERVICE_HOST, SYSTEM_CODE, TIME_ZONE
-- **Group 2: Database Configuration** — *_POSTGRES_DB_NAME, *_POSTGRES_DB_USER, *_MONGO_DB_NAME
-- **Group 3: Authentication** — *_OAUTH_CLIENT_ID, KEYCLOAK_REALM, KEYCLOAK_INSTITUTIONS_GROUP_ID
-- **Group 4: Mail Configuration** — MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_FROM
-- **Group 5: Service Configuration** — MINIO_ROOT_USER, RESTHEART_USER, ACTIVEMQ_USER
-- **Group 6: Timeouts & Other** — GUNICORN_HTTP_TIMEOUT, DEFAULT_LANGUAGE
+**Pattern:**
+1. Pre-derive the most-likely-correct default per variable from sibling stack files (e.g. `Conf-<ENV>/compose/<other-country>/docker-stack.yml` for the same env). Convention hints:
+   - Domain → instance subfolder + `.eregistrations.org` (e.g. `angola` folder → `angola.eregistrations.org`); cross-check against any literal hostnames already hardcoded in source (e.g. `KC_HOSTNAME=login.angola.eregistrations.org` → confirms domain).
+   - SYSTEM_CODE → ISO-3166 alpha-2 of the country.
+   - Service usernames (ACTIVEMQ_USER, MINIO_ROOT_USER, RESTHEART_USER, etc.) → `admin` is the team default.
+   - OAuth client IDs → `bpa-backend`, `bpa-frontend`, `camunda-client`, `ds-client`, `gdb-client`, `statistics-backend`, `statistics-frontend`.
+   - Postgres db/user → service-name convention: `bpa/bpa`, `cashier/cashier`, `display_system/display_system`, `gdb/gdb`, `statistics/statistics`, `keycloak` user (db is hardcoded `keycloak`).
+   - Mail → `email-smtp.eu-west-1.amazonaws.com`, port 587, `noreply@eregulations.org` (but the AWS access key is realm-specific; never assume).
+2. Bundle ~5–8 related variables into one question. Two options per question:
+   - **Option A:** "Use defaults below" — list every KEY=VALUE in the question's `description` field so the user sees them all.
+   - **Option B:** "Override one or more" — instructs the user to pick "Other" and type only the KEY=VALUE pairs they want to change, accepting the defaults for the rest.
+3. Send 4 questions per `AskUserQuestion` call. With ~6 logical groups this is 2 rounds.
+4. After receiving each round, parse user-provided overrides (lines like `KEY=VALUE`) and merge over the defaults.
+5. Anything that's a UUID, account-key, or otherwise instance-unique (e.g. `KEYCLOAK_INSTITUTIONS_GROUP_ID`, AWS SES access key, API keys) MUST be flagged in the question's description as "needs your value via Other" — never default these.
+
+**Suggested group skeleton (adapt per source):**
+- **Group 1: Domain & Infrastructure** — YOUR_DOMAIN_NAME, SERVICE_HOST, SYSTEM_CODE, TIME_ZONE, DEFAULT_LANGUAGE, INSTANCE_NAME, TRANSLATION_SERVICE_URL
+- **Group 2: Mail** — MAIL_HOST, MAIL_PORT, MAIL_FROM, MAIL_USERNAME, MAIL_REPLY_TO
+- **Group 3: Service usernames** — ACTIVEMQ_USER, MINIO_ROOT_USER, RESTHEART_USER, GRAYLOG_ROOT_USERNAME, KEYCLOAK_ADMIN_USER
+- **Group 4: OAuth Client IDs + Keycloak group UUID** — *_OAUTH_CLIENT_ID, KEYCLOAK_INSTITUTIONS_GROUP_ID
+- **Group 5: Postgres DB names + users** — *_POSTGRES_DB_NAME, *_POSTGRES_DB_USER (per-service)
+- **Group 6: Misc** — MULE_LOG_LEVEL, FORMIO_EMAIL, GUNICORN_HTTP_TIMEOUT, anything left over
 
 For migrations with 20+ variables, use **TodoWrite** to track replacement progress per group.
 
@@ -461,9 +522,32 @@ create_secret "GRAYLOG_MONGODB_URI" "$GRAYLOG_MONGODB_URI"
 FORMIO_MONGODB_URI="mongodb://${FORMIO_MONGO_DB_USER}:${FORMIO_MONGO_DB_PASSWORD}@docserver_mongo:27017/${FORMIO_MONGO_DB_NAME}"
 create_secret "FORMIO_MONGODB_URI" "$FORMIO_MONGODB_URI"
 
-RESTHEART_MONGO_URI="mongodb://${RESTHEART_MONGO_DB_USER}:${RESTHEART_MONGO_DB_PASSWORD}@${SERVICE_HOST}:27017"
+RESTHEART_MONGO_URI="mongodb://${RESTHEART_MONGO_DB_USER}:${RESTHEART_MONGO_DB_PASSWORD}@mongodb_host:27017"
 create_secret "RESTHEART_MONGO_URI" "$RESTHEART_MONGO_URI"
 ```
+
+**CRITICAL — never bake a literal IP into a Docker secret.**
+
+Docker Swarm secrets are **immutable**: to change a secret's value you must `docker secret rm` it (which requires removing every service that references it first), then `docker secret create` and redeploy. A SERVICE_HOST IP change becomes a multi-service outage.
+
+Always use a hostname placeholder in the URI (`mongodb_host`, `docserver_mongo`, `postgres_host`, etc.) and resolve it via the consuming service's `extra_hosts` block in `docker-stack.yml`. The IP then lives only in `docker-stack.yml`, where editing it is a one-line change + redeploy with no secret churn.
+
+```yaml
+# CORRECT — IP lives in docker-stack.yml, easily editable
+restheart:
+  extra_hosts:
+    - "mongodb_host:172.19.0.1"
+  environment:
+    - "RH_MONGO_URI=DOCKER_SECRET:RESTHEART_MONGO_URI"  # secret value uses @mongodb_host
+```
+
+```yaml
+# WRONG — IP baked into the secret value via init-swarm.sh
+# Secret says: mongodb://user:pass@172.19.0.1:27017
+# Updating the IP now requires deleting the secret + redeploying every consuming service.
+```
+
+Lesson learned (TOBE-17731 / test.angola, 2026-05-05): a SERVICE_HOST IP bump from `172.18.0.1` to `172.19.0.1` triggered the realisation. The `mali` and `mali-amm` reference stacks correctly use `@mongodb_host` in the secret URI but their `restheart:` blocks are MISSING the matching `extra_hosts: mongodb_host:<IP>` entry — a latent bug. Do not propagate that bug. Every service whose secret URI references a hostname placeholder MUST also declare that hostname in its own `extra_hosts`.
 
 ### Phase 6: Generate init-swarm.sh (Optional)
 
@@ -614,18 +698,29 @@ grep -E '\$[A-Z_]+|\$\{[A-Z_]+\}' docker-stack.yml
 
 4. **Run Migration Success Checklist** — verify ALL items:
    - [ ] `docker compose -f docker-stack.yml config` passes without errors
-   - [ ] No remaining `$VAR` or `${VAR}` placeholders in output file
+   - [ ] No remaining `$VAR` or `${VAR}` placeholders in output file (skip this check if user picked "Keep as $VAR" in Phase 4 Step 0; instead verify no placeholders were dropped)
    - [ ] All `depends_on` directives removed
    - [ ] All `restart:` policies converted to `deploy.restart_policy`
    - [ ] Every `restart_policy.condition` is `any` (bare — no `delay`, `max_attempts`, `window`); never `on-failure`, which blocks restart on clean exits
    - [ ] All `container_name` directives removed
    - [ ] All `privileged: true` converted to specific `cap_add` capabilities
+   - [ ] All Compose v2 resource fields removed: `cpus`, `cpuset`, `mem_limit`, `mem_reservation` (Swarm rejects these — equivalents must live in `deploy.resources`)
    - [ ] Networks changed from `bridge` to `overlay` driver
    - [ ] All sensitive variables converted to Docker secrets with `DOCKER_SECRET:` pattern
    - [ ] Secrets section added with all required secrets as `external: true`
+   - [ ] No literal IPs baked into composite secret values (init-swarm.sh URIs use hostname placeholders, not raw IPs); every hostname placeholder used in a secret has a matching `extra_hosts` entry on the consuming service
    - [ ] Service count matches source docker-compose.yml
    - [ ] Stateful services have placement constraints (`node.role == manager`)
    - [ ] init-swarm.sh generated (if requested) with all identified secrets
+
+   **Validation commands worth running explicitly (not all caught by `docker compose config`):**
+   ```bash
+   # v2 resource fields — `docker compose config` accepts them silently, `docker stack deploy` rejects them
+   grep -nE '^[[:space:]]+(cpus|cpuset|mem_limit|mem_reservation):' docker-stack.yml || echo "OK: no v2 resource fields"
+
+   # literal IPs in init-swarm.sh URI assembly (excluding loopback / docker-proxy comments)
+   grep -nE 'create_secret.*[0-9]{1,3}(\.[0-9]{1,3}){3}' init-swarm.sh && echo "WARN: literal IP in secret value" || echo "OK: no literal IPs in secrets"
+   ```
 
 5. **Report any issues found** - Output summary to user
 
@@ -683,7 +778,9 @@ Some services vary between deployments — do not flag as errors:
 | Volume mounts on workers | Use placement constraints or named volumes |
 | Port conflicts across nodes | Use `mode: host` for specific host binding |
 | Memory issues (opensearch, etc.) | Add ulimits and deploy.resources limits |
-| extra_hosts with $VAR | Replace $SERVICE_HOST with actual Docker host IP |
+| `cpus:` / `mem_limit:` / `mem_reservation:` / `cpuset:` rejected by `docker stack deploy` | Compose v2 syntax — move to `deploy.resources.{limits,reservations}` and delete the top-level field. `docker compose config` will not flag this; only `stack deploy` will. |
+| Hard to update host IP (many services to redeploy) | Don't bake IPs into Docker secrets — they're immutable. Use a hostname placeholder (`mongodb_host`, `postgres_host`, `docserver_mongo`) in the secret URI and resolve it via the consuming service's `extra_hosts` block in docker-stack.yml. IP changes then need only a stack file edit + redeploy. |
+| extra_hosts with $VAR | If user picked "Keep as $VAR" in Phase 4: leave `$SERVICE_HOST` in extra_hosts (rendered at deploy time). If user picked "Replace with literals": substitute the actual Docker host IP. |
 | Bash `((VAR++))` exits with `set -e` | Use `((VAR++)) \|\| true` |
 | Service in reference but not source | Ask user — some services are optional |
 
