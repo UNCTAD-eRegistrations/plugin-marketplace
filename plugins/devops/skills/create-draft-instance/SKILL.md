@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -240,7 +240,7 @@ The skill emits a Keycloak client seeding script alongside the docker-stack.yml 
 - **camunda**: `DISPLAY_HOME` → `https://<prefix>.<base>.eregistrations.org`. `KEYCLOAK_URL` stays literal (draft uses LIVE KC). `KEYCLOAK_RESOURCE=draft-camunda`.
 - **mule**: `DISPLAY_MACHINE_EXTERNAL_LINK` → draft domain. `AUTH_SERVICE_URL` stays literal (LIVE KC). `AUTH_RESOURCE=draft-camunda`.
 - **mule-`<country>`**: keep as-is, but if `MULE_ENV` / `ENV` are present, leave the values alone — both `live` and `draft` are observed in the wild and the choice is country-specific.
-- **ds-backend**: `ALLOWED_HOSTS` rewritten for draft domain + bridge IP. `ADDITIONAL_ALLOWED_FRAMES` updated. `EREG_CMS_BACKEND`, `PARTA_URL`, `RESTHEART_PUBLIC_URL`, `STATS_URL`, `NEW_FRONTEND_ORIGIN`, `REDIRECT_ANONYMOUS_URL`, `STRAPI_UPLOAD_URL` → draft variants. `BPA_URL` stays literal. `AUTH_SERVICE_BACKEND_URL` / `AUTH_SERVICE_PUBLIC_URL` stay literal. `AUTH_SERVICE_CLIENT_ID=draft-ds`.
+- **ds-backend**: `ALLOWED_HOSTS` rewritten for draft domain + bridge IP. `ADDITIONAL_ALLOWED_FRAMES` updated. `EREG_CMS_BACKEND`, `PARTA_URL`, `RESTHEART_PUBLIC_URL`, `STATS_URL`, `NEW_FRONTEND_ORIGIN`, `REDIRECT_ANONYMOUS_URL`, `STRAPI_UPLOAD_URL` → draft variants. `BPA_URL` stays literal. `AUTH_SERVICE_BACKEND_URL` / `AUTH_SERVICE_PUBLIC_URL` stay literal. `AUTH_SERVICE_CLIENT_ID=draft-ds-backend-client`. **Standard ds-backend extras** (always emit; absent in LIVE source means `unctad/eregcms` will use defaults that may not be desirable on a draft): `CHROME_URL_TO_PDF_URL=https://<draft-domain>/chrome-url-to-pdf`, `ADMIN_ERROR_REPORTS_ENABLED=1`, `CACHE_FORMS=True`, `GA_ID=<from-LIVE-or-blank>`, `PREVENT_AUTO_GOOGLE_TRANSLATION=False`, `DEFAULT_REQUESTS_TIMEOUT_SECONDS=30`, `GUNICORN_HTTP_TIMEOUT=120`, `REDIRECT_ANONYMOUS_URL=https://<draft-domain>`, `DOCKER_NETWORK=<draft-host-bridge-cidr>` (e.g. `172.18.0.0/16`).
 - **gdb**: `ALLOWED_HOSTS` includes `gdb.<prefix>.<base>.eregistrations.org`. `CORS_ORIGIN_WHITELIST=https://bpa.<live-primary>` (LIVE BPA). `AUTH_SERVICE_*_URL_1` stay literal. `AUTH_SERVICE_CLIENT_ID_1=draft-gdb`. `DS_URL=https://gdb.<prefix>.<base>...`. `APP_TITLE="<prefix-titlecase> <Country>"` (e.g. `"Draft Kenya"`). The 3 `GDB_CLIENT_URL_1` lines from LIVE are NOT carried over to PREVIEW.
 - **statistics-backend**: `ALLOWED_HOSTS`, `FE_BASE_URL` → draft. KC client `draft-statistics-backend`.
 - **statistics-frontend**: `API_BASE_URL`, `DS_URL` → draft. `BPA_URL` stays literal. `APP_TITLE="<Country> - <prefix>"`. KC client `draft-statistics-frontend`.
@@ -268,6 +268,8 @@ networks:
 If LIVE uses additional named networks (e.g. `fortinet`), warn the user and ask whether to carry them over.
 
 **Secrets block** (Swarm shape): copy LIVE's secrets list, **dropping** secrets that only kept services don't reference (e.g. `BPA_DB_PASSWORD`, `BPA_BE_OAUTH_SECRET`, `KEYCLOAK_DB_PASSWORD`, `STRAPI_DB_PASSWORD`, `VITE_GA_MEASUREMENT_ID`, etc. — anything used solely by stripped services). Add `PUBLISHER_OAUTH_CLIENT_SECRET` (used by the new publisher service).
+
+**Secret naming normalization** — LIVE source may use either `_OAUTH_SECRET` or `_OAUTH_CLIENT_SECRET` for the four confidential KC client secrets (kenya/lesotho2 LIVE use the short form; bootstrap convention is the long form). The skill MUST emit the long form: `CAMUNDA_OAUTH_CLIENT_SECRET`, `DS_OAUTH_CLIENT_SECRET`, `GDB_OAUTH_CLIENT_SECRET`, `STATS_BE_OAUTH_CLIENT_SECRET`, `PUBLISHER_OAUTH_CLIENT_SECRET`. When the LIVE source has the short form, rename both the secret declaration and every `DOCKER_SECRET:<name>` reference inside service env blocks. The matching `<instance>-draft-keycloak-secrets.env` mirror keys (Phase 5b output) MUST also use the long form so `init-swarm.sh` on the draft host loads Docker secrets under the names that `docker-stack.yml` references.
 
 **Container-level cleanup**: drop `extra_hosts` entries that pointed at services no longer in the stack (e.g. anything pointing at `<live-primary>` or referencing stripped services).
 
