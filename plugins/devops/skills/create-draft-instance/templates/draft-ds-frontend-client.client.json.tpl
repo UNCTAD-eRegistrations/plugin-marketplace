@@ -45,7 +45,6 @@
     "id.token.as.detached.signature": "false",
     "standard.token.exchange.enabled": "false",
     "saml.encrypt": "false",
-    "login_theme": "kenya",
     "saml.server.signature": "false",
     "exclude.session.state.from.auth.response": "false",
     "saml.artifact.binding": "false",

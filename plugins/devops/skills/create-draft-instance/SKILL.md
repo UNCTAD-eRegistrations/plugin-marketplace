@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -381,8 +381,31 @@ When the skill produces `init-keycloak-clients.sh` for a new instance, it builds
      - `upsert_client "$CLIENT_REPR"` → captures returned/looked-up `client_uuid`
      - `assign_default_scopes` and `assign_optional_scopes`
      - For confidential clients only: `GET /clients/{uuid}/service-account-user` → capture `sa_user_uuid`, then `assign_sa_realm_roles` and `assign_sa_client_roles`
+   - **`seed_client` MUST end with an explicit `return 0`.** Otherwise the function inherits the exit code of its last `[ -n "${!var:-}" ] && fn` test; for public clients (no SA / no protocol-mappers templates), several of those tests evaluate false, the function returns 1, and the tolerant outer loop reports a phantom failure even though every API call succeeded.
 
-6. **Write to** `Conf-PREVIEW/compose/<instance>/init-keycloak-clients.sh` (executable, 0755 perms).
+6. **Wrap each per-client invocation in a tolerant subshell** so a single client's failure does NOT abort the rest of the seeding:
+   ```bash
+   declare -a FAILED=()
+   for cid in <list>; do
+     set +e
+     ( set -e; seed_client "$cid" )
+     rc=$?
+     set -e
+     [ "$rc" -ne 0 ] && FAILED+=("$cid")
+   done
+   ```
+   At the end print the failure list and exit non-zero only if `${#FAILED[@]}` > 0.
+
+7. **Per-instance scope override**: for `draft-camunda-client`, `draft-ds-backend-client`, `draft-ds-frontend-client`, append `"eregistrations"` to `defaultClientScopes` in the substituted client repr (the eregistrations realm scope is the standard role-mapper aggregator on these three clients across all UNCTAD instances). The other four draft clients keep the standard 6-scope default. The seeding script's PUT/POST sends the augmented array; KC honors the assignment idempotently.
+
+8. **Per-instance theme handling**: KC realms set `Login theme` and `Email theme` at the realm level (e.g. `lesotho` on `LS`). A per-client `login_theme` attribute takes precedence over the realm theme — undesirable for drafts, which should always inherit the realm theme. The `seed_client` function MUST defensively force-clear `login_theme` on every upsert by re-setting it to empty in the substituted repr:
+   ```bash
+   CLIENT_REPR=$(jq '.attributes."login_theme" = ""' <<<"${!repr_var}")
+   upsert_client "$CLIENT_REPR"
+   ```
+   This is required because KC PUT does not remove unspecified attributes; any residual `login_theme` from a prior POST persists unless the body explicitly overwrites it. Templates SHOULD also be free of `login_theme` (the kenya-derived public-client templates have it stripped in this skill's `templates/`).
+
+9. **Write to** `Conf-PREVIEW/compose/<instance>/init-keycloak-clients.sh` (executable, 0755 perms).
 
 **Idempotency contract**: re-running `init-keycloak-clients.sh` against a realm that already has the seven `draft-*` clients must not corrupt them. The script:
 - Matches clients by `clientId` (not by UUID, which differs between runs)

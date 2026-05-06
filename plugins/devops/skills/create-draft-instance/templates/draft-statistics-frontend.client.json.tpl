@@ -38,7 +38,6 @@
     "saml.assertion.signature": "false",
     "id.token.as.detached.signature": "false",
     "saml.encrypt": "false",
-    "login_theme": "unctad",
     "saml.server.signature": "false",
     "exclude.session.state.from.auth.response": "false",
     "saml.artifact.binding": "false",
