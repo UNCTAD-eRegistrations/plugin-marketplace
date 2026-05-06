@@ -1,7 +1,7 @@
 {
   "name": "ds-mcp",
   "description": "DS (Display System) MCP server for admin/ops monitoring of eRegistrations application files, workflows, payments, and documents. Requires bpa-mcp plugin for authentication.",
-  "version": "1.30.0",
+  "version": "1.31.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }
