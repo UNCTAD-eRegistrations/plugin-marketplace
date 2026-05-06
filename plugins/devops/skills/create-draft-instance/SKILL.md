@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.4.1"
+  version: "1.4.2"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -315,6 +315,21 @@ Generate `Conf-PREVIEW/haproxy/<instance>/haproxy.cfg` modeled on existing PREVI
     use_backend ds_frontend if is_display_system is_angular_asset
     ```
     Place this `use_backend` BEFORE the path-based new-Angular routing so the asset shortcut wins.
+2b. **TOBE-16081 — POST `/services/*` rewrite to display_system** — Angular ds-frontend handles `GET /services/`, but POST submissions need to reach the OLD ds-backend at `/services-new/*`. MUST come BEFORE the dsfrontend POST/GET routing or form posts get routed to Angular and fail. Block:
+    ```
+    acl is_services path_beg /services/
+    acl is_post     method POST
+    http-request replace-path ^/services/(.*) /services-new/\1 if is_display_system is_services is_post
+    use_backend display_system if is_display_system is_services is_post
+    ```
+2c. **Mule CORS preflight + response header** — without these, browser AJAX to `/mule/api/...` hits CORS errors:
+    ```
+    use_backend cors if is_mule is_options                       # under www-https frontend
+    ...
+    backend mule_backends
+        ...
+        http-response set-header Access-Control-Allow-Origin *
+    ```
 3. **Language-prefix redirects** (strip `^/<2-letter>/` from `/part-b`, `/inspector`, `/financial-report`; rewrite `/files` → `/inspector`)
 4. **Form-preview / WS sub-routing of display_system** (ds-backend exposes 4 different ports for these features):
    - `is_form_preview_pdf` path beg `/form-preview-pdf/` AND `is_form_preview_pdf_backend` path beg `/backend/form-preview-pdf/` → **display_system2** (`127.0.0.1:6028`)
