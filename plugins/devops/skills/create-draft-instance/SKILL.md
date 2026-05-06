@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.1"
+  version: "1.3.2"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -278,8 +278,8 @@ If LIVE uses additional named networks (e.g. `fortinet`), warn the user and ask 
 
 Generate `Conf-PREVIEW/haproxy/<instance>/haproxy.cfg` modeled on existing PREVIEW haproxy files (apiex / burundi / kenya share the same shape). Key elements:
 
-- `crt-base /etc/letsencrypt/live/<prefix>.<base>.eregistrations.org`
-- `bind *:443 ssl crt /etc/letsencrypt/live/<prefix>.<base>.eregistrations.org/haproxy.crt alpn h2,http/1.1`
+- No `crt-base` directive (bootstrap convention is a single combined cert at a fixed path; `crt-base` is only useful when each domain gets its own Letsencrypt-managed dir)
+- `bind *:443 ssl crt /etc/haproxy/haproxy.crt alpn h2,http/1.1` — single combined PEM at `/etc/haproxy/haproxy.crt`. The operator concatenates cert+key+chain into that one file at deploy time (same convention as LIVE eRegistrations stacks).
 - Standard frontends: `stats` (8444), `www_80` (HTTP→HTTPS redirect), `www-https` (the 443 frontend)
 - ACLs and denies for: swagger, form-preview3, restheart actions/users/acl, formio paths (with forbidden-endpoints whitelist support)
 - Path ACLs: `is_restheart`, `is_mule`, `is_publisher`, `formio_path`, `is_options`, `is_stat_be_path`
@@ -538,7 +538,7 @@ A re-run on the same instance should:
 - **Forgot to flag CAS abort**: catch in Phase 2; CAS instances exist (lesotho, elsalvador) but are out of scope.
 - **Stripped a country mule**: `mule-<country>` and `mule4-<country>` MUST stay; only `mule` (the generic) plus stripped frontends/backends are touched. Match by image, not by name pattern.
 - **Bridge IP collision**: if the draft host shares Docker networks with another stack on the same machine, 172.17.0.1 / 172.18.0.1 may already be taken. Operator must verify on the host.
-- **Letsencrypt path mismatch**: haproxy `crt-base` must match the cert directory the operator actually creates; default is `/etc/letsencrypt/live/<prefix>.<base>.eregistrations.org`.
+- **Cert path mismatch**: haproxy `bind` directive expects `/etc/haproxy/haproxy.crt` — a single combined PEM (cert + intermediate chain + private key concatenated) that the operator creates at deploy time on the draft host. eRegistrations LIVE/preview stacks use this single-file convention (NOT per-domain Letsencrypt dirs).
 - **Touching minio resource limits**: existing memory note — don't change `mem_reservation` / `cpus` on minio or minio-init during sync. Copy verbatim.
 - **`extra_hosts` for stripped services**: scrub them; otherwise haproxy / mule will fail DNS for vanished container names.
 
