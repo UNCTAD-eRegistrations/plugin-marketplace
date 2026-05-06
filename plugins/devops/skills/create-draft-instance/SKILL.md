@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.4.0"
+  version: "1.4.1"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -309,6 +309,12 @@ Generate `Conf-PREVIEW/haproxy/<instance>/haproxy.cfg` modeled on existing PREVI
    - `is_ds_frontend_path_7` path beg `/health`
    - `is_ds_frontend_path_8` path reg `^(\/{0,1}$)` (root path)
 2. **New Angular module path ACLs**: `is_ds_partb_path` (`/part-b`), `is_partb_edit_path` (`/part-b/edit` — stays on display_system!), `is_ds_inspector_path` (`/inspector`), `is_ds_financial_report_path` (`/financial-report`), `is_ds_files_path` (`/files`)
+2a. **Angular static-asset extension ACL** — without this, `.map` (sourcemaps), `.js`, `.css`, `.svg`, font, image extensions on the main draft host fall through to ds-backend (Django) and 404 noisily in logs:
+    ```
+    acl is_angular_asset path_reg -i \.(js|css|js\.map|css\.map|svg|woff2?|ttf|eot|png|jpg|jpeg|ico|webp|html)$
+    use_backend ds_frontend if is_display_system is_angular_asset
+    ```
+    Place this `use_backend` BEFORE the path-based new-Angular routing so the asset shortcut wins.
 3. **Language-prefix redirects** (strip `^/<2-letter>/` from `/part-b`, `/inspector`, `/financial-report`; rewrite `/files` → `/inspector`)
 4. **Form-preview / WS sub-routing of display_system** (ds-backend exposes 4 different ports for these features):
    - `is_form_preview_pdf` path beg `/form-preview-pdf/` AND `is_form_preview_pdf_backend` path beg `/backend/form-preview-pdf/` → **display_system2** (`127.0.0.1:6028`)
@@ -573,6 +579,7 @@ A re-run on the same instance should:
 - **Touching minio resource limits**: existing memory note — don't change `mem_reservation` / `cpus` on minio or minio-init during sync. Copy verbatim.
 - **`extra_hosts` for stripped services**: scrub them; otherwise haproxy / mule will fail DNS for vanished container names.
 - **Infinite `/?redirectTo=/?redirectTo=...&next=...` loop** on the draft's root URL: the haproxy is missing the new-DS-frontend path block. The root `/` lands on the OLD display_system backend (ds-backend port 6020) because no rule diverts root to the Angular ds-frontend (port 4201/4202). ds-backend then redirects to itself with `?redirectTo=`; each round-trip URL-encodes the previous redirect, accumulating `&next=` from a second mechanism. Fix: add the full new-DS-frontend ACL + use_backend block from Phase 5 (mandatory when ds-frontend is kept).
+- **`Not Found: /<component>.css.map` 404 spam** in ds-backend logs: Angular per-component sourcemaps (and other build artefacts: `.js`, `.css`, fonts, images) live on ds-frontend (nginx), but without the `is_angular_asset` extension ACL they fall through to ds-backend (Django) and 404. Fix: add the `is_angular_asset` rule from Phase 5 step 2a — places extension-based asset requests on ds_frontend before the path-based routing kicks in.
 
 ## Notes
 
