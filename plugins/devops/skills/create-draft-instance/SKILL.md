@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.3"
+  version: "1.4.0"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -293,8 +293,31 @@ Generate `Conf-PREVIEW/haproxy/<instance>/haproxy.cfg` modeled on existing PREVI
 - Path ACLs: `is_restheart`, `is_mule`, `is_publisher`, `formio_path`, `is_options`, `is_stat_be_path`
 - Host ACLs: `is_display_system` (`<prefix>.<base>...`), `is_stats` (`stats.<prefix>.<base>...`), `is_ds_frontend` (`ds.<prefix>.<base>...` — only if ds-frontend is kept)
 - `use_backend` rules: restheart_backends, mule_backends, publisher_backends, cors (OPTIONS), display_system, formio, graylog_backends (Host match), statistics_backends/frontend, gdb_backends (Host match)
-- Backends: `cors`, `display_system → 127.0.0.1:6020`, `formio → :3001`, `gdb_backends → :3003`, `graylog_backends → :9005`, `mule_backends → :8081`, `restheart_backends → :9080`, `statistics_frontend → :4205`, `statistics_backends → :6021`, `publisher_backends → :6050`. Add `ds_frontend → :4201` only if ds-frontend was kept.
+- Backends: `cors`, `display_system → 127.0.0.1:6020`, `formio → :3001`, `gdb_backends → :3003`, `graylog_backends → :9005`, `mule_backends → :8081`, `restheart_backends → :9080`, `statistics_frontend → :4205`, `statistics_backends → :6021`, `publisher_backends → :6050`. Add `ds_frontend → :<published-port>` only if ds-frontend was kept (port is whatever the docker-stack.yml publishes — `4201` and `4202` are both observed).
 - Drop CAS, partC, BPA backends — they don't run on draft.
+
+**MANDATORY when ds-frontend is kept** — without this block the new Angular DS frontend is unreachable and `/` redirects in a loop (`/?redirectTo=/?redirectTo=...&next=...`):
+
+1. **New-DS-frontend path ACLs** (paths served by the Angular ds-frontend container, NOT ds-backend's old display_system on port 6020):
+   - `is_ds_frontend_path`   path beg `/parta/`
+   - `is_ds_frontend_path_1` path beg `/services/`
+   - `is_ds_frontend_path_2` path beg `/manage-business-entity/`
+   - `is_ds_frontend_path_3` path beg `/redirect/`
+   - `is_ds_frontend_path_4` path beg `/business-list`
+   - `is_ds_frontend_path_5` path beg `/login`
+   - `is_ds_frontend_path_6` path beg `/version`
+   - `is_ds_frontend_path_7` path beg `/health`
+   - `is_ds_frontend_path_8` path reg `^(\/{0,1}$)` (root path)
+2. **New Angular module path ACLs**: `is_ds_partb_path` (`/part-b`), `is_partb_edit_path` (`/part-b/edit` — stays on display_system!), `is_ds_inspector_path` (`/inspector`), `is_ds_financial_report_path` (`/financial-report`), `is_ds_files_path` (`/files`)
+3. **Language-prefix redirects** (strip `^/<2-letter>/` from `/part-b`, `/inspector`, `/financial-report`; rewrite `/files` → `/inspector`)
+4. **Form-preview / WS sub-routing of display_system** (ds-backend exposes 4 different ports for these features):
+   - `is_form_preview_pdf` path beg `/form-preview-pdf/` AND `is_form_preview_pdf_backend` path beg `/backend/form-preview-pdf/` → **display_system2** (`127.0.0.1:6028`)
+   - `is_form_preview3` (raw deny ACL above; legitimate path) AND `is_form_preview3_backend` path beg `/backend/form-preview3/` → **display_system3** (`127.0.0.1:6029`)
+   - `is_display_system_ws` path beg `/backend/ws/user-updates-stream/` + `Connection: upgrade` + `Upgrade: websocket` → **display_system_ws** (`127.0.0.1:6024`, `timeout tunnel 24h`)
+5. **`use_backend ds_frontend`** for every new-DS path AND new-Angular path (with `!is_partb_edit_path` exclusion so /part-b/edit/* stays on display_system).
+6. **`use_backend display_system`** must be guarded with `!is_form_preview_pdf !is_form_preview_pdf_backend !is_form_preview3 !is_form_preview3_backend` to NOT swallow form-preview/ws traffic.
+
+The `display_system_ws`, `display_system2`, `display_system3` backends are MANDATORY whenever the matching ds-backend ports (`6024`, `6028`, `6029`) are published. They are not optional even if the new-DS frontend is missing.
 
 Also create `Conf-PREVIEW/haproxy/<instance>/forbidden-endpoints-whitelist.lst` (empty file or copy from LIVE — empty is safer; user can populate).
 
@@ -549,6 +572,7 @@ A re-run on the same instance should:
 - **Cert path mismatch**: haproxy `bind` directive expects `/etc/haproxy/haproxy.crt` — a single combined PEM (cert + intermediate chain + private key concatenated) that the operator creates at deploy time on the draft host. eRegistrations LIVE/preview stacks use this single-file convention (NOT per-domain Letsencrypt dirs).
 - **Touching minio resource limits**: existing memory note — don't change `mem_reservation` / `cpus` on minio or minio-init during sync. Copy verbatim.
 - **`extra_hosts` for stripped services**: scrub them; otherwise haproxy / mule will fail DNS for vanished container names.
+- **Infinite `/?redirectTo=/?redirectTo=...&next=...` loop** on the draft's root URL: the haproxy is missing the new-DS-frontend path block. The root `/` lands on the OLD display_system backend (ds-backend port 6020) because no rule diverts root to the Angular ds-frontend (port 4201/4202). ds-backend then redirects to itself with `?redirectTo=`; each round-trip URL-encodes the previous redirect, accumulating `&next=` from a second mechanism. Fix: add the full new-DS-frontend ACL + use_backend block from Phase 5 (mandatory when ds-frontend is kept).
 
 ## Notes
 
