@@ -1,0 +1,8 @@
+{
+  "name": "service-design",
+  "description": "Skills for designing and extending eRegistrations BPA services — including resource history endpoints, audit visibility, and cross-repo (BPA-backend + MCP) feature patterns extracted from working diffs.",
+  "version": "0.1.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}

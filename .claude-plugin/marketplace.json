@@ -113,6 +113,15 @@
       },
       "source": "./plugins/terminal-stats",
       "category": "customization"
+    },
+    {
+      "name": "service-design",
+      "description": "Skills for designing and extending eRegistrations BPA services across the BPA-backend + MCP cross-repo boundary. Bundles bpa-add-history-endpoint (Hibernate Envers revision history for any @Audited resource — Bot, Cost, Notification, Classification, etc.; mirrors the message_history pattern shipped in MCP v1.33.0). Each skill encodes a working diff with rationalization counters captured from baseline subagent testing — including the mvn verify / Spotless trap that has cost real CI time on this codebase.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/service-design",
+      "category": "documentation"
     }
   ]
 }
