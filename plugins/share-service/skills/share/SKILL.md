@@ -8,8 +8,8 @@ description: >
 license: UNCTAD-Internal
 allowed-tools: Read, Write, Edit, Bash(curl *), Bash(cat *), Bash(ls *)
 metadata:
-  version: "1.1.0"
-  version-date: "2026-04-01"
+  version: "1.2.0"
+  version-date: "2026-05-06"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[list | <file-path>]"
 ---
@@ -26,16 +26,21 @@ https://share.eregistrations.dev
 
 ## Authentication — Publisher Token
 
+The publisher token is **per user, not per project**. It lives in the user's home directory so the same token is reused across every repository on this machine.
+
 Before any API call, ensure you have a publisher token:
 
-1. Check if a token file exists at `.share-token` in the project root (same directory as `.git`).
-2. If **no token file** exists:
-   - Call `POST /api/register` with `{"name": "<project-name>"}` (use the current git repo name or directory name).
-   - Save the returned `token` value to `.share-token` in the project root.
-   - Add `.share-token` to `.gitignore` if not already there.
-3. Read the token from `.share-token`.
+1. Check if a token file exists at `~/.share-token` (resolve `~` to `$HOME`).
+2. **Migration (one-time)**: if `~/.share-token` is missing but a legacy `.share-token` file exists in the current git root, move it: `mv "<git-root>/.share-token" ~/.share-token && chmod 600 ~/.share-token`. Also remove the legacy entry from the repo's `.gitignore` if it's still listed there.
+3. If **no token file** exists in either place:
+   - Call `POST /api/register` with `{"name": "<machine-or-user-name>"}` (e.g. `$(whoami)@$(hostname -s)`, or whatever short identifier makes sense).
+   - Save the returned `token` value to `~/.share-token`.
+   - `chmod 600 ~/.share-token` so other local users cannot read it.
+4. Read the token from `~/.share-token`.
 
 **Always send the token** as `Authorization: Bearer <token>` on publish, list, delete, and update calls.
+
+> Note: there is no need to gitignore `~/.share-token` — it is outside every repository.
 
 ## Commands
 
@@ -72,7 +77,7 @@ Before any API call, ensure you have a publisher token:
 ```bash
 curl -s -X POST https://share.eregistrations.dev/api/documents \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $(cat .share-token)" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
   -d '{
     "title": "<title>",
     "format": "<html|md>",
@@ -93,7 +98,7 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
 
 ```bash
 curl -s -X GET "https://share.eregistrations.dev/api/me/documents?page=1&limit=20" \
-  -H "Authorization: Bearer $(cat .share-token)"
+  -H "Authorization: Bearer $(cat ~/.share-token)"
 ```
 
 Display as a table: title, format, visibility, created date, URL.
@@ -122,7 +127,7 @@ If no file path is given:
 
 ## Error Handling
 
-- **401**: Token invalid or expired — delete `.share-token` and re-register.
+- **401**: Token invalid or expired — delete `~/.share-token` and re-register.
 - **413**: Content too large — inform the user of the 5 MB limit.
 - **429**: Rate limited — wait 60 seconds and retry once.
 - **422**: Content contains detected secrets (API keys, passwords, private keys) — review and remove sensitive data before sharing.
