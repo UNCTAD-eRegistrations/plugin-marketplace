@@ -12,7 +12,7 @@ license: UNCTAD-Internal
 compatibility: Requires access to the eRegistrations Conf-LIVE / Conf-PREVIEW configuration repository (eregistrations-v4).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(diff *), Bash(git *), Bash(yq *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.2"
+  version: "1.3.3"
   version-date: "2026-05-05"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<live-instance-name> [draft-prefix]"
@@ -246,7 +246,15 @@ The skill emits a Keycloak client seeding script alongside the docker-stack.yml 
 - **statistics-backend**: `ALLOWED_HOSTS`, `FE_BASE_URL` → draft. KC client `draft-statistics-backend`.
 - **statistics-frontend**: `API_BASE_URL`, `DS_URL` → draft. `BPA_URL` stays literal. `APP_TITLE="<Country> - <prefix>"`. KC client `draft-statistics-frontend`.
 - **ds-frontend** (if present in LIVE): `BASE_URL`, `BASE_API_URL`, `RESTHEART_URL`, `OAUTH_REDIRECT_URL`, `WS_URL`, `STATS_URL` → draft. `BPA_URL` stays literal. `KEYCLOAK_URL` stays literal.
-- **portainer**, **activemq**, **dataweave**, **chrome-url-to-pdf**, **clamav**, **js-assistant**: copy verbatim. Drop ports if they were `mode: host` and there's no clear reason to keep that on draft.
+- **portainer**, **activemq**, **dataweave**, **chrome-url-to-pdf**, **clamav**, **js-assistant**: copy verbatim.
+- **All published ports MUST use Swarm long-form `mode: host`** (post-2.17→2.18 convention). Convert any short-form `- "<published>:<target>"` mapping to:
+   ```yaml
+   - target: <target>
+     published: <published>
+     protocol: tcp
+     mode: host
+   ```
+   This bypasses Swarm's ingress mesh so the haproxy frontend on the draft host sees real client IPs (no SNAT) and the eRegistrations apps' rate-limit/log/audit logic stays meaningful. Applies to every service that publishes ports — portainer, activemq, graylog, formio, restheart, camunda, mule, mule-`<country>`, minio, ds-backend, ds-frontend, cashier, gdb, statistics-backend, statistics-frontend, clamav, publisher, chrome-url-to-pdf.
 - **opensearch-node1**: copy verbatim.
 - **formio**, **restheart**: docserver_mongo / mongodb_host extra_hosts swap to draft bridge IP. Otherwise verbatim.
 - **cashier**: postgres_host swap to draft bridge IP. Verbatim otherwise.
