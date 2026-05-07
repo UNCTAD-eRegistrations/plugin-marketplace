@@ -10,8 +10,8 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI (≥2.13 recommended), git, ssh access to GitHub. UNCTAD-eRegistrations org assumed for helm umbrella repo and Jenkins job mappings.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(ls *), Bash(grep *), Bash(find *), Bash(mkdir *), Bash(cp *), Bash(mv *), Bash(rm *), Bash(cat *), Bash(echo *), Bash(date *), Bash(seq *), Bash(sleep *), Bash(awk *), Bash(sed *), Bash(base64 *), Bash(node *), Bash(npm *), Bash(mvn *), Bash(du *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.2.0"
-  version-date: "2026-04-29"
+  version: "1.2.1"
+  version-date: "2026-05-07"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[github-target-url] [--dry-run]"
 ---
@@ -707,13 +707,13 @@ Common steps (both types):
    mkdir -p .github/workflows
    case "$REPO_TYPE" in
      library)
-       cp <skill-dir>/reference/workflow-template-library.yml .github/workflows/ci-cd.yml
+       cp "${CLAUDE_PLUGIN_ROOT}/skills/bitbucket-jenkins-to-github-actions/reference/workflow-template-library.yml" .github/workflows/ci-cd.yml
        ;;
      node-library)
-       cp <skill-dir>/reference/workflow-template-library-node.yml .github/workflows/ci-cd.yml
+       cp "${CLAUDE_PLUGIN_ROOT}/skills/bitbucket-jenkins-to-github-actions/reference/workflow-template-library-node.yml" .github/workflows/ci-cd.yml
        ;;
      *)
-       cp <skill-dir>/reference/workflow-template.yml .github/workflows/ci-cd.yml
+       cp "${CLAUDE_PLUGIN_ROOT}/skills/bitbucket-jenkins-to-github-actions/reference/workflow-template.yml" .github/workflows/ci-cd.yml
        ;;
    esac
    ```
