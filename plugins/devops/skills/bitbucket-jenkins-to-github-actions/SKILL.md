@@ -10,7 +10,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI (≥2.13 recommended), git, ssh access to GitHub. UNCTAD-eRegistrations org assumed for helm umbrella repo and Jenkins job mappings.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(ls *), Bash(grep *), Bash(find *), Bash(mkdir *), Bash(cp *), Bash(mv *), Bash(rm *), Bash(cat *), Bash(echo *), Bash(date *), Bash(seq *), Bash(sleep *), Bash(awk *), Bash(sed *), Bash(base64 *), Bash(node *), Bash(npm *), Bash(mvn *), Bash(du *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.2.1"
+  version: "1.3.0"
   version-date: "2026-05-07"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[github-target-url] [--dry-run]"
@@ -79,12 +79,12 @@ Initialize with TodoWrite at start of migration:
 | 1 | Complete pre-flight validation | Phase 0 |
 | 2 | Capture state snapshot + detect repo type | Phase 0.5 |
 | 3 | Gather migration preferences | Phase 1 |
-| 4 | Verify project version | Phase 1 |
+| 4 | Verify project version | Phase 1 (skip if `IS_CONF_REPO=yes`) |
 | 5 | Push git history to GitHub | Phase 2 |
 | 6 | GATE: Verify branch/tag counts | Gate 2-3 |
-| 7 | **BLOCKING: Feature parity verification** | Phase 3 |
-| 8 | Convert CI/CD pipelines | Phase 3 |
-| 9 | GATE: Validate workflow syntax | Gate 3-4 |
+| 7 | **BLOCKING: Feature parity verification** | Phase 3 (skip if `IS_CONF_REPO=yes`) |
+| 8 | Convert CI/CD pipelines | Phase 3 (skip if `IS_CONF_REPO=yes`) |
+| 9 | GATE: Validate workflow syntax | Gate 3-4 (skip if `IS_CONF_REPO=yes`) |
 | 10 | Update file references | Phase 4 |
 | 11 | Apply branch deletion protection ruleset | Phase 4.5 |
 | 12 | Grant team access (v4-development [+ v4-fe-development if frontend]) | Phase 4.6 |
@@ -246,6 +246,28 @@ REPO_SIZE_MB=$(du -sm .git 2>/dev/null | cut -f1)
 HAS_GH_PAGES=$(git branch -a 2>/dev/null | grep -q "gh-pages" && echo "yes" || echo "no")
 [ "$HAS_GH_PAGES" = "yes" ] && echo "gh-pages branch DETECTED — GitHub Pages config required after migration"
 
+# Conf-style repo detection — deployment configuration only (no source build, no Jenkinsfile).
+# Reference migrations: palestine-eregistrations, lesotho-eregistrations.
+# When IS_CONF_REPO=yes, downstream phases short-circuit: Phase 1.3 (version init), Phase 3
+# (CI/CD conversion), GATE 3-4 (workflow lint), and Phase 5.5 checks 5-6 (workflow/secrets).
+HAS_BUILD_FILE="no"
+for f in Jenkinsfile Dockerfile pom.xml package.json pyproject.toml setup.py build.gradle build.gradle.kts go.mod Cargo.toml; do
+  [ -f "$f" ] && { HAS_BUILD_FILE="yes"; break; }
+done
+
+IS_CONF_REPO="no"
+if [ "$HAS_BUILD_FILE" = "no" ]; then
+  # Positive signals: Conf-* dirs (palestine pattern), or compose/haproxy dirs, or known config files anywhere shallow
+  if compgen -G "Conf-*" >/dev/null 2>&1 || \
+     [ -d compose ] || [ -d haproxy ] || \
+     find . -maxdepth 4 -not -path "./.git/*" \( -name "docker-compose.yml" -o -name "docker-stack.yml" -o -name "haproxy.cfg" \) 2>/dev/null | grep -q .; then
+    IS_CONF_REPO="yes"
+    echo "CONF-STYLE REPO DETECTED — deployment configuration only (no source build, no Jenkinsfile)"
+    echo "  Reference migrations: palestine-eregistrations, lesotho-eregistrations"
+    echo "  Phases 1.3 / 3 / GATE 3-4 will short-circuit; Phase 4.6 grants v4-development only"
+  fi
+fi
+
 # Persist flags
 cat >> /tmp/migration-state.sh <<EOF
 export HAS_LFS="$HAS_LFS"
@@ -253,6 +275,8 @@ export HAS_SUBMODULES="$HAS_SUBMODULES"
 export JENKINSFILE_COUNT="$JENKINSFILE_COUNT"
 export REPO_SIZE_MB="$REPO_SIZE_MB"
 export HAS_GH_PAGES="$HAS_GH_PAGES"
+export HAS_BUILD_FILE="$HAS_BUILD_FILE"
+export IS_CONF_REPO="$IS_CONF_REPO"
 EOF
 ```
 
@@ -267,6 +291,7 @@ Apply these conditional behaviors in downstream phases based on detection:
 | `JENKINSFILE_COUNT>1` | Phase 3 must iterate over each Jenkinsfile. Either generate one workflow per Jenkinsfile OR a single matrix workflow. Ask user which approach. |
 | `REPO_SIZE_MB>1000` | Phase 2.3 push may hit GitHub's 2GB push limit. Push branches in chunks rather than refspec — iterate per branch. |
 | `HAS_GH_PAGES=yes` | After migration, manually configure GitHub Pages in repo settings (Settings > Pages > Source: gh-pages branch). Add to Manual Steps Checklist. |
+| `IS_CONF_REPO=yes` | Deployment config repo (palestine-eregistrations, lesotho-eregistrations pattern). Phase 1.3 (version init), Phase 3 (CI/CD conversion), and GATE 3-4 (workflow lint) skip cleanly. Phase 2.6 falls back from `develop` to source default branch. Phase 4.6 grants `v4-development` only (skips frontend-team prompt). Phase 5.5 checks 5-6 (workflow/secrets) auto-PASS as N/A. |
 
 **Ask user before proceeding** if any flag is "yes":
 - "Special configuration detected: [list flags]. Confirm understanding of additional steps?"
@@ -361,6 +386,8 @@ Scan for external Bitbucket repo references in CI/CD files, then ask:
 ### Step 1.3: Version Initialization
 
 **Purpose**: Ensure the project version is correctly set before migration completes.
+
+> **Conf-style repos (`IS_CONF_REPO=yes`)**: Skip this step entirely — deployment-config repos have no version-bearing files (no `package.json`, `pom.xml`, etc.). Continue to Phase 2.
 
 1. **Detect version files**:
 ```bash
@@ -472,7 +499,8 @@ git branch -u origin/<current-branch>
 
 ### Step 2.6: Set Default Branch on GitHub
 
-Set `develop` as the default branch (or `main`/`master` if develop doesn't exist):
+Pick the first existing branch among `develop`, `main`, `master`. Service repos typically have `develop`; conf-style repos (palestine, lesotho) have `master`/`main` only.
+
 ```bash
 [ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
 
@@ -480,14 +508,29 @@ Set `develop` as the default branch (or `main`/`master` if develop doesn't exist
 GITHUB_REPO=$(git remote get-url origin | sed -E 's/.*github.com[:\/](.+)\.git/\1/')
 echo "export GITHUB_REPO=\"$GITHUB_REPO\"" >> /tmp/migration-state.sh
 
-# Set default branch to develop
-gh repo edit "$GITHUB_REPO" --default-branch develop
+# Resolve default branch: develop > main > master (first that exists wins)
+DEFAULT_BRANCH=""
+for cand in develop main master; do
+  if git ls-remote --heads origin "$cand" 2>/dev/null | grep -q "refs/heads/$cand$"; then
+    DEFAULT_BRANCH="$cand"
+    break
+  fi
+done
+
+if [ -z "$DEFAULT_BRANCH" ]; then
+  echo "WARNING: no develop/main/master branch found on github — leaving default branch as-is"
+else
+  gh repo edit "$GITHUB_REPO" --default-branch "$DEFAULT_BRANCH"
+  echo "Default branch set to: $DEFAULT_BRANCH"
+fi
+
+echo "export DEFAULT_BRANCH=\"$DEFAULT_BRANCH\"" >> /tmp/migration-state.sh
 ```
 
 This ensures:
-- New clones checkout `develop` by default
-- PRs target `develop` by default
-- GitHub UI shows `develop` as the main branch
+- New clones checkout the resolved default by default
+- PRs target the resolved default by default
+- GitHub UI shows the resolved default as the main branch
 
 ---
 
@@ -515,6 +558,8 @@ fi
 ---
 
 ## Phase 3: CI/CD Migration (Interactive)
+
+> **Conf-style repos (`IS_CONF_REPO=yes`)**: Skip this entire phase, including its sub-steps and `GATE 3-4`. Deployment-config repos have no `Jenkinsfile` to convert and no buildable source — there is nothing to author. Reference migrations: `palestine-eregistrations`, `lesotho-eregistrations` (both shipped without `.github/workflows/`). Mark Progress Tracking checkpoints 7-9 as **N/A (conf repo)** and continue to Phase 4.
 
 ### Reference Migrations
 
@@ -1112,6 +1157,8 @@ If the target repo's release-branch convention diverges from this (e.g. it reall
 
 ## GATE 3-4: CI/CD Validation
 
+> **Conf-style repos (`IS_CONF_REPO=yes`)**: Skip this gate — Phase 3 was bypassed and no `.github/workflows/ci-cd.yml` exists to validate. Continue to Phase 4.
+
 **Before proceeding to Phase 4, validate the generated workflow:**
 
 ```bash
@@ -1350,40 +1397,53 @@ Heuristic — any one signal counts as frontend:
 ```bash
 [ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
 
-IS_FRONTEND="no"
-FE_SIGNALS=""
+if [ "${IS_CONF_REPO:-no}" = "yes" ]; then
+  # Conf-style repos: skip frontend detection and the AskUserQuestion below — only v4-development is granted
+  IS_FRONTEND="no"
+  FE_SIGNALS="(skipped — conf-style repo)"
+  GRANT_FE_TEAM="no"
+  echo "Frontend detection: skipped (conf-style repo) — only v4-development will be granted"
+  cat >> /tmp/migration-state.sh <<EOF
+export IS_FRONTEND="$IS_FRONTEND"
+export FE_SIGNALS="$FE_SIGNALS"
+export GRANT_FE_TEAM="$GRANT_FE_TEAM"
+EOF
+else
+  IS_FRONTEND="no"
+  FE_SIGNALS=""
 
-# Signal 1: package.json with frontend framework deps
-if [ -f package.json ] && grep -qE '"(react|vue|@angular/core|@angular/cli|svelte|next|nuxt|vite|@vue/cli|preact|solid-js)"\s*:' package.json; then
-  IS_FRONTEND="yes"
-  FE_SIGNALS="$FE_SIGNALS package.json-deps"
-fi
-
-# Signal 2: telltale frontend config files
-for pattern in vite.config.* next.config.* nuxt.config.* angular.json svelte.config.* astro.config.* remix.config.*; do
-  if compgen -G "$pattern" > /dev/null 2>&1; then
+  # Signal 1: package.json with frontend framework deps
+  if [ -f package.json ] && grep -qE '"(react|vue|@angular/core|@angular/cli|svelte|next|nuxt|vite|@vue/cli|preact|solid-js)"\s*:' package.json; then
     IS_FRONTEND="yes"
-    FE_SIGNALS="$FE_SIGNALS config:$pattern"
-    break
+    FE_SIGNALS="$FE_SIGNALS package.json-deps"
   fi
-done
 
-# Signal 3: HTML entry point in conventional locations
-if [ -f index.html ] || [ -f public/index.html ] || [ -f src/index.html ]; then
-  IS_FRONTEND="yes"
-  FE_SIGNALS="$FE_SIGNALS html-entry"
-fi
+  # Signal 2: telltale frontend config files
+  for pattern in vite.config.* next.config.* nuxt.config.* angular.json svelte.config.* astro.config.* remix.config.*; do
+    if compgen -G "$pattern" > /dev/null 2>&1; then
+      IS_FRONTEND="yes"
+      FE_SIGNALS="$FE_SIGNALS config:$pattern"
+      break
+    fi
+  done
 
-echo "Frontend detection: IS_FRONTEND=$IS_FRONTEND (signals:$FE_SIGNALS)"
+  # Signal 3: HTML entry point in conventional locations
+  if [ -f index.html ] || [ -f public/index.html ] || [ -f src/index.html ]; then
+    IS_FRONTEND="yes"
+    FE_SIGNALS="$FE_SIGNALS html-entry"
+  fi
 
-# Persist for downstream steps
-cat >> /tmp/migration-state.sh <<EOF
+  echo "Frontend detection: IS_FRONTEND=$IS_FRONTEND (signals:$FE_SIGNALS)"
+
+  # Persist for downstream steps
+  cat >> /tmp/migration-state.sh <<EOF
 export IS_FRONTEND="$IS_FRONTEND"
 export FE_SIGNALS="$FE_SIGNALS"
 EOF
+fi
 ```
 
-Then ask user to confirm using AskUserQuestion (matches Phase 1.2 style):
+Then ask user to confirm using AskUserQuestion (matches Phase 1.2 style) — **but only when `IS_CONF_REPO=no`** (the bash block above already pre-set `GRANT_FE_TEAM=no` for conf repos and persisted it):
 
 - Question: "Detected frontend classification: **$IS_FRONTEND** (signals:$FE_SIGNALS). Should `v4-fe-development` team be granted write access?"
 - Options: "Yes — grant v4-fe-development" | "No — skip v4-fe-development"
@@ -1684,22 +1744,28 @@ else
   check 4 "Default branch set" "FAIL" "Could not query default branch"
 fi
 
-# 5. Workflow exists
-if gh workflow list --repo "$GITHUB_REPO" 2>/dev/null | grep -q "ci-cd"; then
+# 5. Workflow exists (skipped for conf-style repos — no CI/CD by design)
+if [ "${IS_CONF_REPO:-no}" = "yes" ]; then
+  check 5 "ci-cd.yml workflow registered" "PASS" "N/A — conf-style repo (deployment config only)"
+elif gh workflow list --repo "$GITHUB_REPO" 2>/dev/null | grep -q "ci-cd"; then
   check 5 "ci-cd.yml workflow registered" "PASS" "Listed in gh workflow list"
 else
   check 5 "ci-cd.yml workflow registered" "WARN" "Not listed (workflow runs once after first push)"
 fi
 
-# 6. Required secrets
-SECRETS=$(gh secret list --repo "$GITHUB_REPO" 2>/dev/null | awk '{print $1}')
-for sec in SSH_PRIVATE_KEY DOCKERHUB_USERNAME DOCKERHUB_TOKEN GHCR_TOKEN SLACK_WEBHOOK_URL; do
-  if echo "$SECRETS" | grep -qx "$sec"; then
-    check "6.$sec" "Secret: $sec" "PASS" "configured"
-  else
-    check "6.$sec" "Secret: $sec" "WARN" "missing — required for some workflows"
-  fi
-done
+# 6. Required secrets (skipped for conf-style repos — no CI/CD consumes them)
+if [ "${IS_CONF_REPO:-no}" = "yes" ]; then
+  check 6 "Workflow secrets" "PASS" "N/A — conf-style repo (no CI/CD to consume secrets)"
+else
+  SECRETS=$(gh secret list --repo "$GITHUB_REPO" 2>/dev/null | awk '{print $1}')
+  for sec in SSH_PRIVATE_KEY DOCKERHUB_USERNAME DOCKERHUB_TOKEN GHCR_TOKEN SLACK_WEBHOOK_URL; do
+    if echo "$SECRETS" | grep -qx "$sec"; then
+      check "6.$sec" "Secret: $sec" "PASS" "configured"
+    else
+      check "6.$sec" "Secret: $sec" "WARN" "missing — required for some workflows"
+    fi
+  done
+fi
 
 # 7. Branch deletion ruleset
 RULESET_OK=$(gh api "repos/$GITHUB_REPO/rulesets" --jq '.[] | select(.name=="delete protection" and .source_type=="Repository") | .enforcement' 2>/dev/null)
