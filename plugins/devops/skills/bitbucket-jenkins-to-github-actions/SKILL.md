@@ -10,7 +10,7 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI (≥2.13 recommended), git, ssh access to GitHub. UNCTAD-eRegistrations org assumed for helm umbrella repo and Jenkins job mappings.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(ls *), Bash(grep *), Bash(find *), Bash(mkdir *), Bash(cp *), Bash(mv *), Bash(rm *), Bash(cat *), Bash(echo *), Bash(date *), Bash(seq *), Bash(sleep *), Bash(awk *), Bash(sed *), Bash(base64 *), Bash(node *), Bash(npm *), Bash(mvn *), Bash(du *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
   version-date: "2026-05-07"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[github-target-url] [--dry-run]"
@@ -357,15 +357,16 @@ VISIBILITY_FLAG="--private"   # or --internal / --public based on answer
 gh repo create "$TARGET_REPO" $VISIBILITY_FLAG \
   --description "$DESCRIPTION" \
   --add-readme=false \
-  --disable-wiki \
-  --disable-projects
+  --disable-wiki
 
 # Verify creation
 gh repo view "$TARGET_REPO" --json name,visibility,defaultBranchRef \
   --jq '{repo: .name, visibility, default_branch: .defaultBranchRef.name}'
 ```
 
-The newly-created repo defaults to `main` as the default branch — Phase 2.6 (Set Default Branch on GitHub) will override it to `develop` after the git push.
+> Note: `gh repo create` has no `--disable-projects` flag (only `--disable-wiki` and `--disable-issues` exist). To turn off Projects after creation, use `gh api -X PATCH repos/$TARGET_REPO -F has_projects=false`.
+
+The newly-created repo defaults to `main` as the default branch — Phase 2.6 (Set Default Branch on GitHub) overrides it to `develop`/`main`/`master` (whichever exists) after the git push.
 
 If "No, abort migration", emit a clear instruction:
 - "Create the target repo manually first (e.g. via GitHub UI or `gh repo create`), then re-run this skill."
