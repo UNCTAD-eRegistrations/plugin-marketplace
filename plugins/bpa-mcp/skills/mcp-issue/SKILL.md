@@ -2,11 +2,13 @@
 name: mcp-issue
 effort: medium
 description: >
-  Report an MCP tool issue (BPA, DS, GDB, or Keycloak).
+  Report an MCP tool issue or feature request (BPA, DS, GDB, or Keycloak).
   TRIGGER when: an MCP tool returns an error, wrong data, or results inconsistent with what
   the user expected — including when Claude observes a suspicious MCP tool response during
   normal work (proactive). Also triggers on "this is broken", "that's not right", "the tool
-  did the wrong thing", "it should have done X instead", "report this bug".
+  did the wrong thing", "it should have done X instead", "report this bug", "the MCP is
+  missing X", "we need a tool for X", "expose this backend endpoint as a tool", "request a
+  feature".
   DO NOT TRIGGER when: the error is clearly a user input mistake (wrong params, wrong tool),
   auth is expired (suggest re-login instead), or the user is asking about MCP server
   development/code (not tool usage).
@@ -14,10 +16,11 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.4.1"
-  version-date: "2026-04-14"
+  version: "3.5.0"
+  version-date: "2026-05-10"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "3.5.0 (2026-05-10): Feature requests are now filable when they pass the same evidence bar as bugs. Replaced the blanket 'no feature requests' gate in Step 9b with three evidence-specific sub-conditions: cited backend capability, Hard-typed evidence, and observable-behavior phrasing. Resolves the internal contradiction between the 'Missing capability' category (Step 3) and the old gate (Step 9b). TRIGGER description and Guidelines updated to match. Per-server wrapper command descriptions broadened from 'issue or unexpected behavior' to 'issue or feature request'."
     - "3.4.1 (2026-04-14): Clarified consumer-project routing — consumers (e.g. SmartRules / SR) may integrate with eRegistrations directly via REST (not via MCP). The earlier wording 'a consumer project that calls the MCP' wrongly excluded SR, which is the actual origin of #58/#68/#69. Added the SR alias everywhere, listed SR's concrete internal surfaces (procedures-api, gdb-sync.js, hash files) as examples."
     - "3.4.0 (2026-04-14): Added the 'Production repositories (routing reference)' table listing the exact GitHub repo names under `UNCTAD-eRegistrations` for MCP, the BPA/DS/GDB/Keycloak backends, and consumer projects (SmartRules). Step 5.5c now references these by exact name instead of asking the user to recall them. The rule 'do not invent a repo name; verify with `gh repo view` and do not fall back to the MCP repo' is explicit."
     - "3.3.0 (2026-04-14): Step 5.5c reframed as a ROUTING decision, not a phrasing rule. Issues whose fix lives in the backend (GDB/BPA/DS/Keycloak) must be filed in that backend's repository, not the MCP repo. MCP-repo tickets are reserved for MCP-tool-layer bugs: wrong API call, response transformation, validation, auth handling, or exposing a backend capability that already exists. Backend source citations remain welcome as EVIDENCE in whichever repo the ticket lands in — the distinction is evidence (allowed) vs. prescription in the wrong repo (not allowed). Step 9 now branches by filing destination."
@@ -153,7 +156,7 @@ Read the relevant function to understand:
 - What transformations it applies to the response
 - Whether the "expected behavior" the user described matches what the tool is designed to do
 
-**If the tool is working as designed but the user expected different behavior, that's a feature request, not a bug.** Note this distinction in the report.
+**If the tool is working as designed but the user expected different behavior, classify the report as a feature request (category: "Missing capability") rather than a bug.** Feature requests follow the same evidence and routing rules as bugs — see Step 9b for the additional gates that apply.
 
 ### 4d. Verify "expected behavior" claims
 
@@ -553,7 +556,10 @@ Never auto-select the MCP repo as a fallback.
 
 - Confidence is below **"likely"**
 - Any claim in the "Expected Behavior" section has type **"Assumption"** in the claim classification table
-- The report was classified as a **feature request**, not a bug
+- The report is a **feature request** (category: "Missing capability") AND any of the following is true:
+    - The "Requested Outcome" cites **no** backend endpoint, field, or capability that already exists OR is in active backend development
+    - The "Filing Destination" is the MCP repo but the backend capability that the request relies on is NOT cited as **Hard** evidence in the Claim Classification table
+    - The "Requested Outcome" is phrased as a preference ("would be nice", "should consider", "ideally") rather than an observable behavior the maintainer can verify against
 - The **Scope hygiene** confidence dimension is below 90%
 - The filing destination is unresolved, or the target repo is not the one the routing decision selected
 
@@ -620,4 +626,4 @@ If any labels don't exist in the repo, omit them rather than failing. Use `--lab
   - **medium** — tool fails with error, but no data damage
   - **low** — cosmetic, formatting, or minor inconvenience
 - **Keep the report concise.** Developers skim — put the important stuff first.
-- **Feature request ≠ bug.** If the tool works as designed but the user wants different behavior, label it as a feature request, not an issue.
+- **Feature request ≠ bug.** If the tool works as designed but the user wants different behavior, classify it as a feature request (category: "Missing capability", label: `enhancement`). Feature requests are filable, but the bar is *evidence the addition is implementable in the chosen repo* — see Step 9b. A feature request that cannot cite a backend capability or a concrete observable outcome is noise, regardless of which side of the bug/feature line it falls.

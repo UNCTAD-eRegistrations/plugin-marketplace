@@ -1,5 +1,5 @@
 ---
-description: Report a Translations MCP tool issue or unexpected behavior
+description: Report a Translations MCP tool issue or feature request
 argument-hint: [description]
 effort: medium
 allowed-tools: Read, Write, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *)
