@@ -24,6 +24,7 @@ eval $(echo "$input" | jq -r '
   @sh "RL_5H=\(.rate_limits.five_hour.used_percentage // -1)",
   @sh "RL_5H_RESET=\(.rate_limits.five_hour.resets_at // "")",
   @sh "RL_7D=\(.rate_limits.seven_day.used_percentage // -1)",
+  @sh "RL_7D_RESET=\(.rate_limits.seven_day.resets_at // "")",
   @sh "EFFORT=\(.effort.level // "")"
 ' | tr ',' '\n')
 PCT=$(echo "$PCT" | cut -d. -f1)
@@ -108,24 +109,57 @@ for i in $(seq 1 20); do
     fi
 done
 
-# ━━━ Rate limit thermal gauge ━━━
-# Rising blocks ▁▃▅▇█ with heat colors per segment
-RL5=$(echo "$RL_5H" | cut -d. -f1)
-RL7=$(echo "$RL_7D" | cut -d. -f1)
-RLG=""
-if [ "$RL5" -ge 0 ] 2>/dev/null; then
+# ━━━ Rate limit thermal gauges ━━━
+# Rising blocks ▁▃▅▇█ with heat colors per segment; one gauge per window.
+# Helper writes to GAUGE/GCOLOR globals (avoids subshells).
+_thermal() {
+    local pct=$1
+    GAUGE=""
     for seg in "0 0 204 204 ▁" "20 80 240 130 ▃" "40 255 204 51 ▅" "60 255 140 50 ▇" "80 255 90 90 █"; do
         read th sr sg sb ch <<< "$seg"
-        if [ "$RL5" -gt "$th" ] 2>/dev/null; then
-            RLG="${RLG}\033[38;2;${sr};${sg};${sb}m${ch}${RST}"
+        if [ "$pct" -gt "$th" ] 2>/dev/null; then
+            GAUGE="${GAUGE}\033[38;2;${sr};${sg};${sb}m${ch}${RST}"
         else
-            RLG="${RLG}\033[38;2;60;65;80m${ch}${RST}"
+            GAUGE="${GAUGE}\033[38;2;60;65;80m${ch}${RST}"
         fi
     done
-    if   [ "$RL5" -ge 90 ]; then RLC="${CORAL}"
-    elif [ "$RL5" -ge 70 ]; then RLC="${TANGERINE}"
-    elif [ "$RL5" -ge 50 ]; then RLC="${GOLD}"
-    else                          RLC="${SLATE}"; fi
+    if   [ "$pct" -ge 90 ]; then GCOLOR="${CORAL}"
+    elif [ "$pct" -ge 70 ]; then GCOLOR="${TANGERINE}"
+    elif [ "$pct" -ge 50 ]; then GCOLOR="${GOLD}"
+    else                          GCOLOR="${SLATE}"; fi
+}
+
+# Helper: parse rate-limit reset timestamp (epoch or ISO 8601) → short countdown.
+# Writes to COUNTDOWN; empty string when input is missing/expired/unparseable.
+_countdown() {
+    local raw="$1"
+    COUNTDOWN=""
+    [ -z "$raw" ] && return
+    local ts=""
+    if [ "$raw" -gt 0 ] 2>/dev/null; then
+        ts="$raw"
+    else
+        local clean="${raw%%.*}"; clean="${clean%%Z}"; clean="${clean%%+*}"
+        ts=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$clean" "+%s" 2>/dev/null || \
+             date -d "$raw" "+%s" 2>/dev/null)
+    fi
+    [ -z "$ts" ] && return
+    local left=$((ts - $(date +%s)))
+    [ "$left" -le 0 ] && return
+    if   [ "$left" -ge 86400 ]; then COUNTDOWN="$((left/86400))d$((left%86400/3600))h"
+    elif [ "$left" -ge 3600 ];  then COUNTDOWN="$((left/3600))h$((left%3600/60))m"
+    elif [ "$left" -ge 60 ];    then COUNTDOWN="$((left/60))m"
+    else                              COUNTDOWN="${left}s"; fi
+}
+
+RL5=$(echo "$RL_5H" | cut -d. -f1)
+RL7=$(echo "$RL_7D" | cut -d. -f1)
+RLG=""; RLC=""; RL7G=""; RL7CC=""
+if [ "$RL5" -ge 0 ] 2>/dev/null; then
+    _thermal "$RL5"; RLG="$GAUGE"; RLC="$GCOLOR"
+fi
+if [ "$RL7" -ge 0 ] 2>/dev/null; then
+    _thermal "$RL7"; RL7G="$GAUGE"; RL7CC="$GCOLOR"
 fi
 
 # ━━━ LCARS Pills (inline — zero subshells) ━━━
@@ -168,33 +202,21 @@ L2="${CTX_P} ${BAR} ${PC}${BD}${PCT}%${RST} ${DM}${US}/${SS}${RST} ${GHOST}░${
 L3="${OPS_P} ${GHOST}cost ${RST}${GOLD}${CS}${RST} ${GHOST}░${RST} ${GHOST}active ${RST}${SLATE}${DS}${RST}"
 ([ "$LINES_ADD" -gt 0 ] 2>/dev/null || [ "$LINES_DEL" -gt 0 ] 2>/dev/null) && \
     L3="${L3} ${GHOST}░${RST} ${GHOST}Δ ${RST}${LIME}+${LINES_ADD}${RST} ${CORAL}-${LINES_DEL}${RST}"
-if [ -n "$RLG" ]; then
-    L3="${L3} ${GHOST}░ usage ${RST}${RLG} ${RLC}${RL5}%${RST}${GHOST}5h${RST}"
-    # Reset countdown — handles epoch (number), ISO 8601 (Z or +00:00)
-    if [ -n "$RL_5H_RESET" ]; then
-        RESET_TS=""
-        # Try as epoch number first
-        if [ "$RL_5H_RESET" -gt 0 ] 2>/dev/null; then
-            RESET_TS="$RL_5H_RESET"
-        else
-            # Strip fractional seconds and Z/offset for macOS date
-            _clean="${RL_5H_RESET%%.*}"
-            _clean="${_clean%%Z}"
-            _clean="${_clean%%+*}"
-            RESET_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$_clean" "+%s" 2>/dev/null || \
-                       date -d "$RL_5H_RESET" "+%s" 2>/dev/null)
-        fi
-        if [ -n "$RESET_TS" ]; then
-            LEFT=$((RESET_TS - $(date +%s)))
-            if [ "$LEFT" -gt 0 ]; then
-                if [ "$LEFT" -ge 3600 ]; then RL_CD="$((LEFT/3600))h$((LEFT%3600/60))m"
-                elif [ "$LEFT" -ge 60 ]; then RL_CD="$((LEFT/60))m"
-                else RL_CD="${LEFT}s"; fi
-                L3="${L3} ${GHOST}↻${RL_CD}${RST}"
-            fi
-        fi
+# Render the "usage" block when either window has data.
+if [ -n "$RLG" ] || [ -n "$RL7G" ]; then
+    L3="${L3} ${GHOST}░ usage${RST}"
+    if [ -n "$RLG" ]; then
+        L3="${L3} ${RLG} ${RLC}${RL5}%${RST}${GHOST}5h${RST}"
+        _countdown "$RL_5H_RESET"
+        [ -n "$COUNTDOWN" ] && L3="${L3} ${GHOST}↻${COUNTDOWN}${RST}"
     fi
-    [ "$RL7" -ge 50 ] 2>/dev/null && L3="${L3} ${RLC}${RL7}%${RST}${GHOST}7d${RST}"
+    if [ -n "$RL7G" ]; then
+        # Subtle separator only when both windows render side-by-side
+        [ -n "$RLG" ] && L3="${L3} ${GHOST}·${RST}"
+        L3="${L3} ${RL7G} ${RL7CC}${RL7}%${RST}${GHOST}7d${RST}"
+        _countdown "$RL_7D_RESET"
+        [ -n "$COUNTDOWN" ] && L3="${L3} ${GHOST}↻${COUNTDOWN}${RST}"
+    fi
 fi
 
 # ── Render ──
