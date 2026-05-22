@@ -35,6 +35,7 @@ You are an expert eRegistrations DevOps engineer. Your task is to orchestrate th
 |---|---|---|
 | `fetch` | ssh to source Postgres, `sudo -u postgres pg_dump -n cas` + `-n partc`, xz-compress, write to `<repo>/sql/{cas,partc}.sql`. | ssh host, db name |
 | `seed` | Spin up throwaway `postgres + cas-db + partc-db + keycloak + migrator` stack, import realm, load dumps, run migrator, `pg_dump` the enriched Keycloak DB → `<repo>/sql/keycloak.sql`. | (resolves from repo) |
+| `deploy` | scp `sql/keycloak.sql` to the target deploy host, load it into the running Keycloak Postgres, restart the Keycloak service, wait for the health endpoint. | ssh host, compose vs swarm, optional db/health overrides |
 | `backfill` | Connect to a running Keycloak; create missing realm roles, then diff/apply realm-role + client-role mappings per user. Idempotent. | target `AUTH_URL`, realm, admin creds |
 
 All three modes share a setup step: locate the country repo, stage the vendored `dump-keycloak-local/` tooling into it.
@@ -121,6 +122,25 @@ For a new country (e.g. `lesotho`):
    - `wc -l sql/keycloak.sql` and `ls -lh`
    - Realm-role count and per-role assignment counts via the same Python snippet the dev workflow uses (see `cuba-sql/extract.sh`).
    - Any `Failed to create user` lines from the run output (these are case-insensitive username collisions — pre-existing migrator behaviour, recoverable via backfill).
+
+## Mode: deploy
+
+Load a seeded `sql/keycloak.sql` onto the target deploy host's Keycloak Postgres and restart Keycloak so the imported realm is live, without burning the cutover window on a slow `--import-realm` boot.
+
+1. Confirm `<repo>/sql/keycloak.sql` exists. If missing, run seed first; abort.
+2. Prompt via AskUserQuestion for:
+   - `SSH_HOST` — target deploy host (e.g. `unctad_cuba_live`)
+   - Deployment shape:
+     - `compose` → asks for `KC_COMPOSE_DIR` (defaults to `/opt/eregistrations/Conf-LIVE/compose/<country>`)
+     - `swarm` → asks for `KC_SWARM_STACK` (the stack name; service `<stack>_keycloak` is restarted)
+   - Optional: `KC_DB_NAME` (default `keycloak`), `KC_DB_USER` (default `keycloak`), `KC_HEALTH_URL` (default `http://127.0.0.1:9003/health/ready`)
+3. Confirm: "About to scp `sql/keycloak.sql` to `<SSH_HOST>:/tmp/`, terminate live `<KC_DB_NAME>` connections, run `sudo -u postgres psql -f` on it, and restart Keycloak. The `--clean --if-exists` headers in the dump will drop the existing Keycloak DB. Proceed?"
+4. On confirm, run `<repo>/sql/dump-keycloak-local/deploy-keycloak-dump.sh <SSH_HOST> <repo>` with the relevant env vars exported.
+5. Report: dump upload size, psql load summary, restart confirmation, health-probe status.
+
+Deploy **never reads `.env` files on the deploy host** (memory rule). DB / OAuth client secrets must already be in place on the host (set by the operator out-of-band) before `deploy` runs — otherwise the post-restart Keycloak will fail to come up and the health probe will time out.
+
+Dry-run via `DRY_RUN=1`.
 
 ## Mode: backfill
 
