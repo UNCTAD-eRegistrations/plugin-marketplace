@@ -90,11 +90,13 @@ do_remote "sudo -u postgres psql -d postgres -c \"SELECT pg_terminate_backend(pi
 # with --clean --if-exists for objects).
 do_remote "sudo -u postgres psql -d postgres -c \"DROP DATABASE IF EXISTS $KC_DB_NAME;\" >/dev/null"
 do_remote "sudo -u postgres psql -d postgres -c \"CREATE DATABASE $KC_DB_NAME OWNER $KC_DB_USER;\" >/dev/null"
-# Seed runs on PG 17 (throwaway); pg_dump 17 emits `SET transaction_timeout = 0`
-# (rejected by PG <17 as `unrecognized configuration parameter`) and `\restrict
-# <token>` (psql <17 doesn't recognise the meta-command). Strip both — they're
-# no-ops for the schema content.
-do_remote "sed -E '/^SET transaction_timeout/d;/^\\\\restrict /d' $REMOTE_PATH | sudo -u postgres psql -d $KC_DB_NAME -v ON_ERROR_STOP=1 >/dev/null"
+# Prepend `SET ROLE $KC_DB_USER;` so objects in the load are owned by the
+# keycloak role (not the bootstrap postgres role we're connecting as via sudo).
+# Without this, every CREATE TABLE inherits the connecting role's ownership
+# and Keycloak's JDBC user gets `permission denied` on its own schema.
+# Also strip pg_dump 17's `\restrict` / `\unrestrict` meta-commands and the
+# PG-17-only `SET transaction_timeout` GUC — both are no-ops on PG <17.
+do_remote "{ echo 'SET ROLE $KC_DB_USER;'; sed -E '/^SET transaction_timeout/d;/^\\\\(un)?restrict /d' $REMOTE_PATH; } | sudo -u postgres psql -d $KC_DB_NAME -v ON_ERROR_STOP=1 >/dev/null"
 
 # Restart Keycloak so it picks up the new realm state.
 if [[ -n "$KC_SWARM_STACK" ]]; then
