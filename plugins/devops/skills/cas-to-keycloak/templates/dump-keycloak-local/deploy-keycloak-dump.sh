@@ -80,13 +80,21 @@ else
     scp -q "$DUMP" "$SSH_HOST:$REMOTE_PATH"
 fi
 
-say "Terminating live $KC_DB_NAME connections + loading dump"
-# The dump's `DROP DATABASE IF EXISTS` will fail if there are still active
-# sessions on the database, so flush them first. psql -v ON_ERROR_STOP=1
-# ensures we abort loudly on a load error rather than producing a half-imported
-# realm DB.
+say "Terminating live $KC_DB_NAME connections + (re)creating DB + loading dump"
+# Flush any open sessions on the keycloak DB before we drop it.
 do_remote "sudo -u postgres psql -d postgres -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$KC_DB_NAME' AND pid <> pg_backend_pid();\" >/dev/null"
-do_remote "sudo -u postgres psql -d postgres -v ON_ERROR_STOP=1 -f $REMOTE_PATH >/dev/null"
+# The seed's pg_dump runs without --create, so the dump is OBJECT-level only:
+# it assumes the target DB already exists and loads into the current
+# connection's DB. (Re)create the DB ourselves and connect psql explicitly.
+# DROP+CREATE matches the --clean spirit of the dump (which the seed produces
+# with --clean --if-exists for objects).
+do_remote "sudo -u postgres psql -d postgres -c \"DROP DATABASE IF EXISTS $KC_DB_NAME;\" >/dev/null"
+do_remote "sudo -u postgres psql -d postgres -c \"CREATE DATABASE $KC_DB_NAME OWNER $KC_DB_USER;\" >/dev/null"
+# Seed runs on PG 17 (throwaway); pg_dump 17 emits `SET transaction_timeout = 0`
+# (rejected by PG <17 as `unrecognized configuration parameter`) and `\restrict
+# <token>` (psql <17 doesn't recognise the meta-command). Strip both — they're
+# no-ops for the schema content.
+do_remote "sed -E '/^SET transaction_timeout/d;/^\\\\restrict /d' $REMOTE_PATH | sudo -u postgres psql -d $KC_DB_NAME -v ON_ERROR_STOP=1 >/dev/null"
 
 # Restart Keycloak so it picks up the new realm state.
 if [[ -n "$KC_SWARM_STACK" ]]; then
