@@ -1,0 +1,106 @@
+# Throwaway Postgres + Keycloak + CAS/PARTC source dbs + migrator stack used
+# to produce sql/keycloak.sql (enriched with CAS end-users and PARTC groups).
+#
+# Keycloak (unctad/keycloak:2.18 == quay.io/keycloak/keycloak:26.5.2) auto-runs
+# `kc.sh build` then `kc.sh ... start --optimized --verbose --import-realm` from
+# its baked entrypoint, so the mounted realm JSON at /opt/keycloak/data/import/
+# is imported on first boot. All containers use tmpfs data; only the pg_dump
+# output (written by run.sh) persists.
+#
+# Nothing publishes to the host — all traffic stays on the internal `kc`
+# network. pg_dump/psql/curl run via `docker compose exec`.
+#
+# Parameterised via env vars (set by run.sh / backfill.sh from skill input):
+#   COUNTRY              compose project + network name component (e.g. cuba)
+#   KC_REALM_NAME        Keycloak realm name (e.g. CU, SV)
+#   REALM_JSON_PATH      path (from this file) to the realm JSON to import
+#   INSTITUTION_GROUP_ID UUID of the realm's institutions group (instance-specific)
+#   MIGRATOR_SRC_PATH    path (from this file) to vendored cas-to-keycloak source
+
+name: ${COUNTRY:-cuba}-kc-dump
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [kc]
+
+  cas-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [kc]
+
+  partc-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [kc]
+
+  keycloak:
+    image: unctad/keycloak:2.18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ${REALM_JSON_PATH}:/opt/keycloak/data/import/${KC_REALM_NAME}-realm.json:ro
+    networks: [kc]
+
+  migrator:
+    image: node:20-alpine
+    depends_on:
+      keycloak:
+        condition: service_started
+    working_dir: /app
+    environment:
+      AUTH_URL: http://keycloak:8080
+      AUTH_REALM_NAME: ${KC_REALM_NAME}
+      AUTH_ADMIN_USERNAME: admin
+      AUTH_ADMIN_PASSWORD: admin
+      AUTH_ADMIN_CLIENT: admin-cli
+      INSTITUTION_GROUP_ID: ${INSTITUTION_GROUP_ID}
+    volumes:
+      # Vendored cas-to-keycloak source (read-only); copy migrate.js + package.json
+      # into the writable workdir at run time so npm install doesn't pollute it.
+      - ${MIGRATOR_SRC_PATH:-./migrator-src}:/src:ro
+      - ./migrator-workdir:/app
+    networks: [kc]
+
+networks:
+  kc:
+    name: ${COUNTRY:-cuba}-kc-dump
