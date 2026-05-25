@@ -2,12 +2,13 @@
 name: cas-to-keycloak-orchestrator
 description: >
   End-to-end orchestrator for the CAS → Keycloak cutover. Walks the
-  eight-phase chain (verify → add-service → prepare-realm → fetch → seed →
-  deploy → migrate-apps → backfill) by invoking the sibling skills via the
-  Skill tool, threading context (resolved realm UUIDs, generated OAuth
-  secrets, dump paths, target ssh host) so the operator is asked each
-  question once. Surfaces a confirmation gate before any mutating step
-  (deploy, migrate-apps, backfill). Operators wanting to run just one phase
+  nine-phase chain (verify → add-service → prepare-realm → fetch → seed →
+  deploy → migrate-apps → backfill → rewrite-bpa-postgres) by invoking the
+  sibling skills via the Skill tool, threading context (resolved realm
+  UUIDs, generated OAuth secrets, dump paths, target ssh host) so the
+  operator is asked each question once. Surfaces a confirmation gate
+  before any mutating step (deploy, migrate-apps, backfill,
+  rewrite-bpa-postgres). Operators wanting to run just one phase
   can keep invoking the individual sibling skills directly — this orchestrator
   is the all-in-one path.
 license: UNCTAD-Internal
@@ -41,8 +42,9 @@ You are the cas-to-keycloak migration orchestrator. Drive the full chain from a 
 | 5 | deploy | `cas-to-keycloak` (deploy mode) | **deploy host** — drops + recreates `keycloak` DB, loads dump, restarts Keycloak |
 | 6 | migrate-apps | `cas-to-keycloak-migrate-apps` | country compose + haproxy (local) |
 | 7 | backfill | `cas-to-keycloak` (backfill mode) | **target Keycloak** — adds missing role mappings via admin API |
+| 8 | rewrite-bpa-postgres | `cas-to-keycloak-rewrite-bpa-postgres` | **deploy host's BPA postgres** — rewrites legacy PARTC integer FKs in `registration_institution`, `role_institution`, `registration_unit` to KC group UUIDs |
 
-Mutating phases (5, 6 with its downstream apply, 7) get an explicit operator confirmation gate before invocation.
+Mutating phases (5, 6 with its downstream apply, 7, 8) get an explicit operator confirmation gate before invocation.
 
 ## Input gathering (do once, up front)
 
@@ -76,6 +78,7 @@ Hard stops before:
 - **Phase 5 (deploy)**: confirm `KEYCLOAK_DB_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD`, and the 5 OAuth `*_OAUTH_CLIENT_SECRET` env vars are present in the deploy host's `.env`, and the Postgres `keycloak` role exists with LOGIN + matching password. The orchestrator does NOT read the `.env` or check the role itself (memory rule — credential boundaries) — it lists the required setup and asks the operator to confirm before proceeding.
 - **Phase 6 (migrate-apps)**: confirm phase 5 completed and the target Keycloak is healthy. The actual app-side mutation (`up -d --force-recreate <services>` + `systemctl reload haproxy`) is the operator's manual step on the deploy host — orchestrator surfaces the exact commands at the gate.
 - **Phase 7 (backfill)**: confirm `AUTH_URL` + realm name + admin credentials before any admin-API call.
+- **Phase 8 (rewrite-bpa-postgres)**: confirm phase 5 completed (BPA postgres on the deploy host has the new KC group UUIDs available via attributes on KC institutions/units) AND `cas`/`partc` legacy DBs are still present on the deploy host (the rewrite skill's "Fallback" path needs them if any KC subgroup is missing `partc_unit_id`/`partc_institution_unit_id`). The rewrite always backs up BPA postgres first, then runs a ROLLBACK'd preview before COMMIT.
 
 ## Resume from a phase
 

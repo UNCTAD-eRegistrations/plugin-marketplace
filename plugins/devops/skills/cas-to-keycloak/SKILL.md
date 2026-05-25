@@ -182,6 +182,8 @@ Dry-run via `DRY_RUN=1`.
    curl -sI https://login.<domain>/ | head -5   # should show Keycloak, not the old auth backend
    ```
 4. **Browser cache survives.** Users with cached pre-cutover JS will look broken (the JS still calls `/cback/...` and hits 404s). Standard cache clear doesn't touch service workers / IndexedDB / localStorage — incognito works, normal browser doesn't. Tell affected users to open DevTools → Application → Clear site data. (Fleet-wide nuke via `Clear-Site-Data` haproxy header is operator-owned, intentionally out of skill scope.)
+5. **Run `cas-to-keycloak-rewrite-bpa-postgres` BEFORE declaring the cutover complete.** BPA-postgres still holds legacy PARTC integer FKs in `registration_institution`, `role_institution`, `registration_unit` — BPA-frontend forwards those to KC and 404s on every institution picker. The orchestrator chains this as Phase 8; if you're running modes manually, invoke that sibling skill explicitly after deploy.
+6. **Do NOT drop the legacy `cas` / `partc` databases for at least 30 days post-cutover.** They are the ground-truth needed to recover mappings if anything downstream surfaces an unmapped reference later (Cuba LIVE needed PARTC alive a month post-cutover to retroactively recover unit mappings). Schedule the drop in a calendar reminder, not as a same-day step. Operators have historically kept side-by-side databases (`partc_old`, `partc_10072023`, etc.) — codify the instinct.
 
 ## Mode: backfill
 
