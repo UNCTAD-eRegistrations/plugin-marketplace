@@ -1,7 +1,7 @@
 ---
 name: release-platform
 description: >
-  Cut a new platform release across all 27 eRegistrations repositories. Creates
+  Cut a new platform release across all 28 eRegistrations repositories. Creates
   `release/<version>` branches from `develop`, pushes them, and bumps the minor
   version on `develop` in every repo. Supports `--dry-run` to preview without
   mutating, and an optional repo filter to operate on a subset.
@@ -10,8 +10,8 @@ license: UNCTAD-Internal
 compatibility: Requires Node.js + npm (for the global `standard-version` + `xml-js` install), git, an authenticated `gh` CLI for GitHub HTTPS clones, and SSH keys configured for `bitbucket.org` for the seven `mule3-*` and `formio-server` repos. Run from any working directory — the skill creates and cleans up its own `release/` scratch directory.
 allowed-tools: Read, Write, Edit, Bash(git *), Bash(npm *), Bash(node *), Bash(standard-version *), Bash(mkdir *), Bash(chmod *), Bash(rm *), Bash(bash *), Bash(grep *), Bash(basename *), Bash(export *), Bash(test *), TodoWrite, AskUserQuestion
 metadata:
-  version: "1.0.0"
-  version-date: "2026-04-30"
+  version: "1.1.0"
+  version-date: "2026-05-25"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[version] [--dry-run] [repo1 repo2 ...]"
 ---
@@ -19,7 +19,7 @@ metadata:
 # Release eRegistrations Platform
 
 You are performing a release of the eRegistrations platform across all repositories. This involves:
-1. Creating a `release/<version>` branch from `develop` in every repo
+1. Creating a `release/<version>` branch from `develop` in every repo (28 repos total)
 2. Pushing the release branch
 3. Bumping the minor version on `develop`
 
@@ -42,12 +42,12 @@ Set the `DRY_RUN` environment variable to `"true"` when invoking the process scr
 
 ## Repo Filter Mode
 
-If the user specifies one or more repository names after the version/flags, only process those repos instead of all 27. Repository names are matched case-insensitively against the repo display names listed in STEP 3.
+If the user specifies one or more repository names after the version/flags, only process those repos instead of all 28. Repository names are matched case-insensitively against the repo display names listed in STEP 3.
 
 Examples:
 - `/release-platform 2.18 --dry-run mule3-lesotho Statistics-Frontend` — dry-run only those 2 repos
 - `/release-platform mule3 Camunda` — release only mule3 and Camunda
-- `/release-platform 2.18` — release all repos (no filter)
+- `/release-platform 2.18` — release all 28 repos (no filter)
 
 ## STEP 0: Determine Release Version, Mode, and Repo Filter
 
@@ -261,6 +261,7 @@ bash "$SCRIPT" "Publisher"            "https://github.com/UNCTAD-eRegistrations/
 bash "$SCRIPT" "Restheart"            "https://github.com/UNCTAD-eRegistrations/Restheart.git"            "$VERSION" "$SPARSE" &
 bash "$SCRIPT" "Statistics-Backend"   "https://github.com/UNCTAD-eRegistrations/Statistics-Backend.git"   "$VERSION" "$SPARSE" &
 bash "$SCRIPT" "Statistics-Frontend"  "https://github.com/UNCTAD-eRegistrations/Statistics-Frontend.git"  "$VERSION" "$SPARSE" &
+bash "$SCRIPT" "Translation-Service"  "https://github.com/UNCTAD-eRegistrations/Translation-Service.git"  "$VERSION" "$SPARSE" &
 
 # GitHub monorepo (Public-Pages has backend/ and frontend/ subdirectories)
 SPARSE_PP="backend/package.json backend/pom.xml backend/.versionrc.js backend/CHANGELOG.md frontend/package.json frontend/pom.xml frontend/.versionrc.js frontend/CHANGELOG.md"
@@ -337,6 +338,6 @@ rm -rf release/
 
 - **`standard-version` is installed globally once** in STEP 1 — do NOT run `npm install` per repo
 - **Sparse checkout** ensures we only download the minimum files needed for version management
-- **Parallel execution** processes all 27 repos simultaneously for speed
+- **Parallel execution** processes all 28 repos simultaneously for speed
 - If a release branch `release/<version>` already exists in a repo, `git push` will fail — the log will capture this, and it will be reported as a failure. This is expected if a partial release was already started.
 - The `git clone --depth 1` ensures we only download the latest commit, not full history
