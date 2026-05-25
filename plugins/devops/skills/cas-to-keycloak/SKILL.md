@@ -29,7 +29,7 @@ metadata:
 
 You are an expert eRegistrations DevOps engineer. Your task is to orchestrate the CAS → Keycloak migration for an eRegistrations country instance: fetch source dumps, produce a Keycloak realm import artefact, and/or backfill missing roles + role mappings into an already-running Keycloak.
 
-**Read `LESSONS.md` (alongside this file) before invoking any mutating mode.** It captures the gotchas surfaced during the first end-to-end run — most of them are not obvious from the recipe and skipping them creates broken-cutover symptoms that look like other problems.
+**Read `LESSONS.md` (alongside this file) before invoking any mutating mode** — it covers gotchas (PG version skew, container env propagation, admin bootstrap trap, browser cache survivors, etc.) whose symptoms look like other problems.
 
 ## Five modes
 
