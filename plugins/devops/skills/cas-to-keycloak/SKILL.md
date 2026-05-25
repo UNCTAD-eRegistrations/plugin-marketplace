@@ -29,16 +29,19 @@ metadata:
 
 You are an expert eRegistrations DevOps engineer. Your task is to orchestrate the CAS → Keycloak migration for an eRegistrations country instance: fetch source dumps, produce a Keycloak realm import artefact, and/or backfill missing roles + role mappings into an already-running Keycloak.
 
-## Three modes
+**Read `LESSONS.md` (alongside this file) before invoking any mutating mode.** It captures the gotchas surfaced during the first end-to-end run — most of them are not obvious from the recipe and skipping them creates broken-cutover symptoms that look like other problems.
+
+## Five modes
 
 | Mode | What it does | Inputs the skill prompts for |
 |---|---|---|
-| `fetch` | ssh to source Postgres, `sudo -u postgres pg_dump -n cas` + `-n partc`, xz-compress, write to `<repo>/sql/{cas,partc}.sql`. | ssh host, db name |
-| `seed` | Spin up throwaway `postgres + cas-db + partc-db + keycloak + migrator` stack, import realm, load dumps, run migrator, `pg_dump` the enriched Keycloak DB → `<repo>/sql/keycloak.sql`. | (resolves from repo) |
-| `deploy` | scp `sql/keycloak.sql` to the target deploy host, load it into the running Keycloak Postgres, restart the Keycloak service, wait for the health endpoint. | ssh host, compose vs swarm, optional db/health overrides |
+| `verify` | Diff the country's compose + haproxy against a working KC reference (default: kenya). Reports auth-related env-var deltas and `use_backend` ordering anomalies. **No mutation.** Run before any cutover. | reference country (default kenya) |
+| `fetch` | ssh to source Postgres, `sudo -u postgres pg_dump -n cas` + `-n partc`, xz-compress, write to `<repo>/sql/{cas,partc}.sql`. | ssh host, optional db names |
+| `seed` | Spin up throwaway `postgres + cas-db + partc-db + keycloak + migrator` stack (PG 17 throwaway), import realm, load dumps, run migrator, `pg_dump` the enriched Keycloak DB → `<repo>/sql/keycloak.sql`. | (resolves from repo) |
+| `deploy` | scp `sql/keycloak.sql` to the target deploy host, DROP+CREATE the keycloak DB owned by the keycloak role, load the dump as that role (so ownership is right), restart Keycloak, wait for the health endpoint. | ssh host, compose vs swarm, optional db/health overrides |
 | `backfill` | Connect to a running Keycloak; create missing realm roles, then diff/apply realm-role + client-role mappings per user. Idempotent. | target `AUTH_URL`, realm, admin creds |
 
-All three modes share a setup step: locate the country repo, stage the vendored `dump-keycloak-local/` tooling into it.
+All modes share a setup step: locate the country repo, stage the vendored `dump-keycloak-local/` tooling into it.
 
 ## Repo discovery
 
@@ -101,6 +104,22 @@ For a new country (e.g. `lesotho`):
 - Pause and tell the operator: "Cuba's SQL extracts have been copied as a starting point for `lesotho`. Open `lesotho-sql/cas_users.sql` and the partc files, verify property IDs / role names, then re-run."
 - Exit without running.
 
+## Mode: verify
+
+Structural diff against a reference KC LIVE (default `kenya`). No mutations. Run **before** seed/deploy to catch:
+- Auth-related env-var deltas per service (missing `KEYCLOAK_INSTITUTIONS_GROUP_ID`, dropped `CAS_URL=null`, hardcoded UUIDs)
+- `use_backend` ordering anomalies (path-rules buried after host catch-alls — see LESSONS.md "Pre-existing HAProxy ordering bugs")
+
+1. Locate the country repo + reference repo.
+2. Resolve `<repo>/Conf-LIVE/compose/<country>/docker-{compose,stack}.yml` for both.
+3. Per service block, parse env vars filtered to `(AUTH_*, KEYCLOAK_*, OAUTH_*, CAS_*, PARTC_*)`. Report:
+   - keys in reference but missing in target
+   - keys with different non-domain values
+4. Per `frontend www-https`, list `use_backend` rules in order. Flag any path-based rule (e.g. `if formio_path`) that appears AFTER a host-only catch-all (`if is_display_system …`) — that's a routing trap.
+5. Print findings + suggested fixes. Operator decides whether to apply.
+
+A standalone helper at `templates/dump-keycloak-local/verify-against-reference.sh` does the comparison; the skill is just a thin orchestrator around it.
+
 ## Mode: fetch
 
 1. Prompt for `ssh-host` and `db-name` via AskUserQuestion (no defaults — every country has its own).
@@ -141,6 +160,28 @@ Load a seeded `sql/keycloak.sql` onto the target deploy host's Keycloak Postgres
 Deploy **never reads `.env` files on the deploy host** (memory rule). DB / OAuth client secrets must already be in place on the host (set by the operator out-of-band) before `deploy` runs — otherwise the post-restart Keycloak will fail to come up and the health probe will time out.
 
 Dry-run via `DRY_RUN=1`.
+
+### Post-deploy operator checklist (deploy mode MUST print this to stdout at the end)
+
+1. **Master admin is `admin/admin`.** The pre-seeded DB bypasses Keycloak's `KEYCLOAK_ADMIN*` env-var bootstrap — the throwaway's `admin/admin` is what's actually live. Log in and reset immediately:
+   ```
+   docker exec keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+     --server http://localhost:8080 --realm master --user admin --password admin
+   docker exec keycloak /opt/keycloak/bin/kcadm.sh set-password \
+     -r master --username admin --new-password '<…>'
+   ```
+2. **Apps still on stale env vars.** After the cutover compose lands on the host, the existing app containers retain their creation-time env vars. `docker compose restart` does NOT pick up new env. **Use `up -d --force-recreate`**:
+   ```
+   sudo docker compose -f <stack>.yml up -d --force-recreate \
+     bpa-frontend bpa-backend ds-frontend ds-backend \
+     statistics-frontend statistics-backend gdb camunda mule
+   ```
+3. **HAProxy daemon needs an explicit reload.** `/etc/haproxy/haproxy.cfg` is typically a symlink into `/opt/eregistrations/Conf-LIVE/haproxy/<country>/`, so a git pull updates the file but the running daemon keeps the old config in memory:
+   ```
+   sudo systemctl reload haproxy
+   curl -sI https://login.<domain>/ | head -5   # should show Keycloak, not the old auth backend
+   ```
+4. **Browser cache survives.** Users with cached pre-cutover JS will look broken (the JS still calls `/cback/...` and hits 404s). Standard cache clear doesn't touch service workers / IndexedDB / localStorage — incognito works, normal browser doesn't. Tell affected users to open DevTools → Application → Clear site data. (Fleet-wide nuke via `Clear-Site-Data` haproxy header is operator-owned, intentionally out of skill scope.)
 
 ## Mode: backfill
 
