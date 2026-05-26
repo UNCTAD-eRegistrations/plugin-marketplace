@@ -86,6 +86,32 @@ Outside the skill's scope but worth flagging: after the cutover, browsers with c
 
 This is operator workflow, not skill responsibility, so deliberately **not** patched into the skill. If you need a fleet-wide fix, push a temporary `Clear-Site-Data` response header in haproxy and remove it once everyone has cycled through.
 
+## BPA-postgres holds its own copy of the legacy FKs
+
+The migration recipe focused on porting identity (users, groups, credentials) into Keycloak, but the **downstream FK graph** in BPA's own postgres was never re-mapped. BPA stores `String institution_id` / `String unit_id` in 4 tables / 5 columns (`registration_institution`, `role_institution.institution_id`, `role_institution.unit_id`, `registration_unit.institution_id`, `registration_unit.unit_id`). All of them held the legacy PARTC integer ids; BPA-frontend's `institution-controller.service.ts` forwarded those `String`s verbatim to KC `/admin/realms/<R>/groups/{id}/children?max=200`. KC interpreted e.g. `1` as a group UUID and returned 404 → silently empty institution pickers on every legacy reference. Cuba LIVE had **293 broken rows** across these columns.
+
+Found a month post-cutover by a PM complaint about a 404 in DevTools.
+
+**Patches:**
+1. New sibling skill `cas-to-keycloak-rewrite-bpa-postgres` (Phase 8 in the orchestrator chain) — backup → preview in ROLLBACK'd transaction → COMMIT pattern. Reads `partc_institution_id` and `partc_unit_id` (or legacy `partc_institution_unit_id`) stamped on KC groups, builds the integer → UUID mapping, runs UPDATEs on the 4 BPA tables. Includes orphan triage workflow. Shipped.
+2. `cas-to-keycloak-orchestrator/SKILL.md` updated: 8-phase → 9-phase chain, new operator gate before phase 8.
+
+## SQL alias `attribute_partc_institution_unit_id` produces an ungainly KC attribute key
+
+The original `partc_units.sql` aliased `ui.id` as `attribute_partc_institution_unit_id`. The migrator does propagate `attribute_*` aliases to KC subgroup attributes — so KC subgroups got the double-noun key `partc_institution_unit_id` (instead of the parallel-to-institutions `partc_unit_id` that would mirror `partc_institution_id`).
+
+Functionally fine — Phase 8 (`rewrite-bpa-postgres`) reads either key. But the verbose name is misleading: I lost 30+ minutes searching for `partc_unit_id` on KC subgroups before realising the attribute was there under a different name. The mistake was preventable from the first day if the alias had been canonical.
+
+**Patch:** `templates/dump-keycloak-local/cuba-sql/partc_units.sql` rename `attribute_partc_institution_unit_id` → `attribute_partc_unit_id`. Fresh migrations stamp the canonical key. Legacy migrations keep the verbose key (no migration needed; consumer reads either).
+
+## Don't drop legacy `cas` / `partc` databases for at least 30 days post-cutover
+
+Cuba LIVE needed PARTC alive when the rewrite skill was retroactively applied a month post-cutover. The `partc.institution_unit` table was the ground-truth needed to recover unit name → integer mappings when KC subgroups were missing the `partc_unit_id` attribute (Cuba had only the legacy `partc_institution_unit_id`).
+
+Operators have historically kept side-by-side databases (`partc_old`, `partc_10072023`, etc.) — this is the right instinct, just not codified. The 30-day floor matches typical "did anyone notice anything broken" feedback latency for citizen-facing services.
+
+**Patch:** Added explicit warning to `cas-to-keycloak/SKILL.md` deploy phase ("Do NOT drop the legacy cas/partc DBs for at least 30 days post-cutover — they're the ground-truth for downstream fix-ups"). Schedule the drop in a calendar reminder, not as a same-day step.
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -99,5 +125,8 @@ This is operator workflow, not skill responsibility, so deliberately **not** pat
 | 7 | Pre-seeded admin password trap (admin/admin from throwaway) | SKILL.md deploy summary warns + manual kcadm reset step |
 | 9 | Realm template source ambiguity | `prepare-keycloak-realm/SKILL.md` points at starter-conf |
 | 10 | HAProxy daemon needs explicit reload | SKILL.md deploy checklist adds `systemctl reload haproxy` |
+| 11 | BPA-postgres holds legacy PARTC integer FKs that BPA-frontend forwards to KC | new `cas-to-keycloak-rewrite-bpa-postgres` skill (Phase 8) |
+| 12 | SQL alias produced verbose `partc_institution_unit_id` instead of canonical `partc_unit_id` | `cuba-sql/partc_units.sql` alias rename; consumers read either key |
+| 13 | Legacy `cas` / `partc` databases dropped too soon block downstream fix-ups | SKILL.md deploy phase: 30-day-floor warning |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)
