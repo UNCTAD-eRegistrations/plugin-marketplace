@@ -319,7 +319,15 @@ After the chain finishes (single-step or multi-step):
 
 1. Print a verification checklist tailored to the shape:
    - **swarm**: "After the PR merges and CI redeploys: `docker stack ps <stack>` and `docker service ls` should show the new image digests for `bpa-frontend`, `bpa-backend`, `ds-backend`, `ds-frontend`. Hit the instance's `/health` (BPA, DS) and smoke a known service flow."
-2. Offer (don't auto-execute) to post a Jira comment on TOBE-17814 with the PR URL and the chain decision.
+2. If the chain crossed `<from> < 2.14` (any chain that included the 2.13→2.14 step), prompt the operator about the Keycloak realm patch:
+   > "This upgrade crosses the 2.14 boundary. If the realm in Keycloak was seeded from a pre-2.14 dump, the `display-system-frontend` client, `eregistrations` scope, user-profile attributes, and realm-management roles on backend service accounts are missing. The 2.13→2.14 skill emitted `Conf-<UPPER_ENV>/compose/<country>/keycloak-patch/`. Apply it now? (y/N)"
+   - If `y`, print the operator-side `./apply.sh` command with env vars filled (`KC_URL=https://login.<domain>`, `KC_REALM=<realm>`). Do **not** run it from this skill — the operator runs it locally against the live Keycloak.
+   - See `upgrade-2.13-to-2.14/LESSONS.md` for the full rationale and the post-patch `KEYCLOAK_CLIENT_SCOPE_ID` manual step.
+3. HAProxy validation prompt: "Diff `Conf-<UPPER_ENV>/haproxy/<country>/haproxy.cfg` against `Conf-LIVE/haproxy/kenya/haproxy.cfg` (the canonical reference). Known gaps to expect on upgraded instances:
+   - `chrome-url-to-pdf` ACL + use_backend + backend block (kenya routes `/chrome-url-to-pdf/` → ports 8008-8011; many older instances are missing this entirely)
+   - Country-app routes (`be_<country>`, `fe_<country>`) are kenya-specific — ignore.
+   The chain skill does not mutate haproxy.cfg; any gaps require a follow-up PR."
+4. Offer (don't auto-execute) to post a Jira comment on TOBE-17814 with the PR URL and the chain decision.
    - If `y`, draft the comment in ADF (markdown renders `\n` literally in Jira) and post via the Atlassian MCP tooling.
    - If `N` or empty, exit cleanly.
 

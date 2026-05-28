@@ -169,6 +169,16 @@ Lines matching `^(\s*)image:\s*unctad/(mule3-|mule4-|cashier-)[^:\s]+:DEV` (coun
 **Rule 5 — Opensearch bump.**
 Replace `image: opensearchproject/opensearch:2.12.0` with `image: opensearchproject/opensearch:2.19.4`. If the source tag isn't `2.12.0`, the STEP 2 anomaly scan would have caught it; here we only operate on the standard line.
 
+### Service additions
+
+**Rule 5b — Add `ds-frontend` service if missing.**
+
+Pre-2.17 instances (e.g. Burundi LIVE) that never went through the cas-to-keycloak migration sometimes lack the `ds-frontend:` service block entirely. The 2.17 baseline expects it. Grep for `^  ds-frontend:`; if absent, insert the canonical block (see `templates/ds-frontend.service.yml.tpl` if shipped, otherwise reference `Conf-TEST/compose/mali/docker-stack.yml` as the working pattern) before the `cashier:` service block.
+
+Adapt domain literals to the country's domain (read `KC_HOSTNAME=login.<domain>` from the keycloak service). For public clients (DS frontend is public), use `OAUTH_SECRET=null`. The 8 default scopes attached on display-system-frontend are part of the realm patch shipped by the 2.13→2.14 skill — this rule only handles the docker-stack.yml side.
+
+If the block is present, leave it alone — operators may have customized the env list.
+
 ### Env-var version bumps
 
 Locate every `EREGISTRATIONS_VERSION=` and `BUILD_TYPE=` env-list item (across all service blocks).
