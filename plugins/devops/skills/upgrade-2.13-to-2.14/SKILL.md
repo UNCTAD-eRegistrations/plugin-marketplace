@@ -400,6 +400,27 @@ Otherwise:
    - `y` → insert the block; ensure `graylog_network` is referenced in the file's top-level `networks:` section (raise an anomaly if not).
    - `N` or empty → skip. Leave Graylog pointing at the legacy ES endpoint. Print: "Opensearch block not added. Graylog will continue to write to `$SERVICE_HOST:9200`. Manual data migration required separately." Continue with STEP 4.
 
+## STEP 3.7: Emit Keycloak realm patch artifacts (standalone mode only)
+
+Upgraded instances on a pre-filled (2.13-era) Keycloak realm are missing pieces the 2.14+ runtime depends on. Emit a patch bundle alongside docker-stack.yml so the operator can apply it against the live realm before redeploy. Chain mode skips this — the orchestrator emits once at chain end.
+
+1. **Resolve starter-conf path** (source of canonical realm template):
+   - `STARTER_CONF_PATH` env var, OR
+   - `../eregistrations-starter-conf/scripts/keycloak-realm.template.json` relative to eregistrations-v4 worktree, OR
+   - Prompt operator; on two-strikes invalid, skip this step and print "Realm patch artifacts skipped; apply manually."
+
+2. **Emit under `Conf-<UPPER_ENV>/compose/<country>/keycloak-patch/`**:
+   - `partial-import.json` — body for `POST /admin/realms/<realm>/partialImport`
+   - `client-scope.json` — body for `POST /admin/realms/<realm>/client-scopes`
+   - `user-profile.json` — body for `PUT /admin/realms/<realm>/users/profile`
+   - `apply.sh` — applies all four via curl + admin token
+
+3. **Use `templates/extract-keycloak-patch.py`** to produce the artifacts. It reads the starter-conf template, substitutes placeholders from this country's docker-stack.yml (realm name, domain, OAuth client IDs), generates fresh client-secret UUIDs, strips internal IDs from the client-scope so Keycloak generates fresh ones, and writes the four files.
+
+4. **Add the `keycloak-patch/` directory to git ignore** (or warn operator) — the JSON files contain freshly-minted client-secret UUIDs that must not land in version control.
+
+See `LESSONS.md` for the why, the operator workflow, the rationale for not committing the artifacts, and the post-handoff `KEYCLOAK_CLIENT_SCOPE_ID` step that the operator handles manually (swarm stack files can't carry `$VAR` placeholders, so the env var insertion is a deploy-time edit after the realm patch resolves the scope UUID).
+
 ## STEP 4: Post-transformation safety scan
 
 After applying the rules, scan the modified `<TARGET>` for any remaining surprises that would suggest the upgrade is incomplete:
@@ -412,7 +433,7 @@ After applying the rules, scan the modified `<TARGET>` for any remaining surpris
 6. `grep -nE 'AUTH_SERVICE_(URL|BACKEND_URL)=http://keycloak:8080/auth' "$TARGET" || true` — should be empty.
 7. `grep -n 'login\.\$YOUR_DOMAIN_NAME/auth' "$TARGET" || true` — should be empty.
 8. `grep -n '^\s*-\s*"\?MONGO_URI=' "$TARGET" || true` — should be empty (Rule 10 renamed it).
-9. If `KEYCLOAK_QUARKUS_NEEDED=true` and the user said `y`, also check: `grep -nE '"?(PROXY_ADDRESS_FORWARDING|DB_VENDOR|DB_ADDR|DB_DATABASE|DB_USER|DB_PASSWORD)=' "$TARGET" || true` — should be empty.
+9. If `KEYCLOAK_QUARKUS_NEEDED=true` and the user said `y`, also check: `grep -nE '"?\b(PROXY_ADDRESS_FORWARDING|DB_VENDOR|DB_ADDR|DB_DATABASE|DB_USER|DB_PASSWORD)=' "$TARGET" || true` — should be empty. Word-boundary `\b` is important; without it, the Quarkus `KC_DB_PASSWORD=` matches as a false positive.
 
 For every match, present it as an anomaly with `(c)ontinue / (s)kip / (a)bort`. `a` rolls back via `git restore -- "$TARGET"` and exits.
 
@@ -498,6 +519,14 @@ from eRegistrations 2.13 to 2.14.
   to `2.14` on `bpa-frontend` and `ereg-cms-frontend`.
 - Bumped `BUILD_TYPE=LIVE` → `BUILD_TYPE=RC` on `bpa-frontend` and
   `ereg-cms-frontend` (non-dev envs only).
+
+## Keycloak realm patch artifacts
+
+<one of:>
+- Emitted under `Conf-<UPPER_ENV>/compose/<country>/keycloak-patch/`
+  (not committed — see LESSONS.md). Apply locally against the live Keycloak
+  before redeploying.
+- Skipped (operator declined / starter-conf path not resolved).
 
 ## Mandatory Keycloak Quarkus migration
 
