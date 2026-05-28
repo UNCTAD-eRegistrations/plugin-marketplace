@@ -81,3 +81,33 @@ While preparing prelive.benin we also surfaced gaps that aren't strictly the 2.1
 - **OPENSEARCH_ADMIN_PASSWORD via env-var interpolation** in the canonical 2.13→2.14 STEP 3.6 template. Production instances (mali, etc.) use the entrypoint-override pattern: `command: [ '/bin/sh', '-c', 'export OPENSEARCH_INITIAL_ADMIN_PASSWORD=$$(cat /var/run/secrets/OPENSEARCH_ADMIN_PASSWORD); ./opensearch-docker-entrypoint.sh opensearch' ]` plus `secrets: - OPENSEARCH_ADMIN_PASSWORD`. The skill currently emits the env-var form; consider following up to switch to the secrets pattern.
 - **`restheart` missing `extra_hosts: mongodb_host:<IP>`** — `RESTHEART_MONGO_URI` baked by `init-swarm.sh` references `@mongodb_host` but the restheart service block has no `extra_hosts` entry to resolve it. The `cas-to-keycloak-migrate-apps` skill calls this out as a latent bug in mali / mali-amm references; the upgrade chain inherits it. Operators should add the `extra_hosts` entry alongside the migration.
 - **Docker bridge gateway IP** (`172.17.0.1` vs `172.18.0.1`) varies between hosts. The skill leaves the literal in place — operators on a host with a different default bridge need a one-liner search-replace before deploy.
+
+## CAS-era images (`casbackend`, `casfrontend`, `partcbackend`, `eregpartc`, `myaccount`) don't have platform-channel tags
+
+Rule 2 bumps `unctad/<service>:<pinned-semver>` to `:RC` for everything outside the `mule3-/mule4-/cashier-` deny-list. On elsalvador LIVE 2.13 this swept up `casbackend:1.28.0`, `casfrontend:1.7.1`, `partcbackend:1.20.0`, `eregpartc:1.5.1`, `myaccount:0.2.103`. None of these have `:RC` in the registry — CAS / PARTC were retired before 2.14's RC channel started, and myaccount is country-specific (only elsalvador deploys it) and never joined the platform channels. `docker stack deploy` failed on `pull access denied` until a follow-up commit hand-reverted these 5 lines.
+
+Subsequent steps in the chain re-bump them (`:RC` → `:BETA` → `:2.17` → `:2.18`) so the failure surfaces 4 times unless the operator unwinds each step. The pattern is invisible to the bumper because these services look exactly like normal platform images.
+
+**Patch options:**
+1. **Static deny-list extension:** add `casbackend`, `casfrontend`, `partcbackend`, `eregpartc`, `myaccount` to the country-image skip list (and the corresponding rules in 2.15→2.16, 2.16→2.17, 2.17→2.18). Conservative — if these images later magically get :RC tags the skip is still safe.
+2. **Dynamic registry check:** query the docker registry for the target tag before bumping; skip if 404. More robust, adds network dependency.
+3. **Anomaly fallback:** raise as STEP 2 anomaly 1 ("image has no :RC tag in registry") with default-skip. Cheapest to ship.
+
+Option 1 is the most pragmatic. Option 2 is right long-term because the same trap will fire for any future "soon-to-be-removed" service.
+
+## `unctad/formio:2.0.0-rc.122-6` bypasses Rule 2's pinned-semver regex
+
+Rule 2's regex requires `[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9]+)?`. elsalvador 2.13's `unctad/formio:2.0.0-rc.122-6` includes `rc.122` (alpha component) that doesn't fit. Rule 2 silently skips formio; subsequent steps (2.16→2.17 `:BETA` → `:2.17`) also miss it because their regex matches require the source tag to be `:BETA`, which formio isn't. By the end of the chain formio is still pinned at `2.0.0-rc.122-6` while every other unctad image is on `:2.18`.
+
+On elsalvador LIVE the operator caught this in diff review and bumped manually. The skill should at least warn.
+
+**Patch:** loosen the pinned-semver regex to also match alpha-suffixed tags: `[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-z]+\.[0-9]+)?(-[0-9]+)?` — captures `2.0.0-rc.122-6`. Or add anomaly 6 ("tag doesn't match either deny-list or platform-semver — manual review needed") with default-skip. The regex loosening is cleaner if formio is the only weird tag in practice.
+
+## Quick reference — where this run's lessons landed
+
+| # | Lesson | Patch landing site |
+|---|---|---|
+| 1 | CAS-era images lack platform tags; Rule 2 over-bumps them | extend deny-list to include `casbackend`, `casfrontend`, `partcbackend`, `eregpartc`, `myaccount`; OR add registry-check anomaly |
+| 2 | `unctad/formio` alpha-tag breaks Rule 2's regex | loosen regex OR add anomaly 6 |
+
+(The "Hibernate ddl-auto=update masks pre-existing migration gaps" lesson, initially drafted here, moved to `upgrade-eregistrations-instance/LESSONS.md` — it's BPA-backend Java behaviour that surfaces post-handoff during any upgrade, not specific to 2.13→2.14.)
