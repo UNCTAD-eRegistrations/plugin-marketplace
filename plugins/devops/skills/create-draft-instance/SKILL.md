@@ -246,6 +246,7 @@ The skill emits a Keycloak client seeding script alongside the docker-stack.yml 
 - **statistics-backend**: `ALLOWED_HOSTS`, `FE_BASE_URL` → draft. KC client `draft-statistics-backend`.
 - **statistics-frontend**: `API_BASE_URL`, `DS_URL` → draft. `BPA_URL` stays literal. `APP_TITLE="<Country> - <prefix>"`. KC client `draft-statistics-frontend`.
 - **ds-frontend** (if present in LIVE): `BASE_URL`, `BASE_API_URL`, `RESTHEART_URL`, `OAUTH_REDIRECT_URL`, `WS_URL`, `STATS_URL` → draft. `BPA_URL` stays literal. `KEYCLOAK_URL` stays literal.
+- **publisher** (PREVIEW-only, added in Phase 3): rewrite **BOTH** Keycloak client-id env vars to `draft-publisher` — `INTERNAL_AUTH_SERVICE_KEYCLOAK_CLIENT_ID=draft-publisher` **and** `EXTERNAL_AUTH_SERVICE_KEYCLOAK_CLIENT_ID=draft-publisher`. ⚠️ **Easy to miss:** the publisher block is copied from the kenya PREVIEW source where these are the un-prefixed literal `publisher`, and their var names (`*_AUTH_SERVICE_KEYCLOAK_CLIENT_ID`) do **not** match the `*_CLIENT_ID` / `KEYCLOAK_RESOURCE` / `AUTH_RESOURCE` pattern used by every other service — so a naive copy leaves `publisher`, which does not exist in the realm (clients are `draft-` prefixed) → Keycloak `invalid_client` → publisher cannot mint a token for Camunda → BPMN deploy fails with 500 on the first publish to the draft. `INTERNAL/EXTERNAL_AUTH_SERVICE_KEYCLOAK=<LIVE KC>` and `..._REALM` stay literal; `..._CLIENT_SECRET=DOCKER_SECRET:PUBLISHER_OAUTH_CLIENT_SECRET` stays. `FORMIO_EMAIL`/`FORMIO_PASSWORD` stay as-is (see formio note below).
 - **portainer**, **activemq**, **dataweave**, **chrome-url-to-pdf**, **clamav**, **js-assistant**: copy verbatim.
 - **All published ports MUST use Swarm long-form `mode: host`** (post-2.17→2.18 convention). Convert any short-form `- "<published>:<target>"` mapping to:
    ```yaml
@@ -256,7 +257,7 @@ The skill emits a Keycloak client seeding script alongside the docker-stack.yml 
    ```
    This bypasses Swarm's ingress mesh so the haproxy frontend on the draft host sees real client IPs (no SNAT) and the eRegistrations apps' rate-limit/log/audit logic stays meaningful. Applies to every service that publishes ports — portainer, activemq, graylog, formio, restheart, camunda, mule, mule-`<country>`, minio, ds-backend, ds-frontend, cashier, gdb, statistics-backend, statistics-frontend, clamav, publisher, chrome-url-to-pdf.
 - **opensearch-node1**: copy verbatim.
-- **formio**, **restheart**: docserver_mongo / mongodb_host extra_hosts swap to draft bridge IP. Otherwise verbatim.
+- **formio**, **restheart**: docserver_mongo / mongodb_host extra_hosts swap to draft bridge IP. Otherwise verbatim. ⚠️ **Form.IO admin seed:** the publisher logs into Form.IO as `FORMIO_EMAIL` (kept from LIVE, e.g. `test@eregulations.org`). Form.IO seeds its root admin from `ROOT_EMAIL`/`ROOT_PASSWORD` **only on a fresh/empty Mongo**. If the draft's `docserver_mongo` points at a pre-existing or dump-restored Mongo, the seeded admin may be a stale default (e.g. `test@test.com`) that does **not** match `FORMIO_EMAIL` → publisher Form.IO login returns 401 → publish-to-draft fails at the very first step (`/publisher/formio/user/login` 500). The verification step (Phase 8) must confirm the publisher's `FORMIO_EMAIL` admin actually authenticates; if it doesn't, seed/align that admin in the draft Form.IO Mongo.
 - **cashier**: postgres_host swap to draft bridge IP. Verbatim otherwise.
 - **minio**, **minio-init**: copy verbatim from kenya PREVIEW pattern. Do NOT touch user directives, mem/cpu reservations, or healthcheck.
 
@@ -577,6 +578,28 @@ Services kept (carried over with transformations):
 ```
 
 The summary lines should be exact — operators paste them into Jira.
+
+### Phase 8b: Verify auth wiring (REQUIRED gate)
+
+Structural/YAML validation is **not** enough — the failures that actually break a draft are auth-wiring mismatches that only surface at runtime. Two checks:
+
+**Generation-time self-consistency.** Extract every Keycloak client id referenced anywhere in the generated `docker-stack.yml` — across ALL var-name shapes: `*_CLIENT_ID`, `*_CLIENT_ID_1`, `KEYCLOAK_RESOURCE`, `AUTH_RESOURCE`, `OAUTH_CLIENT_ID`, **and the publisher's `INTERNAL_AUTH_SERVICE_KEYCLOAK_CLIENT_ID` / `EXTERNAL_AUTH_SERVICE_KEYCLOAK_CLIENT_ID`**. Every value MUST be `draft-`-prefixed and MUST be one the `init-keycloak-clients.sh` script creates. Flag any value lacking the `draft-` prefix (the literal `publisher` is the canonical offender) or any id in the stack but missing from the seeding script.
+
+**Post-deploy operator gate — emit these as explicit commands in the final summary.** A draft is NOT "done" until all pass:
+
+```bash
+# 1. Every client id must grant a token (401 invalid_client => wrong id or secret — fix first)
+for id in <every client id in the stack>; do
+  curl -s -o /dev/null -w "$id -> %{http_code}\n" -X POST \
+    "<LIVE-KC>/realms/<realm>/protocol/openid-connect/token" \
+    -d grant_type=client_credentials -d client_id="$id" -d client_secret="<secret>"
+done
+# 2. Publisher's FORMIO_EMAIL admin must authenticate to the draft Form.IO (401 => Mongo admin != FORMIO_EMAIL)
+# 3. End-to-end: publish one throwaway service from BPA to the draft and confirm it reaches "deployed"
+#    (exercises Form.IO login + Camunda BPMN deploy — the two hops that failed in the kenya draft incident)
+```
+
+Skipping this gate is exactly how the kenya draft shipped with `publisher` instead of `draft-publisher` and a stale Form.IO admin — both invisible to YAML/structural validation, both fatal to publishing.
 
 ## Idempotency
 
