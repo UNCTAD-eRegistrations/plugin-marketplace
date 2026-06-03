@@ -7,10 +7,10 @@ description: >
   defaults, asks only what's needed, posts via `gh`.
 license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
-allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), AskUserQuestion
+allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
 metadata:
-  version: "1.8.0"
-  version-date: "2026-04-24"
+  version: "1.9.0"
+  version-date: "2026-06-03"
   author: "UNCTAD Trade Facilitation Section"
 ---
 
@@ -201,7 +201,8 @@ This path modifies the **user's app repo** — move carefully:
      If the user picks "Let me type a custom one," prompt for the subdomain with a second question, validate it matches `^[a-z0-9][a-z0-9.-]*[a-z0-9]\.eregistrations\.dev$`, and retry the prompt on invalid input with a plain-language hint about lowercase letters/digits/hyphens. **The `Name` field in the deploy issue is independent of the domain** — derive `Name` from the slug the onboarder will use internally (repo-slug by default, or user's explicit choice if they override Name too), and set `Domain` from the user's domain answer. The two can differ without confusion: `Name` is a Coolify-internal identifier, `Domain` is the public URL.
 5. Show the user what you'll submit and ask for confirmation.
 6. Ask about env vars (optional — "none" is fine).
-7. Post the issue. Show the URL. Done.
+7. **Run the pre-flight build gate** (see "## Pre-flight build gate" below) — `npm ci` then `npm run build` for Node `auto-detect`/`static` repos, plus the large-file & `.dockerignore` checks for all build types. This runs **even when no auto-fix path fired** — a correctly-configured repo still needs its lockfile and build verified. If a gate fails and can't be auto-fixed, bail to a help issue rather than filing a deploy that will fail server-side.
+8. Post the issue. Show the URL. Done.
 
 The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override — **except** for the domain, which is user-facing forever and should never be auto-accepted via a checkbox-style "recommended" nudge.
 
@@ -274,6 +275,54 @@ Do NOT interrogate every value. Do NOT refuse to post. The `<SET-IN-COOLIFY>` pa
 ### Why this shape
 
 The screenshot-driven improvement: asking a non-technical user "any environment variables?" and showing them `<GENERATE:base64:N>` sentinels is a UX failure twice — first because they can't answer, second because the answer is almost always "no" for the static SPAs this skill most often handles. A single grep pass over `src/` determines that 80% of the time nobody needs to be asked anything. The remaining 20%, the skill asks a focused question about the specific vars it found, with defaults picked per variable-shape — and never mentions the word "sentinel" or a `<>` token in the user-facing copy.
+
+## Pre-flight build gate — verify the deploy will actually build (mandatory, runs before Posting)
+
+This gate runs for **every Node/buildable repo**, regardless of build type and **regardless of whether any auto-fix path fired**. It closes the gap left by Rule E, which only runs the build when the static-SPA auto-fix triggers (i.e. when `start` is missing). A repo that is *already* set up correctly — has both `build` and `start` — skips Rule E entirely, so without this gate nothing ever runs the deploy commands locally, and a broken lockfile or build error reaches Coolify unseen.
+
+**Incident that motivated this (2026-06-03, SW-Comores):** the repo had a valid `start` script, so Rule E was skipped. Its `package-lock.json` carried wrong SRI `integrity` hashes (off by one base64 char) for several packages. Nixpacks runs `npm ci`, which strictly verifies every tarball against the lockfile and rejected the *genuinely-correct* registry tarballs as "corrupted" — the deploy died with `EINTEGRITY` after minutes of retries. A local `npm ci` would have caught it in seconds.
+
+**When to run:** after build-type detection (and any auto-fix), before "## Building the issue body". Run **Gates 1–2** when `build type` is `auto-detect` or `static` **and** a `package.json` with a `build` script exists. Skip Gates 1–2 for `dockerfile`/`dockercompose` (the image build happens server-side; Rules A–D already pre-flight compose) — but always run the **Large-file & context checks** below, for every build type.
+
+**Pre-check:** `command -v npm` must succeed. If npm is missing, skip Gates 1–2 with a one-line note (can't verify without it) and continue — do not block the deploy.
+
+### Gate 1 — Clean install (catches corrupt / out-of-sync lockfile)
+
+Run the deploy runner's exact install command in the repo:
+
+```bash
+npm ci --no-audit --no-fund
+```
+
+`npm ci` is strict: it requires `package-lock.json`, refuses to modify it, and verifies every tarball's `integrity`. This is the gate that catches the incident class — `npm install` would silently *repair* the bad lockfile and hide the problem until CI hits it.
+
+- **No `package-lock.json`:** `npm ci` errors immediately, and the deploy would fall back to `npm install` (slower, non-reproducible). Offer to generate one with `npm install --package-lock-only`, commit as `chore: add package-lock.json for reproducible deploy`, using the **same guardrails and push/rollback flow as the compose auto-fix** (clean tree, upstream branch, graceful help-issue fallback on push failure).
+- **`EINTEGRITY`, "tarball … seems to be corrupted", or "npm ci can only install … in sync with package.json":** the lockfile is corrupt or has drifted. Offer to regenerate it (reuse the auto-fix guardrails + confirmation):
+  1. `rm -f package-lock.json && rm -rf node_modules`
+  2. `npm install --no-audit --no-fund` — rebuilds the lockfile from the registry; integrity hashes now match the canonical published values.
+  3. Re-run `npm ci` to confirm it passes.
+  4. Commit `package-lock.json` as `fix: regenerate corrupt/out-of-sync lockfile`, push to the current branch (rollback-on-failure path).
+
+  Plain-language question: *"Your project's dependency lock file is out of date and would make the deploy fail. Can I refresh it for you?"* → `{Yes, refresh and deploy (recommended) / Open a help issue instead}`.
+
+### Gate 2 — Build (catches broken deps, TS errors, missing build output)
+
+Only after Gate 1 passes:
+
+```bash
+npm run build
+```
+
+This is the same command Nixpacks runs. On failure, **do not file the issue** — show the plain-language message Rule E uses (*"I tried to prepare your project for deployment, but the build failed on my end. This means the deploy would fail too. No changes were committed."*), surface the last 20 lines of output, and offer only "Open a help issue" or "Cancel." Then confirm the expected output dir exists (e.g. `dist/` for Vite) — if not, bail the same way.
+
+### Large-file & context checks (all build types, advisory — never block)
+
+These prevent slow/fragile builds rather than outright failures:
+
+- **Missing `.dockerignore`:** if absent, the entire repo — including `.git` — is shipped as the Docker build context. A `.git` bloated with media committed to history can push the context to hundreds of MB and exhaust the builder's disk mid-`npm`-extract, which itself manifests as *spurious* "tarball corrupted" retries. Offer to add a `.dockerignore` covering at least `.git`, `node_modules`, `dist`.
+- **Tracked files > 50 MB:** `find . -path ./.git -prune -o -type f -size +50M -print`. Warn the user — GitHub flags these, and they bloat every clone and every build context; suggest Git LFS or moving the asset to object storage/CDN. (Incident reference: SW-Comores shipped a 619 MB context with no `.dockerignore`, plus 500+ MB of unused videos committed to history.)
+
+**Why a gate and not just trust the auto-fix paths:** the auto-fix paths (Rule E, Rules A–D) only fire when something *needs* fixing. A correctly-configured repo skips them all — and that's exactly the repo whose *lockfile* or *transitive build* can still be silently broken. Running the deploy commands unconditionally, locally, is the only thing that guarantees "builds cleanly here → deploys cleanly there."
 
 ## Building the issue body
 
