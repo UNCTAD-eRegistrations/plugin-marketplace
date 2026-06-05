@@ -1,0 +1,8 @@
+{
+  "name": "eregulations",
+  "description": "Deployment and operations skills for eRegulations / TradePortal instances — server provisioning, admin back-office and public front-end deploys, post-deploy cleanup, and running multiple instances on shared databases. Distinct from the eRegistrations (BPA) platform covered by the bpa-mcp and devops plugins.",
+  "version": "0.1.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}

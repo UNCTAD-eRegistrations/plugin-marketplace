@@ -122,6 +122,15 @@
       },
       "source": "./plugins/service-design",
       "category": "documentation"
+    },
+    {
+      "name": "eregulations",
+      "description": "Deployment and operations skills for eRegulations / TradePortal instances (the procedure-documentation portal — distinct from the eRegistrations BPA platform). Covers Ubuntu server prep, the admin back-office and public front-end deploys, post-deploy cleanup, and running multiple instances on shared databases. Commands: /deploy-eregulations-instance.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/eregulations",
+      "category": "devops"
     }
   ]
 }
