@@ -8,8 +8,8 @@ description: >
 license: UNCTAD-Internal
 allowed-tools: Read, Write, Edit, Bash(curl *), Bash(cat *), Bash(ls *)
 metadata:
-  version: "1.2.0"
-  version-date: "2026-05-06"
+  version: "1.3.0"
+  version-date: "2026-06-14"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[list | <file-path>]"
 ---
@@ -94,6 +94,32 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
    - The management secret (from `secret`) — remind them to save it
    - The document ID
 
+#### Custom slug — choose a readable URL
+
+By default the document gets a random 10-character id and a URL like `/d/a1b2c3d4e5`. The user can instead request a **custom slug** to get a memorable URL such as `/d/tz-migration-report`.
+
+- Pass an optional `slug` field in the JSON body (or a `slug` form field for `POST /upload`).
+- When a slug is given, the document id **is** the slug and the URL becomes `<base>/d/<slug>`. The create response is `201` with `{id, url, secret, visibility, created_at}` as usual.
+- **Slug rules** (validated server-side):
+  - Must match `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` — lowercase letters, digits, and internal hyphens only (no leading/trailing hyphen).
+  - Length **3–64** characters.
+  - Must **not** be a reserved word: `raw`, `api`, `static`, `upload`, `d`, `health`, `me`, `documents`, `register`, `index`.
+  - Must **not** look like a random id (rejects the 10-char nanoid shape `^[a-z0-9]{10}$`).
+  - An invalid slug returns `400 invalid slug: <reason>`.
+- If the slug is **already in use**, the API returns `409 URL already in use` — pick another slug.
+- The `slug` field is **optional**. Omitting it preserves today's behavior exactly: a random 10-char id is generated.
+
+#### Update in place — overwrite an existing document
+
+To replace the content of an already-published document **at the same URL** (instead of creating a new one), POST again with `short_code` plus the document's `secret`:
+
+- Send `short_code` set to the document's id-or-slug, and either the management secret (`sk_...`) or the publisher Bearer token, to `POST /api/documents` (or `POST /upload`). On `POST /api/documents` the JSON field is named `secret`; on the `POST /upload` form the field is named `management_secret`.
+- **Overwrites**: `title`, `content`, `format`, `visibility`.
+- **Preserves**: `created_at`, `project`, `doc_type`, `agent_session`, `tags`, `pinned` (and the publisher).
+- Returns `200` with `{id, url, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
+- **Cannot combine `slug` with `short_code`** — doing so returns `400 cannot use slug with short_code`. Use `slug` to create a new document; use `short_code` to update an existing one.
+- Other errors: `401` if neither `secret` nor a publisher Bearer token is supplied, `403` if the caller doesn't own the document, `404` if `short_code` matches no document.
+
 ### `/share list` — List your published documents
 
 ```bash
@@ -115,6 +141,48 @@ If no file path is given:
 5. Wait for confirmation before publishing.
 6. Publish using the same API call as above.
 
+## Deleting a document
+
+To delete a published document, use either the document id or its slug:
+
+- `DELETE /api/documents/{id}` with the publisher `Authorization: Bearer <token>`.
+- Or the thin alias `DELETE /d/{code}` with header `X-Management-Secret: <sk_...>` (where `{code}` is the id or slug). This is equivalent to `DELETE /api/documents/{id}` and is handy when the user only kept the management secret.
+
+## Examples
+
+### Create with a custom slug
+
+```bash
+curl -s -X POST https://share.eregistrations.dev/api/documents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
+  -d '{
+    "title": "Tanzania Migration Report",
+    "format": "md",
+    "content": "# Migration Report\n...",
+    "visibility": "private",
+    "slug": "tz-migration-report"
+  }'
+# -> 201 {"id":"tz-migration-report","url":".../d/tz-migration-report","secret":"sk_...","visibility":"private","created_at":"..."}
+```
+
+### Update an existing document in place
+
+```bash
+curl -s -X POST https://share.eregistrations.dev/api/documents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
+  -d '{
+    "short_code": "tz-migration-report",
+    "secret": "sk_...",
+    "title": "Tanzania Migration Report (v2)",
+    "format": "md",
+    "content": "# Migration Report — updated\n...",
+    "visibility": "public"
+  }'
+# -> 200 {"id":"tz-migration-report","url":".../d/tz-migration-report","visibility":"public","created_at":"...","updated_at":"..."}
+```
+
 ## Important Notes
 
 - **Max content size**: 5 MB
@@ -124,6 +192,8 @@ If no file path is given:
 - **Rate limit**: 10 publishes per minute per IP. If you get 429, wait and retry.
 - The management secret is shown only once at creation. It allows deleting or updating the document without the publisher token.
 - The publisher token also allows managing all documents published with it.
+- **Custom slugs**: optionally pass `slug` on create to get a readable `/d/<slug>` URL. Omitting it keeps the default random id. See [Custom slug](#custom-slug--choose-a-readable-url).
+- **Update in place**: re-POST with `short_code` + the management secret (JSON field `secret`, or form field `management_secret` on `/upload`) — or the publisher token — to overwrite an existing document at the same URL. See [Update in place](#update-in-place--overwrite-an-existing-document).
 
 ## Error Handling
 
@@ -131,4 +201,7 @@ If no file path is given:
 - **413**: Content too large — inform the user of the 5 MB limit.
 - **429**: Rate limited — wait 60 seconds and retry once.
 - **422**: Content contains detected secrets (API keys, passwords, private keys) — review and remove sensitive data before sharing.
-- **400**: Validation error — check title, format, and content fields.
+- **400**: Validation error — check title, format, and content fields. Also returned for an invalid slug (`invalid slug: <reason>`) or when `slug` is combined with `short_code` (`cannot use slug with short_code`).
+- **403**: On an update-in-place, the caller doesn't own the document — use the correct `secret` or publisher token.
+- **404**: On an update-in-place, `short_code` matches no existing document.
+- **409**: The requested slug is already in use (`URL already in use`) — choose a different slug.
