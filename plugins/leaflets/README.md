@@ -15,11 +15,16 @@ hardcoded to one registry:
 - **Plumbing is asked, not assumed** — TTS engine, deploy target, and where the
   service content comes from are intake questions.
 
-## Skill
+## Skills
 
 - **service-leaflet** (`/service-leaflet`) — the 8-phase pipeline: intake → acquire
   brand → gather content → build leaflet → narration → voice audio → build guided
   version → deploy. See `skills/service-leaflet/SKILL.md`.
+- **service-concept-brief** (`/service-concept-brief`) — upstream: produces a traced,
+  conceptual "what each type IS" content map per service branch, by cross-reading the
+  **law** and the **live BPA service** and reconciling them. The source of truth the
+  leaflet consumes (Phase 2); also feeds manuals, training, and design docs. See
+  `skills/service-concept-brief/SKILL.md`.
 
 ## Assets
 
