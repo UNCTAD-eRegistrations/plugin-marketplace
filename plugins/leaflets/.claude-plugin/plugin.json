@@ -1,7 +1,7 @@
 {
   "name": "leaflets",
   "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide that narrates the page. The brand is matched to a target site you point at (URL or screenshots); the guide's name and man/woman voice are user-chosen.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }

@@ -35,8 +35,10 @@ hardcoded to one registry:
 ## Requirements
 
 - A static-page host (or just take the generated files).
-- A text-to-speech service **only if** you want the voice guide; the leaflet works
-  without one.
+- A text-to-speech engine **only if** you want the voice guide — the skill ships the
+  **LuxTTS** recipe we use (endpoint, voices, params, the convert step) plus
+  non-English voice-clone fallbacks (ElevenLabs / Meta MMS-TTS); or point at your
+  own. The leaflet works without a guide.
 
 ## Companions (other plugins/skills, optional)
 
