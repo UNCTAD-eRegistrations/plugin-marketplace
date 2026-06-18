@@ -90,6 +90,11 @@ is for; don't put the light-bg accent on the primary band.
 
 ## Phase 2 — Gather the content
 
+**If the service has multiple types/branches, or you want a law-grounded model, run the
+`service-concept-brief` skill first** — it produces the per-type traced content map (the
+law + the live form, reconciled, every claim sourced) that this phase consumes. For a
+simple single-type page, build a lightweight content map inline instead.
+
 Structure the leaflet around *what the thing IS*, not the form's field order. A
 strong default spine (from company registration) is: an at-a-glance fact box, then
 ordered parts (the entity · the people · the rules · the output) — but each service
