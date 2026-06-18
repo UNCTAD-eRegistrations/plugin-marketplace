@@ -1,0 +1,25 @@
+{
+  "_comment": "Worked example. Copy to guide-config.json and edit. All paths are relative to THIS config file. 'assistant_name' is the voice guide's name (chosen in Phase 0). 'avatar' is its portrait. 'audio_mode': 'url' lazy-loads audio/<file> (recommended, light); 'inline' base64-inlines the clips into one self-contained file. 'anchors' inject ids onto the leaflet's section heads so a segment can scroll/highlight to them (match the exact HTML string). 'segments' = the narration: text + the element it scrolls to (target null = top; block = scrollIntoView start|center).",
+  "assistant_name": "Ava",
+  "cta_label": "Let Ava guide you",
+  "input_html": "leaflet.html",
+  "output_html": "leaflet-guided.html",
+  "audio_dir": "audio",
+  "audio_mode": "url",
+  "avatar": "avatar-default.webp",
+  "title_replace": [
+    "<title>Apply for a permit</title>",
+    "<title>Apply for a permit (guided)</title>"
+  ],
+  "anchors": [
+    ["<div class=\"section-title\">What you need</div>", "<div class=\"section-title\" id=\"g-need\">What you need</div>"],
+    ["<div class=\"section-title\">How it works</div>", "<div class=\"section-title\" id=\"g-how\">How it works</div>"],
+    ["<div class=\"section-title\">What you receive</div>", "<div class=\"section-title\" id=\"g-receive\">What you receive</div>"]
+  ],
+  "segments": [
+    {"file": "seg1.mp3", "target": null,        "block": "start",  "text": "Hi, I'm Ava. Let me walk you through this service. It only takes a few steps, and I'll explain each one as we go."},
+    {"file": "seg2.mp3", "target": "#g-need",   "block": "center", "text": "First, what you need before you start: your identity document and a few details about your request. Have them ready and the rest is quick."},
+    {"file": "seg3.mp3", "target": "#g-how",    "block": "center", "text": "Here's how it works. You fill in the form, the system checks it, and an officer reviews it. You can follow the progress at every stage."},
+    {"file": "seg4.mp3", "target": "#g-receive","block": "center", "text": "And at the end, this is what you receive. When you're ready, you can begin, and I'm here whenever you need me."}
+  ]
+}

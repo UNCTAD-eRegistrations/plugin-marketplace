@@ -1,0 +1,467 @@
+<!-- Generic brand template. Fill the :root --brand-* tokens (Phase 1) and replace {{PLACEHOLDERS}}. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{HERO_TITLE}} — {{ORG_NAME}}</title>
+  <!-- Font family follows --brand-font (default: Poppins). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root{
+      --brand-primary: #2e3192;        /* hero band, primary buttons, links */
+      --brand-primary-deep: #222470;   /* darker shade for depth */
+      --brand-primary-soft: #3d40b5;   /* lighter shade */
+      --brand-primary-wash: #eef0fb;   /* very light tint: callouts, hovers */
+      --brand-accent: #16a34a;         /* accent on LIGHT bg: eyebrow, marks */
+      --brand-accent-bright: #4ade80;  /* accent on DARK bg: contrast-safe */
+      --brand-ink: #1a1a1a;            /* body text */
+      --brand-ink-soft: #475569;       /* muted/secondary text */
+      --brand-rule: #e5e7eb;           /* hairlines, borders */
+      --brand-font: 'Poppins', system-ui, -apple-system, sans-serif;
+      --cat-a: #0d6b54;                /* poster category A (e.g. individual) */
+      --cat-b: #185fa5;                /* poster category B (e.g. company) */
+    }
+
+    /* Derived category tints (rgb helpers let the two categories tint
+       backgrounds/borders/ink while staying driven by --cat-a / --cat-b).
+       If you change --cat-a / --cat-b above, update these rgb triplets too. */
+    :root {
+      --cat-a-rgb: 13,107,84;          /* rgb of --cat-a */
+      --cat-b-rgb: 24,95,165;          /* rgb of --cat-b */
+      --cat-a-ink: #0a4d3c;            /* darker shade of --cat-a for text */
+      --cat-b-ink: #0a3d6b;            /* darker shade of --cat-b for text */
+      --gray-100:  #eeeeed;
+      --gray-200:  #d3d1c7;
+      --gray-500:  #888780;
+    }
+
+    html, body {
+      font-family: var(--brand-font);
+      -webkit-font-smoothing: antialiased;
+      background: var(--brand-primary);
+    }
+
+    /* ══ TOP — BRAND PRIMARY ══ */
+    .top {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 56px 72px;
+    }
+
+    .nav-row {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 72px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      margin-bottom: 64px;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 14px; }
+    .nav-logo-circle {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.55);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
+      color: #fff; flex-shrink: 0;
+    }
+    .nav-logo { font-size: 14px; font-weight: 600; color: #fff; }
+    .nav-sep  { width: 1px; height: 18px; background: rgba(255,255,255,0.18); }
+    .nav-sub  { font-size: 13px; color: rgba(255,255,255,0.45); }
+    .nav-url  { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.38); }
+
+    .hero-eyebrow {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--brand-accent-bright); margin-bottom: 22px; display: block;
+    }
+    .hero-title {
+      font-size: clamp(40px, 5.5vw, 58px);
+      line-height: 1.07; letter-spacing: -0.03em; margin-bottom: 10px;
+    }
+    .ht-light { font-weight: 300; color: rgba(255,255,255,0.42); }
+    .ht-bold  { font-weight: 800; color: #fff; display: block; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid rgba(255,255,255,0.18); border-radius: 100px;
+      padding: 6px 16px; margin: 22px 0 26px;
+      font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.60);
+    }
+    .hero-badge-dot { width: 7px; height: 7px; background: var(--brand-accent-bright); border-radius: 50%; flex-shrink: 0; }
+
+    .hero-lead {
+      font-size: 17px; line-height: 1.65;
+      color: rgba(255,255,255,0.52); max-width: 600px;
+    }
+
+    /* ══ BOTTOM — WHITE ══ */
+    .bottom { background: #fff; }
+    .bottom-inner {
+      max-width: 1000px; margin: 0 auto;
+      padding: 56px 56px 0;
+    }
+
+    .paths {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    /* ── CARD ── */
+    .path-card {
+      border: 1px solid;
+      border-radius: 14px;
+      padding: 30px 28px 34px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-teal { background: rgba(var(--cat-a-rgb),0.07); border-color: rgba(var(--cat-a-rgb),0.20); }
+    .card-blue { background: rgba(var(--cat-b-rgb),0.07); border-color: rgba(var(--cat-b-rgb),0.20); }
+
+    .path-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; border-radius: 14px 14px 0 0;
+    }
+    .card-teal::before { background: var(--cat-a); }
+    .card-blue::before { background: var(--cat-b); }
+
+    .path-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .pt-teal { color: var(--cat-a); }
+    .pt-blue { color: var(--cat-b); }
+    .path-tag .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .path-heading {
+      font-size: 21px; font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.2;
+      color: var(--brand-primary); margin-bottom: 4px;
+    }
+    .path-sub {
+      font-size: 13.5px; color: var(--gray-500);
+      margin-bottom: 24px; line-height: 1.5;
+    }
+    .path-divider { height: 1px; background: rgba(0,0,0,0.08); margin-bottom: 22px; }
+
+    /* ── NAME BLOCKS ── */
+    .name-blocks { display: flex; flex-direction: column; }
+
+    .name-block { display: flex; gap: 14px; align-items: stretch; }
+
+    .block-left {
+      display: flex; flex-direction: column;
+      align-items: center; flex-shrink: 0; width: 34px;
+    }
+    .block-circle {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1.5px solid;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; flex-shrink: 0;
+      background: #fff; letter-spacing: 0;
+    }
+    .bc-teal { border-color: var(--cat-a); color: var(--cat-a); }
+    .bc-blue { border-color: var(--cat-b); color: var(--cat-b); }
+
+    .block-line { width: 1.5px; flex: 1; margin: 5px 0; min-height: 10px; }
+    .bl-teal { background: rgba(var(--cat-a-rgb),0.18); }
+    .bl-blue { background: rgba(var(--cat-b-rgb),0.18); }
+
+    .block-body { padding-bottom: 20px; padding-top: 5px; flex: 1; }
+    .name-block:last-of-type .block-body { padding-bottom: 0; }
+
+    .block-label {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .bl-label-teal { color: var(--cat-a); }
+    .bl-label-blue { color: var(--cat-b); }
+
+    .block-title {
+      font-size: 15px; font-weight: 700;
+      color: var(--brand-ink); line-height: 1.3; margin-bottom: 4px;
+    }
+    .block-desc {
+      font-size: 13px; line-height: 1.58; color: var(--gray-500);
+      margin-bottom: 6px;
+    }
+    .block-example {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      padding: 4px 10px; border-radius: 6px;
+      margin-top: 2px;
+    }
+    .be-teal { background: rgba(var(--cat-a-rgb),0.08); color: var(--cat-a-ink); }
+    .be-blue { background: rgba(var(--cat-b-rgb),0.08); color: var(--cat-b-ink); }
+
+    .block-examples { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+    .block-optional {
+      display: inline-block;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 4px;
+      margin-bottom: 5px;
+    }
+    .bo-teal { background: rgba(var(--cat-a-rgb),0.08); color: var(--cat-a); }
+    .bo-blue { background: rgba(var(--cat-b-rgb),0.08); color: var(--cat-b); }
+
+    /* ── RULE NOTE ── */
+    .rule-box {
+      display: flex; gap: 11px; align-items: flex-start;
+      margin-top: 22px; padding: 14px 16px; border-radius: 9px;
+      background: rgba(255,255,255,0.60);
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .rule-marker { width: 4px; align-self: stretch; border-radius: 3px; flex-shrink: 0; }
+    .rm-teal { background: var(--cat-a); }
+    .rm-blue { background: var(--cat-b); }
+    .rule-label {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .rl-teal { color: var(--cat-a); }
+    .rl-blue { color: var(--cat-b); }
+    .rule-text { font-size: 13px; line-height: 1.55; }
+    .rt-teal { color: var(--cat-a-ink); }
+    .rt-blue { color: var(--cat-b-ink); }
+
+    /* ── DEFINITIONS BAND ── */
+    .defs-band {
+      max-width: 1000px; margin: 0 auto;
+      padding: 52px 56px 48px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .defs-title {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--brand-primary); margin-bottom: 28px;
+      opacity: 0.4;
+    }
+    .defs-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .defs-grid .def-item {
+      display: flex;
+      align-items: baseline;
+      gap: 40px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .defs-grid .def-item:first-child { border-top: 1px solid var(--gray-100); }
+    .def-tag { flex-shrink: 0; width: 220px; }
+    .def-title { flex-shrink: 0; width: 200px; }
+    .def-text { flex: 1; }
+    .def-item {}
+    .def-tag {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--brand-primary); margin-bottom: 10px;
+    }
+    .def-badge {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800;
+      background: var(--brand-primary); color: #fff; flex-shrink: 0;
+    }
+    .def-title {
+      font-size: 15px; font-weight: 700;
+      color: var(--brand-primary); line-height: 1.3;
+      margin-bottom: 8px; letter-spacing: -0.01em;
+    }
+    .def-text {
+      font-size: 14px; line-height: 1.65;
+      color: var(--gray-500);
+    }
+    .def-sep {
+      background: var(--gray-100);
+      width: 1px;
+      align-self: stretch;
+    }
+
+    /* ── FOOTER ── */
+    .footer-bar {
+      max-width: 1000px; margin: 0 auto;
+      padding: 28px 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid var(--gray-100);
+      margin-top: 48px;
+    }
+    .footer-left  { font-size: 12.5px; color: var(--gray-500); }
+    .footer-right { font-size: 12.5px; font-weight: 600; color: var(--brand-primary); }
+
+    @media print {
+      @page { size: A3 portrait; margin: 0; }
+      .bottom { background: #fff; }
+      body { background: var(--brand-primary); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ TOP — BRAND PRIMARY ══ -->
+  <div class="top">
+    <div class="nav-row">
+      <div class="nav-brand">
+        <div class="nav-logo-circle">{{ORG_NAME}}</div>
+        <span class="nav-logo">{{ORG_NAME}}</span>
+        <div class="nav-sep"></div>
+        <span class="nav-sub">Subtitle or tagline</span>
+      </div>
+      <span class="nav-url">{{ORG_URL}}</span>
+    </div>
+
+    <span class="hero-eyebrow">Eyebrow text in accent caps</span>
+    <h1 class="hero-title">
+      <span class="ht-light">{{HERO_TITLE}}</span>
+      <span class="ht-bold">Bold second line.</span>
+    </h1>
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Badge label
+    </div>
+    <p class="hero-lead">{{HERO_LEDE}}</p>
+  </div>
+
+  <!-- ══ BOTTOM — WHITE ══ -->
+  <div class="bottom">
+    <!-- DEFINITIONS -->
+    <div class="defs-band">
+      <div class="defs-title">Definitions</div>
+      <div class="defs-grid">
+
+        <!-- Repeat this .def-item block per definition. -->
+        <div class="def-item">
+          <div class="def-tag"><div class="def-badge">A</div>Term A</div>
+          <div class="def-title">Short definition title</div>
+          <div class="def-text">Placeholder body text… explaining the first term. Use <strong>bold</strong> for the key part the reader must notice.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="bottom-inner">
+      <div class="paths">
+
+        <!-- CATEGORY A -->
+        <div class="path-card card-teal">
+          <div class="path-tag pt-teal"><span class="dot"></span>Category A</div>
+          <h2 class="path-heading">Category A heading</h2>
+          <p class="path-sub">Short subtitle describing this category,<br>on one or two lines.</p>
+          <div class="path-divider"></div>
+
+          <div class="name-blocks">
+
+            <!-- Repeat this .name-block per row. -->
+            <div class="name-block">
+              <div class="block-left">
+                <div class="block-circle bc-teal">A</div>
+                <div class="block-line bl-teal"></div>
+              </div>
+              <div class="block-body">
+                <div class="block-label bl-label-teal">Row label</div>
+                <div class="block-title">Short row title</div>
+                <div class="block-desc">Placeholder body text… describing this row for category A.</div>
+                <div class="block-example be-teal">e.g. Example value</div>
+              </div>
+            </div>
+
+            <!-- Last row example: no .block-line, optional tag, multiple examples. -->
+            <div class="name-block">
+              <div class="block-left">
+                <div class="block-circle bc-teal">B</div>
+              </div>
+              <div class="block-body">
+                <div class="block-label bl-label-teal">Row label</div>
+                <div class="block-optional bo-teal">Optional</div>
+                <div class="block-title">Short row title</div>
+                <div class="block-desc">Placeholder body text… describing an optional, repeatable row.</div>
+                <div class="block-examples">
+                  <div class="block-example be-teal">e.g. Example one</div>
+                  <div class="block-example be-teal">e.g. Example two</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="rule-box">
+            <div class="rule-marker rm-teal"></div>
+            <div>
+              <div class="rule-label rl-teal">Key rule</div>
+              <div class="rule-text rt-teal">Placeholder body text… stating the single most important rule for category A.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CATEGORY B -->
+        <div class="path-card card-blue">
+          <div class="path-tag pt-blue"><span class="dot"></span>Category B</div>
+          <h2 class="path-heading">Category B heading</h2>
+          <p class="path-sub">Short subtitle describing this category,<br>on one or two lines.</p>
+          <div class="path-divider"></div>
+
+          <div class="name-blocks">
+
+            <!-- Repeat this .name-block per row. -->
+            <div class="name-block">
+              <div class="block-left">
+                <div class="block-circle bc-blue">A</div>
+                <div class="block-line bl-blue"></div>
+              </div>
+              <div class="block-body">
+                <div class="block-label bl-label-blue">Row label</div>
+                <div class="block-title">Short row title</div>
+                <div class="block-desc">Placeholder body text… describing this row for category B. Use <strong>bold</strong> where needed.</div>
+                <div class="block-example be-blue">e.g. Example value</div>
+              </div>
+            </div>
+
+            <!-- Last row example: no .block-line, optional tag, multiple examples. -->
+            <div class="name-block">
+              <div class="block-left">
+                <div class="block-circle bc-blue">B</div>
+              </div>
+              <div class="block-body">
+                <div class="block-label bl-label-blue">Row label</div>
+                <div class="block-optional bo-blue">Optional</div>
+                <div class="block-title">Short row title</div>
+                <div class="block-desc">Placeholder body text… describing an optional, repeatable row.</div>
+                <div class="block-examples">
+                  <div class="block-example be-blue">e.g. Example one</div>
+                  <div class="block-example be-blue">e.g. Example two</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="rule-box">
+            <div class="rule-marker rm-blue"></div>
+            <div>
+              <div class="rule-label rl-blue">Key rule</div>
+              <div class="rule-text rt-blue">Placeholder body text… stating the single most important rule for category B.</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /paths -->
+    </div><!-- /bottom-inner -->
+
+    <div class="footer-bar">
+      <span class="footer-left">{{FOOTER_TEXT}}</span>
+      <span class="footer-right">{{ORG_URL}}</span>
+    </div>
+  </div>
+
+</body>
+</html>
