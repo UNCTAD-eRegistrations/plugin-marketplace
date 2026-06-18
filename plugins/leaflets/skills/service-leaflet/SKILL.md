@@ -54,9 +54,9 @@ Do not start building until you have answers. Ask, as a short numbered list:
    content comes from: a spec/law/page the user provides, or "you draft it from
    what I give you". (This skill does not assume any particular backend.)
 4. **Plumbing** (ask once, only what's needed):
-   - **TTS engine** — endpoint + how to call it (only if a guide is wanted). No
-     engine? The leaflet still ships as a static page; offer to skip the guide or
-     let the user supply pre-recorded clips.
+   - **TTS engine** — defaults to **LuxTTS** (the engine we use; full recipe in
+     Phase 5), or point at your own. Only needed if a guide is wanted; no engine =
+     a static leaflet, or supply pre-recorded clips.
    - **Deploy** — where to publish (a host/path), or "just give me the files".
 
 Record the answers; they parameterise every later phase.
@@ -118,17 +118,56 @@ on `guide-config.example.json`. Keep one line per segment.
 
 ## Phase 5 — Voice audio (TTS)
 
-Generate one clip per segment on the user's TTS engine, picking a voice that
-matches the **language** and the **man/woman** choice from Phase 0. If the engine
-has no voice for that language, say so and offer options (try another engine, or
-collect a native-speaker sample with the counterpart-intake-page companion).
-Conventions that matter regardless of engine:
+### The engine we use: LuxTTS (the default, working solution)
+
+LuxTTS is the text-to-speech engine behind every voice guide we've shipped. It
+exposes `POST /tts` (form params: `text`, `speed`, `t_shift`, `guidance_scale`,
+`voice`), `GET /voices`, `GET /health`. Our instance runs at
+`http://5.9.49.171:8092` — **reachable only from the deploy host**, so run the
+synthesis there. Voices are cloned and **English-phonetic** (there is **no
+`language` parameter**): e.g. `grace-…` (female), `celia-…` (female), `pesa-…`
+(male) — list them with `GET /voices` and pick one by the **man/woman** choice from
+Phase 0. For guide narration use **`speed=0.75`, `t_shift=0.8`** (slightly slower
+than the site default 0.85 — clearer for procedural content).
+
+Recipe — one line of narration per segment in `texts.txt`, synthesised ON the host:
+```
+i=0; while IFS= read -r line; do [ -z "$line" ] && continue; i=$((i+1));
+  curl -s -o /tmp/seg$i.wav -X POST http://5.9.49.171:8092/tts \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data-urlencode "text=$line" --data-urlencode "speed=0.75" \
+    --data-urlencode "t_shift=0.8" --data-urlencode "voice=<voice-id>";
+done < /tmp/texts.txt
+```
+Then **scp the wavs back and convert to mp3 locally** — `ffmpeg -i seg$i.wav -ac 1
+-b:a 64k seg$i.mp3` — into the config's `audio_dir`. ⚠ The host has **no ffmpeg**,
+so the wav→mp3 step runs on your machine. To re-do ONE segment, regenerate just
+that clip and `docker cp` the single mp3 into the live `…/<slug>/audio/`.
+
+### Non-English / a natural local-language voice
+
+LuxTTS applies English phonetics to any text, so for a **non-English** guide that
+must sound natural it isn't enough on its own. The path we used:
+- **Clone a native voice in ElevenLabs** from a real recording of a native speaker
+  (model `eleven_v3`), then synthesise the non-English segments with that voice id.
+  Reaches "intelligible"; truly native prosody needs a speaker recorded in the
+  language. (Keys live in your secrets store, never in the skill.)
+- **Meta MMS-TTS** has open voices for many languages (e.g. Sesotho `sot`) — a
+  different, non-cloned voice but real language coverage.
+- **Collect a native sample first** with the **counterpart-intake-page** companion
+  (a branded page that records a local speaker reading your text) — feeds both the
+  clone and a native-quality check.
+- Bilingual page: keep one language as the base and add the second as per-segment
+  overrides + a toggle (Phase 6).
+
+### Conventions (any engine)
 - Save clips as `audio/segN.mp3` (the builder lazy-loads them).
 - **Re-voice a segment only when a WORD changes** — punctuation/spelling changes are
   inaudible (e.g. "licence"↔"license"), so fix the caption/body without re-voicing.
 - **The agent's name is spoken** — changing it later means re-voicing every clip that
-  says it (at least the intro). Back up the old clip; confirm the new one is
-  non-silent.
+  says it (at least the intro). Back up the old clip; confirm the new one is non-silent.
+- No LuxTTS access, or a different stack? Any TTS that returns audio for text works —
+  produce `audio/segN.mp3` and the rest of the pipeline is unchanged.
 
 ## Phase 6 — Build the guided leaflet
 
