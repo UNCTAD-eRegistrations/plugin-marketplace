@@ -1,7 +1,7 @@
 {
   "name": "terminal-stats",
-  "description": "Rich terminal statusline with gradient context bar, dual 5h/7d thermal usage gauges, git info, token I/O, cache hit rate, and cost tracking. 3-panel display (SYS/CTX/OPS). macOS only.",
-  "version": "1.1.0",
+  "description": "Rich terminal statusline with gradient context bar, dual 5h/7d thermal usage gauges, git info, token I/O, cache hit rate, and cost tracking. 3-panel display (SYS/CTX/OPS). macOS and Linux.",
+  "version": "1.1.1",
   "author": {
     "name": "Software Factory"
   }

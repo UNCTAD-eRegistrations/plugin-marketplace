@@ -44,7 +44,7 @@ _PFX="${TMPDIR:-/tmp}/claude-sl"
 _GC="${_PFX}-git"; _DC="${_PFX}-dir"
 _PD=""; [ -f "$_DC" ] && _PD=$(cat "$_DC")
 if [ "$DIR" != "$_PD" ] || [ ! -f "$_GC" ] || \
-   [ $(($(date +%s) - $(stat -f %m "$_GC" 2>/dev/null || echo 0))) -gt 5 ]; then
+   [ $(($(date +%s) - $(stat -c %Y "$_GC" 2>/dev/null || stat -f %m "$_GC" 2>/dev/null || echo 0))) -gt 5 ]; then
     echo "$DIR" > "$_DC"
     if git -C "$DIR" rev-parse --git-dir >/dev/null 2>&1; then
         echo "$(git -C "$DIR" branch --show-current 2>/dev/null)|\
