@@ -17,6 +17,27 @@ const authClient = new KeycloakAdminClient({
   realmName: process.env.AUTH_REALM_NAME,
 });
 
+// If KC rejects a username as a duplicate (case-insensitive collision between
+// two DISTINCT CAS accounts that share a username), retry once with the email
+// as the username so the "loser" is not dropped. Mirrors the cuba.live LIVE
+// convention where collision users are keyed by email; they then sign in by
+// email (loginWithEmailAllowed). The retried user still flows through the
+// normal .then() role/group assignment below.
+async function createUserWithUsernameFallback(client, newUser) {
+  try {
+    return await client.users.create(newUser);
+  } catch (error) {
+    const msg = error?.response?.data?.errorMessage || '';
+    if (error?.response?.status === 409 && /username/i.test(msg)
+        && newUser.email && newUser.email !== newUser.username) {
+      console.log();
+      console.log(`Username "${newUser.username}" collided; retrying with email "${newUser.email}" as username.`);
+      return await client.users.create({ ...newUser, username: newUser.email });
+    }
+    throw error;
+  }
+}
+
 const startMigration = async () => {
   progressBar.start(users.length + units.length + institutions.length, 0);
   let attributes = {};
@@ -154,10 +175,13 @@ const startMigration = async () => {
               return institutions.find(i => i.attribute_partc_institution_id === um.institution_id)?.path;
             }
             return units.find(i => i.attribute_partc_institution_unit_id === um.institution_unit_id)?.path;
-          }),
+          })
+          .filter(Boolean), // drop unresolvable (orphan) memberships — a stale partc membership
+                            // whose institution/unit isn't in the migrated set resolves to undefined,
+                            // serializes as null, and makes KC NPE → HTTP 500 on user create.
       enabled: true,
     };
-    await authClient.users.create(newUser)
+    await createUserWithUsernameFallback(authClient, newUser)
         .then(async (result) => {
           await authClient.users.addRealmRoleMappings({
             id: result.id,

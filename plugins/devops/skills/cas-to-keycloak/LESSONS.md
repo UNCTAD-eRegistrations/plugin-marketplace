@@ -112,6 +112,22 @@ Operators have historically kept side-by-side databases (`partc_old`, `partc_100
 
 **Patch:** Added explicit warning to `cas-to-keycloak/SKILL.md` deploy phase ("Do NOT drop the legacy cas/partc DBs for at least 30 days post-cutover — they're the ground-truth for downstream fix-ups"). Schedule the drop in a calendar reminder, not as a same-day step.
 
+## Orphan PARTC memberships → `null` group path → HTTP 500 on user create
+
+`migrate.js` builds each user's `groups` from `user-memberships.json`, resolving every membership to a Keycloak group path via `institutions.find(...)?.path` / `units.find(...)?.path`. When a membership points at an institution/unit that isn't in the migrated set (a stale/orphan PARTC reference), the optional-chain returns `undefined`, which serializes into the create-user payload as a `null` element in the `groups` array. Keycloak NPEs server-side resolving the bad group path and returns a bodyless **HTTP 500 `{"error":"unknown_error"}`** — no `errorMessage`, so the migrator's `error?.response?.data?.errorMessage` logged the failure reason as the literal **`undefined`**.
+
+Symptom on Cuba test (June 2026): 14 of 730 users failed with reason "undefined". They were NOT email-related (email is null for every Cuba user) and NOT simple case-collisions. Splitting the create vs role-mapping catch and dumping the full error (`status`, `data`, `message`) showed all 14 were `status=500` and every one carried a `null` in its `groups` payload. Fixing it recovered all 14 — and *revealed* 2 previously-masked case-collisions (the second of a `Foo`/`foo` pair only reaches the 409 path once the first user actually gets created), so the genuine-collision count rose 9 → 11.
+
+**Patch:** `templates/dump-keycloak-local/migrator-src/migrate.js` — append `.filter(Boolean)` to the `groups` array so unresolvable memberships are dropped (the user keeps every *valid* institution membership; only the dangling reference is discarded). Generic across countries — any instance with orphan partc memberships hits this. Shipped.
+
+## Username collisions drop distinct users → recreate the loser keyed by email
+
+Keycloak usernames are case-insensitive; CAS usernames are case-sensitive, and CAS even allows two DISTINCT people to share a username (e.g. Cuba has user 404 `Nelson`/nelson.garcia@… and user 106 `nelson`/nelsonadpa@gmail.com). The migrator creates the first, then the second gets **HTTP 409 "User exists with same username"** and is dropped — so that person simply doesn't exist in KC and can't log in (by username *or* email, since their email never landed either). On Cuba this was 11 users.
+
+cuba.live LIVE handled it by keeping collision users with **`username = email`** (emails are unique, so no collision); they then sign in by email (`loginWithEmailAllowed`). The dropped user keeps full identity + bcrypt password + roles + group memberships once recreated through the normal path.
+
+**Patch:** `templates/dump-keycloak-local/migrator-src/migrate.js` wraps `users.create` in `createUserWithUsernameFallback` — on a 409 username collision it retries once with the email as the username, then flows through the same `.then()` realm-role / client-role / group assignment. Idempotent and generic. (When patching an ALREADY-migrated realm rather than re-seeding, recreate the losers via admin REST with `{type:password,algorithm:bcrypt,hashedSaltedValue,hashIterations:10}` and backfill roles/groups from the migrator's `user-roles.json`/`user-memberships.json`.)
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -128,5 +144,7 @@ Operators have historically kept side-by-side databases (`partc_old`, `partc_100
 | 11 | BPA-postgres holds legacy PARTC integer FKs that BPA-frontend forwards to KC | new `cas-to-keycloak-rewrite-bpa-postgres` skill (Phase 8) |
 | 12 | SQL alias produced verbose `partc_institution_unit_id` instead of canonical `partc_unit_id` | `cuba-sql/partc_units.sql` alias rename; consumers read either key |
 | 13 | Legacy `cas` / `partc` databases dropped too soon block downstream fix-ups | SKILL.md deploy phase: 30-day-floor warning |
+| 14 | Orphan PARTC membership → `null` group path → KC 500 "undefined" on user create | `migrator-src/migrate.js` `.filter(Boolean)` on the `groups` array |
+| 15 | Username collision drops a distinct CAS user (409) | `migrate.js` `createUserWithUsernameFallback` retries with email as username |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)
