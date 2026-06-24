@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "eRegistrations qualified-ticket",
+  "type": "object",
+  "required": ["schema_version", "slug", "symptom", "instance", "rubric", "claims"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "slug": {"type": "string"},
+    "reporter": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "symptom": {"type": "string"},
+    "instance": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {"name": {"type": "string"}, "url": {"type": "string"}}
+    },
+    "fleet": {
+      "type": "object",
+      "properties": {
+        "version": {"type": "string"}, "orchestration": {"type": "string"},
+        "stack": {"type": "string"},
+        "mule_apps": {"type": "array", "items": {"type": "string"}},
+        "source_silent": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "ids": {"type": "object"},
+    "observed": {"type": "object"},
+    "expected": {"type": "string"},
+    "actual": {"type": "string"},
+    "scope": {"type": "object"},
+    "rubric": {
+      "type": "object",
+      "required": ["severity", "scale", "kind"],
+      "properties": {
+        "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+        "scale": {"enum": ["Small", "Medium", "Large", "Architectural"]},
+        "kind": {"enum": ["bug", "feature", "refactor", "design", "docs", "infra", "unknown"]},
+        "affected_components": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "properties": {
+        "candidate_repos": {"type": "array", "items": {"type": "string"}},
+        "version_branch": {"type": "string"},
+        "first_evidence_source": {"type": "string"},
+        "known_red_herrings": {"type": "array", "items": {"type": "string"}},
+        "gotcha_hits": {"type": "array", "items": {"type": "string"}},
+        "memory_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "claim_type", "kind"],
+        "properties": {
+          "claim": {"type": "string"},
+          "claim_type": {"enum": ["code-fact", "runtime-observation", "environment-mapping", "future-prescription"]},
+          "kind": {"enum": ["Hard", "Soft", "Assumption"]},
+          "evidence": {"type": "string"},
+          "needs_live_verification": {"type": "boolean"}
+        }
+      }
+    },
+    "recommendation_hint": {"enum": ["PROCEED", "NEEDS-MORE-INFO", "OUT-OF-SCOPE"]},
+    "closing_state": {"enum": [null, "FIXED", "NOT_A_BUG", "INTENTIONAL_DESIGN", "WONT_FIX", "PENDING_DECISION", "PENDING_BACKEND"]}
+  }
+}
