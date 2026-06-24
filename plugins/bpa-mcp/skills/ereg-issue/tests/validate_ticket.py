@@ -13,7 +13,7 @@ from pathlib import Path
 _SEVERITY = {"critical", "high", "medium", "low", "info"}
 _SCALE = {"Small", "Medium", "Large", "Architectural"}
 _KIND = {"bug", "feature", "refactor", "design", "docs", "infra", "unknown"}
-_CLAIM_TYPE = {"code-fact", "runtime-observation", "environment-mapping", "future-prescription"}
+_CLAIM_TYPE = {"code-fact", "environment-mapping", "future-prescription", "quantitative-estimate", "runtime-observation"}
 _CONSTRAINT_KIND = {"Hard", "Soft", "Assumption"}
 _TOP_REQUIRED = ["schema_version", "slug", "symptom", "instance", "rubric", "claims"]
 
@@ -35,7 +35,7 @@ def validate_ticket(ticket: dict) -> list[str]:
     inst = ticket.get("instance", {})
     if not isinstance(inst, dict) or not inst.get("name"):
         errors.append("instance.name is required (hard-floor)")
-    for i, claim in enumerate(ticket.get("claims", [])):
+    for i, claim in enumerate(ticket.get("claims") or []):
         if claim.get("claim_type") not in _CLAIM_TYPE:
             errors.append(f"claims[{i}].claim_type {claim.get('claim_type')!r} invalid")
         if claim.get("kind") not in _CONSTRAINT_KIND:
@@ -66,6 +66,17 @@ def test_bad_severity_fails() -> None:
         {"schema_version": "1.0", "slug": "x", "symptom": "x",
          "instance": {"name": "x"}, "claims": [],
          "rubric": {"severity": "sev1", "scale": "Small", "kind": "bug"}}))
+
+
+def test_quantitative_estimate_accepted() -> None:
+    """Regression guard: quantitative-estimate is a valid autopilot claim type."""
+    ticket = {
+        "schema_version": "1.0", "slug": "x", "symptom": "x",
+        "instance": {"name": "x"},
+        "rubric": {"severity": "medium", "scale": "Small", "kind": "bug"},
+        "claims": [{"claim": "~300ms latency", "claim_type": "quantitative-estimate", "kind": "Soft"}],
+    }
+    assert validate_ticket(ticket) == []
 
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@
         "required": ["claim", "claim_type", "kind"],
         "properties": {
           "claim": {"type": "string"},
-          "claim_type": {"enum": ["code-fact", "runtime-observation", "environment-mapping", "future-prescription"]},
+          "claim_type": {"enum": ["code-fact", "runtime-observation", "environment-mapping", "quantitative-estimate", "future-prescription"]},
           "kind": {"enum": ["Hard", "Soft", "Assumption"]},
           "evidence": {"type": "string"},
           "needs_live_verification": {"type": "boolean"}

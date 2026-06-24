@@ -54,7 +54,7 @@ Do not proceed past this step without all three.
 
 ## Step 5 — Classify claims (ISC + constraint kind)
 For each factual statement in the report, record `{claim, claim_type, kind, evidence, needs_live_verification}`:
-- `claim_type` ∈ code-fact | runtime-observation | environment-mapping | future-prescription.
+- `claim_type` ∈ code-fact | runtime-observation | environment-mapping | quantitative-estimate | future-prescription.
 - `kind` ∈ Hard | Soft | Assumption (Hard requires a file:line citation).
 - Set `needs_live_verification: true` for runtime-observation / environment-mapping claims — autopilot's static-code verifier CANNOT settle these.
 
