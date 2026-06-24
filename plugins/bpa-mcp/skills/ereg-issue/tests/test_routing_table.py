@@ -1,0 +1,59 @@
+"""Stdlib test: routing-table.json is well-formed and covers the golden corpus.
+
+The corpus is the 15 recon signals from the spec (Appendix A). Each corpus
+entry names the memory_ref + candidate_repos the table MUST contain. This is the
+regression suite that proves institutional memory is encoded as routing power.
+"""
+from __future__ import annotations
+import json
+import sys
+from pathlib import Path
+
+_SKILL = Path(__file__).parent.parent
+_REQUIRED_RULE_KEYS = {
+    "id", "match", "candidate_repos", "version_branch",
+    "first_evidence_source", "known_red_herrings", "memory_ref",
+}
+
+
+def _load(name: str) -> object:
+    return json.loads((_SKILL / name).read_text())
+
+
+def test_every_rule_well_formed() -> None:
+    table = _load("routing-table.json")
+    assert isinstance(table, list) and table, "routing-table.json must be a non-empty list"
+    for rule in table:
+        missing = _REQUIRED_RULE_KEYS - set(rule)
+        assert not missing, f"rule {rule.get('id')!r} missing keys: {sorted(missing)}"
+        assert isinstance(rule["match"].get("keywords"), list) and rule["match"]["keywords"]
+        assert isinstance(rule["candidate_repos"], list) and rule["candidate_repos"]
+
+
+def test_corpus_coverage() -> None:
+    table = _load("routing-table.json")
+    corpus = _load("tests/corpus.json")
+    by_ref = {r["memory_ref"]: r for r in table}
+    for entry in corpus:
+        ref = entry["memory_ref"]
+        assert ref in by_ref, f"no routing rule for corpus memory_ref {ref!r}"
+        rule = by_ref[ref]
+        for repo in entry["expected_candidate_repos"]:
+            assert repo in rule["candidate_repos"], \
+                f"rule {ref!r} missing candidate repo {repo!r}"
+
+
+def _main() -> int:
+    failures = 0
+    for fn in (test_every_rule_well_formed, test_corpus_coverage):
+        try:
+            fn()
+            print(f"PASS {fn.__name__}")
+        except AssertionError as exc:
+            failures += 1
+            print(f"FAIL {fn.__name__}: {exc}", file=sys.stderr)
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

@@ -1,0 +1,17 @@
+[
+  {"memory_ref": "2.18-forkjoin-skipped-branch-dead-ends", "expected_candidate_repos": ["BPA-backend"]},
+  {"memory_ref": "ds-editability-status-lives-in-ereg-process", "expected_candidate_repos": ["Camunda"]},
+  {"memory_ref": "keycloak-account-audience-required-and-fix", "expected_candidate_repos": ["Keycloak"]},
+  {"memory_ref": "ds-service-not-found-misleading", "expected_candidate_repos": ["DS-Backend"]},
+  {"memory_ref": "per-row-bot-silent-noop-duration-signal", "expected_candidate_repos": ["BPA-backend"]},
+  {"memory_ref": "bpa-dataweave-date-selector-unquoted-accented-field", "expected_candidate_repos": ["BPA-backend"]},
+  {"memory_ref": "empty-camunda-process-id-means-no-startrole", "expected_candidate_repos": ["BPA-backend"]},
+  {"memory_ref": "gdb-catalog-column-dropped-empty-not-blob", "expected_candidate_repos": ["BPA-frontend"]},
+  {"memory_ref": "keycloak-registration-fails-check-realm-smtp", "expected_candidate_repos": ["Keycloak"]},
+  {"memory_ref": "cas-keycloak-missing-attribute-is-usually-mapper-or-profile", "expected_candidate_repos": ["Keycloak"]},
+  {"memory_ref": "ds-frontend-whitepage-keycloak-3p-cookie-init-timeout", "expected_candidate_repos": ["DS-Frontend"]},
+  {"memory_ref": "formio-admin-login-401-is-identity-not-password", "expected_candidate_repos": ["DS-Backend"]},
+  {"memory_ref": "camunda-inclusive-join-terminal-sibling-race-deadlock", "expected_candidate_repos": ["Camunda"]},
+  {"memory_ref": "ds-print-preview-hides-textfields-regex", "expected_candidate_repos": ["DS-Backend"]},
+  {"memory_ref": "bpa-service-duplication-multipart-413", "expected_candidate_repos": ["BPA-backend"]}
+]
