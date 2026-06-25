@@ -3,7 +3,10 @@
     "Translations": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-translations"]
+      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-translations"],
+      "env": {
+        "GTS_API_KEY": "${GTS_API_KEY:-}"
+      }
     }
   }
 }
