@@ -2,9 +2,9 @@
 name: ereg-issue
 effort: medium
 description: >
-  Standardize and pre-qualify an eRegistrations runtime/deployment issue report
-  into a verified qualified-ticket (symptom, instance, version, IDs, candidate
-  repo/version, claims) ready for the maintainer/autopilot triage.
+  Report an eRegistrations runtime/deployment issue — standardized and
+  pre-qualified into a verified qualified-ticket (symptom, instance, version, IDs,
+  candidate repo/version, claims) ready for the maintainer/autopilot triage.
   TRIGGER when: a human reports an eRegistrations platform issue on a deployment
   instance ("X is broken on jamaica", "file won't reach desk Y", "registration
   fails on <instance>", "service Z returns 500"), or asks to file/standardize an
@@ -16,10 +16,11 @@ license: UNCTAD-Internal
 compatibility: Works with or without active MCP connections; degrades gracefully when a source is blocked.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "0.2.0"
-  version-date: "2026-06-24"
+  version: "0.2.1"
+  version-date: "2026-06-25"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "0.2.1 (2026-06-25): lead description with 'Report' (intent verb) for triggering + mcp-issue parity; pre-qualification kept as the differentiator."
     - "0.2.0 (2026-06-24): full intake/derive/ground/qualify/emit procedure."
     - "0.1.0 (2026-06-24): initial scaffold — packaging only; body added in Task 4."
 ---
