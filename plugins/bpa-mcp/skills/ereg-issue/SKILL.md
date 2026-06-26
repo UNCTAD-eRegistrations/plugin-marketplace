@@ -14,12 +14,13 @@ description: >
   service config interactively (just do it).
 license: UNCTAD-Internal
 compatibility: Works with or without active MCP connections; degrades gracefully when a source is blocked.
-allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
+allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), Bash(python3 *), mcp__BPA__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "0.2.1"
+  version: "0.3.0"
   version-date: "2026-06-25"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "0.3.0 (2026-06-25): adversarial-review changes — emit a ```qualified-ticket fenced block + write issue-body.md; version-gate routing read_via to the instance's actual release; rename known_red_herrings → also_check_and_disprove (de-anchor); per-rule match scoring + confidence; allow Bash(python3 *) for the Step 8 self-validation gate."
     - "0.2.1 (2026-06-25): lead description with 'Report' (intent verb) for triggering + mcp-issue parity; pre-qualification kept as the differentiator."
     - "0.2.0 (2026-06-24): full intake/derive/ground/qualify/emit procedure."
     - "0.1.0 (2026-06-24): initial scaffold — packaging only; body added in Task 4."
