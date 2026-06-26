@@ -28,7 +28,7 @@ metadata:
 # eRegistrations Issue Reporting (ereg-issue)
 
 Turn a vague human report into a verified, pre-qualified `qualified-ticket`.
-You PRE-QUALIFY (candidate repo/version + red-herrings to disprove); you do NOT
+You PRE-QUALIFY (candidate repo/version + things to also-check-and-disprove); you do NOT
 diagnose, fix, or deploy — that is the maintainer's job.
 
 ## Step 1 — Capture the hard floor (BLOCKS until present)
