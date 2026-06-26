@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "slug": "2026-06-24-file-not-reaching-desk",
+  "reporter": "ops@example.org",
+  "timestamp": "2026-06-24T10:00:00Z",
+  "symptom": "Submitted file finalizes immediately and never reaches the review desk.",
+  "instance": {"name": "jamaica", "url": "https://jamaica.eregistrations.org/..."},
+  "fleet": {"version": "2.18.230", "orchestration": "compose", "stack": "next",
+            "mule_apps": ["eregistrations_mule"], "source_silent": []},
+  "ids": {"service_id": "1234", "file_id": "abcd", "process_instance_id": "pid-9", "role": "reviewer"},
+  "observed": {"endpoint": "/backend/files/abcd", "status": 200, "error": "",
+               "reproduced": true, "steps": ["submit dossier", "observe state = finalized"]},
+  "expected": "File routed to reviewer desk.",
+  "actual": "File finalized at submission.",
+  "scope": {"breadth": "many", "condition": "only after the 2.18 upgrade"},
+  "rubric": {"severity": "high", "scale": "Medium", "kind": "bug",
+             "affected_components": ["BPA-backend/.../BranchJsonWriter.java"]},
+  "qualification": {
+    "candidate_repos": ["BPA-backend"],
+    "version_branch": "release/2.18",
+    "first_evidence_source": "camunda act_ru_execution token positions",
+    "known_red_herrings": ["ds-backend is a thin Camunda client; never resolves next-role"],
+    "gotcha_hits": [],
+    "memory_refs": ["2.18-forkjoin-skipped-branch-dead-ends"]
+  },
+  "claims": [
+    {"claim": "File state is finalized at submission on 2.18", "claim_type": "runtime-observation",
+     "kind": "Assumption", "evidence": "reporter screenshot", "needs_live_verification": true}
+  ],
+  "recommendation_hint": "PROCEED",
+  "closing_state": null
+}

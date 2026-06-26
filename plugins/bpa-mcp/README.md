@@ -17,6 +17,7 @@ A single `BPA` MCP server. Instance profiles are managed via `/bpa-mcp:install` 
 | `/bpa-mcp:login <instance> [...]` | Authenticate to one or more instances |
 | `/bpa-mcp:doctor` | Diagnose and fix common MCP server issues |
 | `/bpa-mcp:issue [description]` | Report a tool issue or unexpected behavior |
+| `/bpa-mcp:ereg-issue [description]` | Report an eRegistrations runtime/deployment issue — standardized & pre-qualified into a qualified-ticket (sibling of `mcp-issue`) |
 
 ## Prerequisites
 
