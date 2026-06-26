@@ -68,6 +68,15 @@ For each factual statement in the report, record `{claim, claim_type, kind, evid
 - Resolve the issues root: if the current working tree contains an `issues/CLAUDE.md`, write under `issues/<slug>/`; otherwise `~/Desktop/ereg-issue-reports/<slug>/`. Create it with `mkdir -p`.
 - Write `qualified-ticket.json` (conform to `qualified-ticket.schema.json`).
 - Write `NOTES.md` seeded with: `# <symptom>` then `## Context` (instance, version, IDs, reporter), `## Repro`, and stub headings `## Findings`, `## Hypotheses-refuted`, `## Fix-options`, `## Verification`, `## Status` for the maintainer.
+- Write `issue-body.md` — the GitHub issue body Step 9 files. It is the human-readable report Markdown (symptom, instance/version, IDs, expected vs actual, scope, candidate repos + confidence, `also_check_and_disprove`, first-evidence source), FOLLOWED BY a machine-readable conformance block: a fenced block whose info string is EXACTLY `qualified-ticket`, containing the verbatim contents of `qualified-ticket.json`:
+
+  ````
+  ```qualified-ticket
+  { ...the full qualified-ticket.json contents... }
+  ```
+  ````
+
+  Autopilot parses this block (when present) to seed its claims/rubric directly; the prose above it stays human-first.
 - Slug: `ERE-1234-<short>` if a ticket id exists, else `YYYY-MM-DD-<short>`.
 
 ## Step 8 — Self-review + validate before filing (HARD GATE)
@@ -76,6 +85,6 @@ For each factual statement in the report, record `{claim, claim_type, kind, evid
 - If `closing_state` is set (gotcha hit), STOP — report the known-lie verdict; do not file.
 
 ## Step 9 — File the GitHub issue (optional, explicit)
-- Confirm `gh auth status`. Render the ticket as an issue body and file to the candidate repo:
+- Confirm `gh auth status`. File the `issue-body.md` written in Step 7 to the candidate repo:
   `gh issue create --repo <candidate-repo> --title "<symptom>" --body-file <issues-root>/<slug>/issue-body.md --label ereg-issue`
-- This is the same substrate the autopilot watcher consumes.
+- This is the same substrate the autopilot watcher consumes. Autopilot parses the `qualified-ticket` fenced block when present (seeds its claims/rubric from the structured JSON), and falls back to re-extracting from the prose otherwise — so always keep the block intact in the filed body.
