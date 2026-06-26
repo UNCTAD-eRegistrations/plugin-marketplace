@@ -28,7 +28,7 @@ metadata:
 # eRegistrations Issue Reporting (ereg-issue)
 
 Turn a vague human report into a verified, pre-qualified `qualified-ticket`.
-You PRE-QUALIFY (candidate repo/version + red-herrings to disprove); you do NOT
+You PRE-QUALIFY (candidate repo/version + things to also-check-and-disprove); you do NOT
 diagnose, fix, or deploy — that is the maintainer's job.
 
 ## Step 1 — Capture the hard floor (BLOCKS until present)
@@ -48,9 +48,12 @@ Do not proceed past this step without all three.
 - Confirm instance reachable (`ds_health`/origin), IDs resolve, capture any live error, one Graylog peek for the signature.
 - HARD RULE: log silence ≠ healthy. Many real bugs log nothing (200-PUT wipe, swallowed publish FK, dropped GDB column, unindexed DataWeave error). Record what you observed and which source was silent — never assert health.
 
-## Step 4 — Pre-qualify (routing table + gotcha pre-check)
-- Read `routing-table.json`. Match the symptom (keywords + version_hint) to the best rule(s). Populate `qualification.candidate_repos`, `version_branch`, `first_evidence_source`, `known_red_herrings`, `memory_ref`. If multiple rules match, list all candidate_repos and say so.
-- These are CANDIDATES, not a verdict. Always carry the rule's `known_red_herrings` forward so the maintainer disproves them.
+## Step 4 — Pre-qualify (routing table + scoring + version gate + gotcha pre-check)
+- Read `routing-table.json`. **Score every rule** by the count of DISTINCT keywords it matches against the symptom + url + captured error text. Weight domain-specific discriminators (e.g. `ereg_process`, `act_ru_execution`, `DataWeave`, `realm_smtp_config`, `validate_catalogs`, `silentCheckSsoRedirectUri`, `__ro__`) HIGHER than base-rate tokens (`file`, `500`, `service`, `token`). Record the winning rule's score as `qualification.match_score`.
+- **Confidence** (`qualification.confidence` ∈ high|medium|low): `high` when one rule clearly leads on at least one domain-specific token; `medium` when the lead comes only from generic tokens; `low` when no domain-specific token matched OR ≥2 rules tie on score. When confidence is `low` or rules tie, list ALL candidate_repos and state explicitly that confidence is low — NEVER present a single repo as settled.
+- Populate `qualification.candidate_repos`, `version_branch`, `first_evidence_source`, `also_check_and_disprove`, `memory_ref` from the top-scoring rule(s).
+- **Version hard gate** (use the INSTANCE version derived in Step 2's fleet matrix, NOT the rule's `version_hint`): if the matched rule's `version_hint` does not equal the instance version, do NOT copy the rule's `version_branch`/`read_via` verbatim — emit the branch matching the INSTANCE instead (e.g. instance=2.17 → `version_branch: "release/2.17"`, `read_via: "git show release/2.17:<path>"`) and set `qualification.version_mismatch: true`. The `<instance_version_branch>` placeholder in a rule's `read_via` MUST be replaced with the instance's actual release branch (e.g. `2.17`). When the hint matches the instance, set `version_mismatch: false`.
+- These are CANDIDATES, not a verdict. Carry each `also_check_and_disprove` entry forward and have the maintainer actively confirm it ISN'T the cause THIS time before ruling it out — a prior incident's red herring can be the real fault in a new one.
 - Gotcha pre-check: if the symptom matches a known platform "lie" in the eregistrations-ai-process gotcha library (G1–G48), record it in `qualification.gotcha_hits` and set `closing_state` to `WONT_FIX` or `NOT_A_BUG` — do not file a defect ticket.
 
 ## Step 5 — Classify claims (ISC + constraint kind)
@@ -68,6 +71,15 @@ For each factual statement in the report, record `{claim, claim_type, kind, evid
 - Resolve the issues root: if the current working tree contains an `issues/CLAUDE.md`, write under `issues/<slug>/`; otherwise `~/Desktop/ereg-issue-reports/<slug>/`. Create it with `mkdir -p`.
 - Write `qualified-ticket.json` (conform to `qualified-ticket.schema.json`).
 - Write `NOTES.md` seeded with: `# <symptom>` then `## Context` (instance, version, IDs, reporter), `## Repro`, and stub headings `## Findings`, `## Hypotheses-refuted`, `## Fix-options`, `## Verification`, `## Status` for the maintainer.
+- Write `issue-body.md` — the GitHub issue body Step 9 files. It is the human-readable report Markdown (symptom, instance/version, IDs, expected vs actual, scope, candidate repos + confidence, `also_check_and_disprove`, first-evidence source), FOLLOWED BY a machine-readable conformance block: a fenced block whose info string is EXACTLY `qualified-ticket`, containing the verbatim contents of `qualified-ticket.json`:
+
+  ````
+  ```qualified-ticket
+  { ...the full qualified-ticket.json contents... }
+  ```
+  ````
+
+  Autopilot parses this block (when present) to seed its claims/rubric directly; the prose above it stays human-first.
 - Slug: `ERE-1234-<short>` if a ticket id exists, else `YYYY-MM-DD-<short>`.
 
 ## Step 8 — Self-review + validate before filing (HARD GATE)
@@ -76,6 +88,6 @@ For each factual statement in the report, record `{claim, claim_type, kind, evid
 - If `closing_state` is set (gotcha hit), STOP — report the known-lie verdict; do not file.
 
 ## Step 9 — File the GitHub issue (optional, explicit)
-- Confirm `gh auth status`. Render the ticket as an issue body and file to the candidate repo:
+- Confirm `gh auth status`. File the `issue-body.md` written in Step 7 to the candidate repo:
   `gh issue create --repo <candidate-repo> --title "<symptom>" --body-file <issues-root>/<slug>/issue-body.md --label ereg-issue`
-- This is the same substrate the autopilot watcher consumes.
+- This is the same substrate the autopilot watcher consumes. Autopilot parses the `qualified-ticket` fenced block when present (seeds its claims/rubric from the structured JSON), and falls back to re-extracting from the prose otherwise — so always keep the block intact in the filed body.

@@ -1,17 +1,77 @@
 [
-  {"memory_ref": "2.18-forkjoin-skipped-branch-dead-ends", "expected_candidate_repos": ["BPA-backend"]},
-  {"memory_ref": "ds-editability-status-lives-in-ereg-process", "expected_candidate_repos": ["Camunda"]},
-  {"memory_ref": "keycloak-account-audience-required-and-fix", "expected_candidate_repos": ["Keycloak"]},
-  {"memory_ref": "ds-service-not-found-misleading", "expected_candidate_repos": ["DS-Backend"]},
-  {"memory_ref": "per-row-bot-silent-noop-duration-signal", "expected_candidate_repos": ["BPA-backend"]},
-  {"memory_ref": "bpa-dataweave-date-selector-unquoted-accented-field", "expected_candidate_repos": ["BPA-backend"]},
-  {"memory_ref": "empty-camunda-process-id-means-no-startrole", "expected_candidate_repos": ["BPA-backend"]},
-  {"memory_ref": "gdb-catalog-column-dropped-empty-not-blob", "expected_candidate_repos": ["BPA-frontend"]},
-  {"memory_ref": "keycloak-registration-fails-check-realm-smtp", "expected_candidate_repos": ["Keycloak"]},
-  {"memory_ref": "cas-keycloak-missing-attribute-is-usually-mapper-or-profile", "expected_candidate_repos": ["Keycloak"]},
-  {"memory_ref": "ds-frontend-whitepage-keycloak-3p-cookie-init-timeout", "expected_candidate_repos": ["DS-Frontend"]},
-  {"memory_ref": "formio-admin-login-401-is-identity-not-password", "expected_candidate_repos": ["DS-Backend"]},
-  {"memory_ref": "camunda-inclusive-join-terminal-sibling-race-deadlock", "expected_candidate_repos": ["Camunda"]},
-  {"memory_ref": "ds-print-preview-hides-textfields-regex", "expected_candidate_repos": ["DS-Backend"]},
-  {"memory_ref": "bpa-service-duplication-multipart-413", "expected_candidate_repos": ["BPA-backend"]}
+  {
+    "memory_ref": "2.18-forkjoin-skipped-branch-dead-ends",
+    "expected_candidate_repos": ["BPA-backend"],
+    "symptom": "On comores after the 2.18 upgrade a file finalizes immediately and never reaches the review desk — the token appears locked and the task list for agents stays empty."
+  },
+  {
+    "memory_ref": "ds-editability-status-lives-in-ereg-process",
+    "expected_candidate_repos": ["Camunda"],
+    "symptom": "An applicant whose file was sent back cannot correct it — the file is stuck as filepending with no edit button, and the ereg_process record shows the old status."
+  },
+  {
+    "memory_ref": "keycloak-account-audience-required-and-fix",
+    "expected_candidate_repos": ["Keycloak"],
+    "symptom": "After deploying the new Keycloak realm the DS backend returns 500 on every request — the JWT token is missing the aud=account claim and the Python tier rejects it."
+  },
+  {
+    "memory_ref": "ds-service-not-found-misleading",
+    "expected_candidate_repos": ["DS-Backend"],
+    "symptom": "Citizens see 'service not found' when opening their application — the error message says the service is no longer available but the backend is running."
+  },
+  {
+    "memory_ref": "per-row-bot-silent-noop-duration-signal",
+    "expected_candidate_repos": ["BPA-backend"],
+    "symptom": "The validation bot task succeeds in Camunda but writes nothing to GDB — the multipleBot loop completes in under a second with no record created and the input payload is empty."
+  },
+  {
+    "memory_ref": "bpa-dataweave-date-selector-unquoted-accented-field",
+    "expected_candidate_repos": ["BPA-backend"],
+    "symptom": "After the 2.18 upgrade the commercial register grid shows 0 rows — Graylog reports a DataWeave transformation failed on the field with an accented name used in the date mapping."
+  },
+  {
+    "memory_ref": "empty-camunda-process-id-means-no-startrole",
+    "expected_candidate_repos": ["BPA-backend"],
+    "symptom": "After publishing a service the camunda_process_id in activeservices is empty — citizens cannot start a new registration and the DS shows no active service."
+  },
+  {
+    "memory_ref": "gdb-catalog-column-dropped-empty-not-blob",
+    "expected_candidate_repos": ["BPA-frontend"],
+    "symptom": "A dataSrcCatalog select field sends an empty {} to GDB when the user picks a catalog entry — the catalog column dropped and the GDB record has no data."
+  },
+  {
+    "memory_ref": "keycloak-registration-fails-check-realm-smtp",
+    "expected_candidate_repos": ["Keycloak"],
+    "symptom": "New users cannot register — the system requires email verification but the SMTP server returns 554 and the verify email is never sent, so registration fails silently."
+  },
+  {
+    "memory_ref": "cas-keycloak-missing-attribute-is-usually-mapper-or-profile",
+    "expected_candidate_repos": ["Keycloak"],
+    "symptom": "After the CAS to Keycloak migration some users are missing their professional category attribute — the profile attribute was not migrated and the protocol-mapper configuration uses the wrong mapper type."
+  },
+  {
+    "memory_ref": "ds-frontend-whitepage-keycloak-3p-cookie-init-timeout",
+    "expected_candidate_repos": ["DS-Frontend"],
+    "symptom": "The DS frontend shows a white page for some users but works for me in Chrome — opening in incognito always reproduces the blank page, and it appears to be a 3rd party cookie issue with the Keycloak session check."
+  },
+  {
+    "memory_ref": "formio-admin-login-401-is-identity-not-password",
+    "expected_candidate_repos": ["DS-Backend"],
+    "symptom": "The BPA cannot publish a service — formio returns a 401 admin login error saying 'user or password was incorrect', the DS submit 500 shows the backend cannot authenticate, and the publish fails."
+  },
+  {
+    "memory_ref": "camunda-inclusive-join-terminal-sibling-race-deadlock",
+    "expected_candidate_repos": ["Camunda"],
+    "symptom": "A workflow is deadlocked at an inclusive join — multiple execution tokens are parked in act_ru_execution with no tasks and no incidents visible, and the process is completely stuck."
+  },
+  {
+    "memory_ref": "ds-print-preview-hides-textfields-regex",
+    "expected_candidate_repos": ["DS-Backend"],
+    "symptom": "The print preview PDF has all textfield values hidden — numbers show correctly but the text fields appear blank, and the form-preview-pdf template parses the data key incorrectly."
+  },
+  {
+    "memory_ref": "bpa-service-duplication-multipart-413",
+    "expected_candidate_repos": ["BPA-backend"],
+    "symptom": "When duplicating a service the BPA fails with a 413 maximum upload size exceeded error — the service duplication exports the service to re-upload it to validate_catalogs but the exported file is too large."
+  }
 ]
