@@ -18,8 +18,11 @@
   "qualification": {
     "candidate_repos": ["BPA-backend"],
     "version_branch": "release/2.18",
+    "version_mismatch": false,
+    "match_score": 4,
+    "confidence": "high",
     "first_evidence_source": "camunda act_ru_execution token positions",
-    "known_red_herrings": ["ds-backend is a thin Camunda client; never resolves next-role"],
+    "also_check_and_disprove": ["Usually NOT ds-backend (thin Camunda client) — confirm it isn't forwarding/dropping the next-role this time before ruling it out."],
     "gotcha_hits": [],
     "memory_refs": ["2.18-forkjoin-skipped-branch-dead-ends"]
   },

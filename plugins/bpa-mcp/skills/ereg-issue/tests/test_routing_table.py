@@ -11,8 +11,8 @@ from pathlib import Path
 
 _SKILL = Path(__file__).parent.parent
 _REQUIRED_RULE_KEYS = {
-    "id", "match", "candidate_repos", "version_branch",
-    "first_evidence_source", "known_red_herrings", "memory_ref",
+    "id", "match", "candidate_repos", "version_branch", "read_via",
+    "first_evidence_source", "also_check_and_disprove", "memory_ref",
 }
 
 
@@ -28,6 +28,8 @@ def test_every_rule_well_formed() -> None:
         assert not missing, f"rule {rule.get('id')!r} missing keys: {sorted(missing)}"
         assert isinstance(rule["match"].get("keywords"), list) and rule["match"]["keywords"]
         assert isinstance(rule["candidate_repos"], list) and rule["candidate_repos"]
+        assert isinstance(rule["also_check_and_disprove"], list) and rule["also_check_and_disprove"], \
+            f"rule {rule.get('id')!r} must have a non-empty also_check_and_disprove list"
 
 
 def test_corpus_coverage() -> None:

@@ -43,8 +43,11 @@
       "properties": {
         "candidate_repos": {"type": "array", "items": {"type": "string"}},
         "version_branch": {"type": "string"},
+        "version_mismatch": {"type": "boolean"},
+        "match_score": {"type": "number"},
+        "confidence": {"enum": ["high", "medium", "low"]},
         "first_evidence_source": {"type": "string"},
-        "known_red_herrings": {"type": "array", "items": {"type": "string"}},
+        "also_check_and_disprove": {"type": "array", "items": {"type": "string"}},
         "gotcha_hits": {"type": "array", "items": {"type": "string"}},
         "memory_refs": {"type": "array", "items": {"type": "string"}}
       }
