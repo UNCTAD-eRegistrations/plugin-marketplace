@@ -125,7 +125,7 @@
     },
     {
       "name": "leaflets",
-      "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide (user-chosen name, man/woman voice, and language). Includes service-concept-brief: derive a traced, conceptual 'what each type IS' content map per service branch by cross-reading the law and the live BPA service.",
+      "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide (user-chosen name, man/woman voice, and language). Includes two grounding skills (service-concept-brief for legal-form types, service-journey-brief for single services) that derive a traced content map by cross-reading the law and the live BPA service.",
       "author": {
         "name": "UNCTAD Trade Facilitation Section"
       },
