@@ -1,0 +1,326 @@
+<!-- ============================================================
+     COMPARISON / "WHICH-ONE" TEMPLATE  (brand-neutral)
+     ------------------------------------------------------------
+     A leaflet that compares N forms/types of a service and helps
+     the reader pick. Generalised from real comparison pages
+     (Comores entreprenant/SAS/SARL · Lesotho sole-proprietor/company).
+
+     BRAND: edit ONLY the :root block.
+       --brand-*  drive the page chrome (hero, nav, headings, ink, rules).
+       --cat-{KEY}-{accent|line|wash}  drive each compared category's colour.
+     This example wires THREE categories with keys A / B / C. For two
+     categories, delete the C column / box / row-cell / lean throughout
+     and drop --cat-c-*. For four, add a D set the same way.
+
+     STRUCTURE (do not rename the classes — they carry the layout):
+       hero  →  "the big difference" (two-level schema)
+             →  "side by side" (colour-coded matrix, columns→stacked ≤820px)
+             →  "upsides & watch-outs" (per-category pros/cons cards)
+             →  "which one fits you?" (question → leaning answer)
+             →  links banner  →  footer
+     Replace every {{PLACEHOLDER}}. Sentence-case titles. Trace every
+     factual claim to a source (run service-concept-brief first).
+     ============================================================ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{HERO_TITLE}} — {{ORG_NAME}}</title>
+  <!-- Font family follows --brand-font. Swap this link to match your brand font. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root{
+      /* ---- BRAND (Phase 1) ---- */
+      --brand-primary: #0171c0;        /* hero band, nav, primary accents */
+      --brand-deep:    #00447d;        /* labels, eyebrows, emphasis */
+      --brand-soft:    #a5cffa;        /* light accent / borders */
+      --brand-wash:    #eff8ff;        /* pale tint for callouts */
+      --brand-ink:     #1a1a1a;        /* body text */
+      --brand-ink-soft:#52606d;        /* secondary text */
+      --brand-ink-mute:#6b7280;        /* muted text */
+      --brand-ink-light:#9ca3af;       /* faint text */
+      --brand-rule:    #e3e8ef;        /* hairlines, dividers */
+      --brand-font:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --brand-bg:      #ffffff;
+      --brand-bg-alt:  #f7f9fc;
+      --ok:            #009945;        /* "good" / success mark */
+      --ok-deep:       #007a37;        /* darker success for closing band */
+      --shadow-card:   0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+
+      /* ---- PER-CATEGORY (one accent + line + wash each) ----
+         KEY A / B / C below. Give each its own distinct hue. */
+      --cat-a-accent: #009945;  --cat-a-line: #9bd9b4;  --cat-a-wash: #e6f5ec;
+      --cat-b-accent: #0171c0;  --cat-b-line: #a5cffa;  --cat-b-wash: #eff8ff;
+      --cat-c-accent: #e11f1c;  --cat-c-line: #f2b3b2;  --cat-c-wash: #fdecec;
+    }
+
+    html, body { font-family: var(--brand-font); -webkit-font-smoothing: antialiased; }
+    body { background: var(--brand-bg); color: var(--brand-ink); font-size: 16px; line-height: 1.65; }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 0 40px; }
+
+    /* ---------- Top nav ---------- */
+    .topnav { background: var(--brand-primary); padding: 16px 0; }
+    .topnav-inner { display: flex; align-items: center; justify-content: space-between; color: #fff; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; }
+    .brand-mark { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: var(--brand-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
+    .brand small { display: block; font-size: 11px; opacity: 0.75; font-weight: 400; }
+    .print-btn { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 100px; padding: 7px 16px; font: 600 13px var(--brand-font); cursor: pointer; }
+    .print-btn:hover { background: rgba(255,255,255,0.25); }
+
+    /* ---------- Hero ---------- */
+    .hero { background: var(--brand-primary); color: #fff; padding: 44px 0 56px; }
+    .hero-inner { max-width: 760px; }
+    .hero-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brand-soft); margin-bottom: 18px; }
+    h1.hero-title { font-size: clamp(34px, 5vw, 54px); font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 20px; }
+    .hero-lede { font-size: 18px; font-weight: 300; line-height: 1.6; color: rgba(255,255,255,0.9); max-width: 640px; }
+    .hero-options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+    .hero-opt { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22); border-radius: 100px; padding: 7px 16px; font-size: 13.5px; font-weight: 500; }
+
+    /* ---------- Section heading ---------- */
+    .section-head { margin: 80px 0 36px; }
+    .section-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brand-deep); margin-bottom: 10px; }
+    .section-title { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; color: var(--brand-ink); }
+    .section-intro { margin-top: 16px; max-width: 720px; font-size: 16.5px; line-height: 1.7; color: var(--brand-ink-soft); }
+
+    /* ════════ 1. THE BIG DIFFERENCE — two-level schema ════════
+       Level 1 splits the FIRST decision (e.g. alone vs a company);
+       Level 2 splits the SECOND (e.g. flexible vs framed). For a
+       single-level difference, keep only .split1 and drop .bd-down/.split2. */
+    .bigdiff { background: var(--brand-bg-alt); border: 1px solid var(--brand-rule); border-radius: 18px; padding: 30px; }
+    .bd-level { font-size: 13px; font-weight: 600; color: var(--brand-ink-soft); margin: 4px 0 16px; }
+    .bd-level strong { color: var(--brand-ink); }
+    .split1 { display: grid; grid-template-columns: 1fr 64px 1fr; gap: 0; align-items: stretch; }
+    .split2 { display: grid; grid-template-columns: 1fr 64px 1fr 64px 1fr; gap: 0; align-items: stretch; margin-top: 4px; }
+    .bd-vs { display: flex; align-items: center; justify-content: center; }
+    .bd-vs span { font-size: 13px; font-weight: 600; color: var(--brand-ink-mute); }
+    .bd-box { background: #fff; border: 1px solid var(--brand-rule); border-radius: 16px; padding: 22px; }
+    .bd-box.cat-a { border-top: 4px solid var(--cat-a-accent); }
+    .bd-box.cat-b { border-top: 4px solid var(--cat-b-accent); }
+    .bd-box.cat-c { border-top: 4px solid var(--cat-c-accent); }
+    .bd-tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; margin-bottom: 10px; }
+    .bd-tag.cat-a { color: var(--cat-a-accent); background: var(--cat-a-wash); }
+    .bd-tag.cat-b { color: var(--cat-b-accent); background: var(--cat-b-wash); }
+    .bd-tag.cat-c { color: var(--cat-c-accent); background: var(--cat-c-wash); }
+    .bd-box h4 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .bd-box p { font-size: 14px; color: var(--brand-ink-soft); }
+    /* optional intensity meter (e.g. how heavy the legal framework is) */
+    .bd-meter { display: flex; gap: 4px; margin-top: 12px; }
+    .bd-meter span { flex: 1; height: 6px; border-radius: 3px; background: var(--brand-rule); }
+    .bd-box.cat-a .bd-meter span.on { background: var(--cat-a-accent); }
+    .bd-box.cat-b .bd-meter span.on { background: var(--cat-b-accent); }
+    .bd-box.cat-c .bd-meter span.on { background: var(--cat-c-accent); }
+    /* connector between level 1 and level 2 */
+    .bd-down { display: flex; flex-direction: column; align-items: center; padding: 14px 0 4px; }
+    .bd-down .stem { width: 2px; height: 22px; background: var(--brand-soft); }
+    .bd-down .tip { margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--brand-deep); }
+
+    /* ════════ 2. SIDE BY SIDE — colour-coded matrix ════════
+       CSS grid. Legend row + N data rows. ≤820px: legend hides, rows
+       stack to one column, and each cell shows its category name via ::before. */
+    .matrix { border: 1px solid var(--brand-rule); border-radius: 14px; overflow: hidden; }
+    .mx-legend, .mx-row { display: grid; grid-template-columns: 1fr 1.2fr 1.2fr 1.2fr; }
+    .mx-legend { background: var(--brand-bg-alt); border-bottom: 1px solid var(--brand-rule); }
+    .mx-legend > div { padding: 12px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+    .mx-legend .lg-a { color: var(--cat-a-accent); border-left: 3px solid var(--cat-a-line); }
+    .mx-legend .lg-b { color: var(--cat-b-accent); border-left: 3px solid var(--cat-b-line); }
+    .mx-legend .lg-c { color: var(--cat-c-accent); border-left: 3px solid var(--cat-c-line); }
+    .mx-row { border-bottom: 1px solid var(--brand-rule); }
+    .mx-row:last-child { border-bottom: none; }
+    .mx-row > div { padding: 14px 16px; font-size: 14px; line-height: 1.5; }
+    .mx-label { background: #fff; font-weight: 600; color: var(--brand-ink); }
+    .mx-a { background: var(--cat-a-wash); border-left: 3px solid var(--cat-a-line); color: var(--brand-ink); }
+    .mx-b { background: var(--cat-b-wash); border-left: 3px solid var(--cat-b-line); color: var(--brand-ink); }
+    .mx-c { background: var(--cat-c-wash); border-left: 3px solid var(--cat-c-line); color: var(--brand-ink); }
+
+    /* ════════ 3. UPSIDES & WATCH-OUTS — per-category pros/cons ════════ */
+    .pc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .pc-card { border: 1px solid var(--brand-rule); border-radius: 16px; padding: 22px; background: #fff; }
+    .pc-card.cat-a { border-top: 4px solid var(--cat-a-accent); }
+    .pc-card.cat-b { border-top: 4px solid var(--cat-b-accent); }
+    .pc-card.cat-c { border-top: 4px solid var(--cat-c-accent); }
+    .pc-head { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+    .pc-card.cat-a .pc-head { color: var(--cat-a-accent); }
+    .pc-card.cat-b .pc-head { color: var(--cat-b-accent); }
+    .pc-card.cat-c .pc-head { color: var(--cat-c-accent); }
+    .pc-list { list-style: none; margin-bottom: 14px; }
+    .pc-list li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.55; color: var(--brand-ink-soft); margin-bottom: 8px; }
+    .pc-list.good li::before { content: '✓'; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+    .pc-list.watch li::before { content: '!'; position: absolute; left: 2px; color: var(--brand-ink-mute); font-weight: 700; }
+    .pc-sub { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand-ink-mute); margin-bottom: 8px; }
+
+    /* ════════ 4. WHICH ONE FITS YOU? — question → leaning ════════ */
+    .decide { border: 1px solid var(--brand-rule); border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden; }
+    .dec-row { display: flex; gap: 22px; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--brand-rule); }
+    .dec-row:last-child { border-bottom: none; }
+    .dec-q { flex: 1.1; font-weight: 600; color: var(--brand-ink); font-size: 15px; }
+    .dec-a { flex: 1; font-size: 14px; color: var(--brand-ink-soft); }
+    .dec-lean { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 11px; border-radius: 100px; margin-right: 8px; }
+    .dec-lean.cat-a { color: var(--cat-a-accent); background: var(--cat-a-wash); }
+    .dec-lean.cat-b { color: var(--cat-b-accent); background: var(--cat-b-wash); }
+    .dec-lean.cat-c { color: var(--cat-c-accent); background: var(--cat-c-wash); }
+    .dec-foot { padding: 16px 24px; background: var(--brand-wash); font-size: 14px; color: var(--brand-deep); }
+
+    /* ════════ 5. CLOSING BAND + LINKS ════════ */
+    .closing { margin-top: 80px; background: var(--brand-bg-alt); border-top: 1px solid var(--brand-rule); border-bottom: 1px solid var(--brand-rule); padding: 56px 0; text-align: center; }
+    .closing-mark { display: inline-block; width: 40px; height: 40px; border-radius: 50%; background: var(--ok-deep); color: #fff; line-height: 40px; font-weight: 700; margin-bottom: 16px; }
+    .closing p { font-size: 18px; max-width: 620px; margin: 0 auto; color: var(--brand-ink); }
+    .xlinks { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 26px; }
+    .xlink { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--brand-rule); border-radius: 100px; padding: 9px 18px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--brand-ink); background: #fff; }
+    .xlink.cat-a { border-left: 4px solid var(--cat-a-accent); }
+    .xlink.cat-b { border-left: 4px solid var(--cat-b-accent); }
+    .xlink.cat-c { border-left: 4px solid var(--cat-c-accent); }
+    .xlink:hover { box-shadow: var(--shadow-card); }
+
+    footer { padding: 28px 0; font-size: 13px; color: var(--brand-ink-mute); }
+    .footer-inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    /* ════════ RESPONSIVE — single breakpoint at 820px ════════ */
+    @media (max-width: 820px) {
+      .wrap { padding: 0 22px; }
+      .hero { padding: 36px 0 40px; }
+      .section-head { margin: 56px 0 28px; }
+      .section-title { font-size: 27px; }
+      /* big difference stacks */
+      .split1, .split2 { grid-template-columns: 1fr; }
+      .bd-vs { padding: 8px 0; }
+      /* matrix: legend hides, rows become cards; cell shows its category name */
+      .mx-legend { display: none; }
+      .mx-row { grid-template-columns: 1fr; }
+      .mx-row > div { border-left: none !important; }
+      .mx-a::before { content: '{{CAT_A_LABEL}}'; }
+      .mx-b::before { content: '{{CAT_B_LABEL}}'; }
+      .mx-c::before { content: '{{CAT_C_LABEL}}'; }
+      .mx-a::before, .mx-b::before, .mx-c::before { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; opacity: 0.75; }
+      /* pros/cons stack */
+      .pc { grid-template-columns: 1fr; }
+      /* decide rows stack Q over A */
+      .dec-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media print {
+      .topnav, .hero { background: #fff !important; color: var(--brand-ink) !important; }
+      .hero-eyebrow, .hero-lede, .brand, .brand small { color: var(--brand-ink) !important; }
+      .print-btn { display: none !important; }
+      .bigdiff, .matrix, .pc-card, .decide, .dec-row, .bd-box { page-break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== TOP NAV ========== -->
+  <nav class="topnav"><div class="wrap topnav-inner">
+    <div class="brand"><span class="brand-mark">{{ORG_INITIALS}}</span><span>{{ORG_NAME}}<small>{{ORG_TAGLINE}}</small></span></div>
+    <button class="print-btn" onclick="window.print()">{{PRINT_LABEL}}</button>
+  </div></nav>
+
+  <!-- ========== HERO ========== -->
+  <header class="hero"><div class="wrap hero-inner">
+    <div class="hero-eyebrow">{{HERO_EYEBROW}}</div>
+    <h1 class="hero-title">{{HERO_TITLE}}</h1>
+    <p class="hero-lede">{{HERO_LEDE}}</p>
+    <div class="hero-options">
+      <span class="hero-opt">1 · {{CAT_A_LABEL}}</span>
+      <span class="hero-opt">2 · {{CAT_B_LABEL}}</span>
+      <span class="hero-opt">3 · {{CAT_C_LABEL}}</span>
+    </div>
+  </div></header>
+
+  <main class="wrap">
+
+    <!-- ===== 1. THE BIG DIFFERENCE ===== -->
+    <section>
+      <div class="section-head">
+        <div class="section-eyebrow">{{S1_EYEBROW}}</div>
+        <h2 class="section-title">{{S1_TITLE}}</h2>
+        <p class="section-intro">{{S1_INTRO}}</p>
+      </div>
+      <div class="bigdiff">
+        <div class="bd-level"><strong>{{LEVEL1_LEAD}}</strong> — {{LEVEL1_TEXT}}</div>
+        <div class="split1">
+          <div class="bd-box cat-a"><span class="bd-tag cat-a">{{CAT_A_LABEL}}</span><h4>{{L1_LEFT_TITLE}}</h4><p>{{L1_LEFT_TEXT}}</p></div>
+          <div class="bd-vs"><span>{{OR_WORD}}</span></div>
+          <div class="bd-box cat-b"><span class="bd-tag cat-b">{{L1_RIGHT_TAG}}</span><h4>{{L1_RIGHT_TITLE}}</h4><p>{{L1_RIGHT_TEXT}}</p></div>
+        </div>
+        <!-- second-level connector — delete this block + .split2 for a single-level difference -->
+        <div class="bd-down"><div class="stem"></div><div class="tip">{{LEVEL2_CONNECTOR}}</div></div>
+        <div class="bd-level"><strong>{{LEVEL2_LEAD}}</strong> — {{LEVEL2_TEXT}}</div>
+        <div class="split2">
+          <div class="bd-box cat-b"><span class="bd-tag cat-b">{{CAT_B_LABEL}}</span><h4>{{L2_LEFT_TITLE}}</h4><p>{{L2_LEFT_TEXT}}</p><div class="bd-meter"><span class="on"></span><span></span><span></span><span></span></div></div>
+          <div class="bd-vs"><span>{{OR_WORD}}</span></div>
+          <div class="bd-box cat-c"><span class="bd-tag cat-c">{{CAT_C_LABEL}}</span><h4>{{L2_RIGHT_TITLE}}</h4><p>{{L2_RIGHT_TEXT}}</p><div class="bd-meter"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 2. SIDE BY SIDE (MATRIX) ===== -->
+    <section>
+      <div class="section-head">
+        <div class="section-eyebrow">{{S2_EYEBROW}}</div>
+        <h2 class="section-title">{{S2_TITLE}}</h2>
+      </div>
+      <div class="matrix">
+        <div class="mx-legend"><div></div><div class="lg-a">{{CAT_A_LABEL}}</div><div class="lg-b">{{CAT_B_LABEL}}</div><div class="lg-c">{{CAT_C_LABEL}}</div></div>
+        <!-- repeat .mx-row per compared dimension; trace each value to a source -->
+        <div class="mx-row"><div class="mx-label">{{ROW1_LABEL}}</div><div class="mx-a">{{ROW1_A}}</div><div class="mx-b">{{ROW1_B}}</div><div class="mx-c">{{ROW1_C}}</div></div>
+        <div class="mx-row"><div class="mx-label">{{ROW2_LABEL}}</div><div class="mx-a">{{ROW2_A}}</div><div class="mx-b">{{ROW2_B}}</div><div class="mx-c">{{ROW2_C}}</div></div>
+        <div class="mx-row"><div class="mx-label">{{ROW3_LABEL}}</div><div class="mx-a">{{ROW3_A}}</div><div class="mx-b">{{ROW3_B}}</div><div class="mx-c">{{ROW3_C}}</div></div>
+      </div>
+    </section>
+
+    <!-- ===== 3. UPSIDES & WATCH-OUTS ===== -->
+    <section>
+      <div class="section-head">
+        <div class="section-eyebrow">{{S3_EYEBROW}}</div>
+        <h2 class="section-title">{{S3_TITLE}}</h2>
+      </div>
+      <div class="pc">
+        <div class="pc-card cat-a"><div class="pc-head">{{CAT_A_LABEL}}</div>
+          <div class="pc-sub">{{UPSIDES_LABEL}}</div><ul class="pc-list good"><li>{{A_GOOD1}}</li><li>{{A_GOOD2}}</li></ul>
+          <div class="pc-sub">{{WATCH_LABEL}}</div><ul class="pc-list watch"><li>{{A_WATCH1}}</li></ul></div>
+        <div class="pc-card cat-b"><div class="pc-head">{{CAT_B_LABEL}}</div>
+          <div class="pc-sub">{{UPSIDES_LABEL}}</div><ul class="pc-list good"><li>{{B_GOOD1}}</li><li>{{B_GOOD2}}</li></ul>
+          <div class="pc-sub">{{WATCH_LABEL}}</div><ul class="pc-list watch"><li>{{B_WATCH1}}</li></ul></div>
+        <div class="pc-card cat-c"><div class="pc-head">{{CAT_C_LABEL}}</div>
+          <div class="pc-sub">{{UPSIDES_LABEL}}</div><ul class="pc-list good"><li>{{C_GOOD1}}</li><li>{{C_GOOD2}}</li></ul>
+          <div class="pc-sub">{{WATCH_LABEL}}</div><ul class="pc-list watch"><li>{{C_WATCH1}}</li></ul></div>
+      </div>
+    </section>
+
+    <!-- ===== 4. WHICH ONE FITS YOU? ===== -->
+    <section>
+      <div class="section-head">
+        <div class="section-eyebrow">{{S4_EYEBROW}}</div>
+        <h2 class="section-title">{{S4_TITLE}}</h2>
+      </div>
+      <div class="decide">
+        <div class="dec-row"><div class="dec-q">{{Q1}}</div><div class="dec-a"><span class="dec-lean cat-a">{{Q1_LEAN_LABEL}}</span>{{Q1_ANSWER}}</div></div>
+        <div class="dec-row"><div class="dec-q">{{Q2}}</div><div class="dec-a"><span class="dec-lean cat-b">{{Q2_LEAN_LABEL}}</span>{{Q2_ANSWER}}</div></div>
+        <div class="dec-row"><div class="dec-q">{{Q3}}</div><div class="dec-a"><span class="dec-lean cat-c">{{Q3_LEAN_LABEL}}</span>{{Q3_ANSWER}}</div></div>
+        <div class="dec-foot">{{DECIDE_FOOTNOTE}}</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== 5. CLOSING + LINKS ===== -->
+  <section class="closing"><div class="wrap">
+    <span class="closing-mark">✓</span>
+    <p>{{CLOSING_TEXT}}</p>
+    <div class="xlinks">
+      <a class="xlink cat-a" href="{{CAT_A_LINK}}">{{CAT_A_LABEL}}</a>
+      <a class="xlink cat-b" href="{{CAT_B_LINK}}">{{CAT_B_LABEL}}</a>
+      <a class="xlink cat-c" href="{{CAT_C_LINK}}">{{CAT_C_LABEL}}</a>
+    </div>
+  </div></section>
+
+  <footer><div class="wrap footer-inner">
+    <span>{{FOOTER_LEFT}}</span><span>{{FOOTER_RIGHT}}</span>
+  </div></footer>
+
+</body>
+</html>

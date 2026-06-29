@@ -9,6 +9,8 @@ description: >
   to such a page. Produces a self-contained HTML leaflet styled to match a site the
   user points to (URL or screenshots), plus an optional guided version, and can
   deploy both. Generalises an earlier single-registry leaflet builder.
+metadata:
+  version: 0.2.2
 ---
 
 # service-leaflet — brand-matched applicant leaflet + voice guide
@@ -30,8 +32,13 @@ is asked once.
 **Bundled assets** (`assets/`):
 - `document-template.html`, `poster-template.html` — brand-neutral layouts driven
   by `:root` `--brand-*` tokens.
+- `comparison-template.html` — the **comparison / "which-one" mode**: compare N
+  forms/types of a service and help the reader choose (hero → "the big difference"
+  two-level schema → colour-coded matrix → upsides/watch-outs → "which fits you?"
+  → links). Brand-neutral, driven by `--brand-*` + per-category `--cat-{key}-*`.
 - `brand.css` — the token reference (the full `--brand-*` / `--cat-*` set).
 - `build-guided-leaflet.py` — injects the voice guide into a finished leaflet.
+  Inherits the page brand and supports per-language widget labels (Phase 6).
 - `guide-config.example.json` — worked example config for the builder.
 - `avatar-default.webp` — placeholder guide portrait (swap it).
 
@@ -90,10 +97,14 @@ is for; don't put the light-bg accent on the primary band.
 
 ## Phase 2 — Gather the content
 
-**If the service has multiple types/branches, or you want a law-grounded model, run the
-`service-concept-brief` skill first** — it produces the per-type traced content map (the
-law + the live form, reconciled, every claim sourced) that this phase consumes. For a
-simple single-type page, build a lightweight content map inline instead.
+**Ground the content first (recommended).** Pick the grounding skill by service shape:
+- **Legal-form types to compare** (private / public / non-profit company…) → run
+  **`service-concept-brief`** → a per-type traced content map ("what each type IS").
+- **A single-path / non-entity-type service** (a permit, certificate, filing) → run
+  **`service-journey-brief`** → a journey-shaped traced map (purpose → who it's for →
+  what you provide → steps → what you receive → obligations).
+Either produces the sourced content map this phase consumes (law + live form, reconciled,
+every claim traced). For a trivial page, build a lightweight content map inline instead.
 
 Structure the leaflet around *what the thing IS*, not the form's field order. A
 strong default spine (from company registration) is: an at-a-glance fact box, then
@@ -110,9 +121,50 @@ Copy `document-template.html` (read top-to-bottom content) or `poster-template.h
 split). Fill the `:root` tokens from Phase 1, replace the `{{PLACEHOLDERS}}`, keep
 the class names (they carry the styling). Sentence-case titles; left-aligned,
 full-width hero (cap only the lede, never the hero block). Lead with the
-**distinctive** thing about this service. Add a top-right **Print / PDF** button +
+**distinctive** thing about this service.
+
+**Write the copy NATIVELY in the target language — never adapt a reference page's
+sentences.** If your structural model is a leaflet in another language (e.g. an English
+reference for a French page), reuse its STRUCTURE only; re-author every sentence from the
+content map, as a native speaker of the target language would. Sentence-by-sentence
+adaptation produces calques and invented-sounding expressions that read as a translation
+(the Comores entreprenant/SAS leaflets had to be fully re-written in French after a first
+English-adapted draft). For any non-English target, run a **native-speaker rewrite pass**
+(a dedicated subagent in that language) before shipping.
+
+Add a top-right **Print / PDF** button +
 print CSS for a clean branded PDF. Verify headless (no console errors, no overflow
 at 1280 and 390).
+
+### Comparison / which-one mode (a third template)
+
+When the leaflet's job is **not** "explain one thing" but **"help the reader pick
+between N forms/types"** of a service (e.g. sole proprietor vs company; or
+*entreprenant* vs SAS vs SARL), use `comparison-template.html` instead of the
+document/poster layouts. Its spine, in order:
+
+1. **Hero** — names the choice and lists the options.
+2. **"The big difference"** — a **two-level schema** (level 1 = the first fork,
+   e.g. alone vs a company; level 2 = the second, e.g. flexible vs framed). Drop
+   the second level for a single-fork choice (keep `.split1`, delete `.bd-down` +
+   `.split2`).
+3. **Side by side** — a **colour-coded matrix**: one column per form, one row per
+   compared dimension. **Responsive: columns at desktop, stacked cards ≤820px**
+   (the legend hides and each cell shows its form name via `::before` — fill the
+   `{{CAT_x_LABEL}}` tokens in those `content:` rules too).
+4. **Upsides & watch-outs** — a pros/cons card per form.
+5. **"Which one fits you?"** — short **question → leaning-answer** rows (each answer
+   leads with a colour-coded badge for the form it points to).
+6. **Links banner** — one branded link per form (e.g. to each form's own leaflet).
+
+**Per-category colour coding.** Each compared form gets its own
+`--cat-{key}-{accent|line|wash}` set (keys `a`/`b`/`c` in the example — add `d` for
+a fourth, delete `c` for only two). Keep `--cat-*` distinct from `--brand-primary`
+so the forms read apart. This is the **only** mode that uses `--cat-*`; everything
+else is `--brand-*`. **Feed it from `service-concept-brief`** — its optional
+**inter-form comparison column** (the N traced differences) is exactly the matrix's
+rows, already sourced. Same verification: no console errors, no overflow at 1280
+**and** at 390 (confirm the matrix has stacked to cards at 390).
 
 ## Phase 4 — Narration script (only if a guide is wanted)
 
@@ -153,10 +205,10 @@ that clip and `docker cp` the single mp3 into the live `…/<slug>/audio/`.
 
 LuxTTS applies English phonetics to any text, so for a **non-English** guide that
 must sound natural it isn't enough on its own. The path we used:
-- **Clone a native voice in ElevenLabs** from a real recording of a native speaker
-  (model `eleven_v3`), then synthesise the non-English segments with that voice id.
-  Reaches "intelligible"; truly native prosody needs a speaker recorded in the
-  language. (Keys live in your secrets store, never in the skill.)
+- **Clone a native voice in ElevenLabs** from a real recording of a native speaker,
+  then synthesise the non-English segments with that voice id. Reaches
+  "intelligible"; truly native prosody needs a speaker recorded in the language.
+  (Keys live in your secrets store, never in the skill.) **Full recipe below.**
 - **Meta MMS-TTS** has open voices for many languages (e.g. Sesotho `sot`) — a
   different, non-cloned voice but real language coverage.
 - **Collect a native sample first** with the **counterpart-intake-page** companion
@@ -164,6 +216,35 @@ must sound natural it isn't enough on its own. The path we used:
   clone and a native-quality check.
 - Bilingual page: keep one language as the base and add the second as per-segment
   overrides + a toggle (Phase 6).
+
+#### Recipe — clone the site's own agent voice from a video (the path we shipped)
+
+When the target site already has a presenter/agent on video, clone **that** voice so
+the guide sounds like the site's own person — and use a **multilingual** model so a
+French (or other non-English) guide is spoken natively, not English-phonetically.
+
+1. **Extract the audio** from a video of the agent:
+   ```
+   ffmpeg -i in.mp4 -vn -ac 1 voice.mp3
+   ```
+   A clean ~1–3 min mono sample is plenty. Trim to passages where only the agent
+   speaks (no music/overlap).
+2. **Clone in ElevenLabs (Instant Voice Cloning, IVC)** — `POST /v1/voices/add`
+   with the sample and `remove_background_noise=true`. Keep the returned `voice_id`.
+   (Key from the secrets store; never in the skill or the page.)
+3. **Synthesise with `eleven_multilingual_v2`** — this is the key: it speaks French
+   (and other languages) **natively**, unlike LuxTTS's anglo-phonetic output. One
+   request per narration segment → `audio/segN.mp3` (same convention as LuxTTS).
+4. **Avatar from a video frame** — pull a still of the agent and crop it square for
+   the bubble portrait:
+   ```
+   ffmpeg -ss <T> -i in.mp4 -frames:v 1 frame.png      # T = a good timestamp, e.g. 00:00:12
+   ```
+   then crop to a square and convert to webp (e.g. `cwebp` or any image tool) →
+   `avatar.webp`, referenced from the config.
+
+This is **in addition to LuxTTS** (the English default above), not a replacement —
+pick the engine per the guide language.
 
 ### Conventions (any engine)
 - Save clips as `audio/segN.mp3` (the builder lazy-loads them).
@@ -176,6 +257,22 @@ must sound natural it isn't enough on its own. The path we used:
 
 ## Phase 6 — Build the guided leaflet
 
+> **⚠ Builder reconciliation — the build must come out brand-correct and in the page
+> language, with NO manual post-pass.** The reference builder
+> (`build-guided-leaflet.py`) **MUST** integrate (a) **i18n** — the widget chrome
+> reads its labels from a config `labels` block (omit = English), and (b) the page's
+> **`--brand-*` tokens** — the bubble/CTA/aura/ring inherit the page's own colours and
+> font via `--guide-accent` / `--guide-font` (set `--guide-accent-rgb` for the glow).
+> A build produced by ≥ 0.2.0 already comes out at the right brand and language.
+> **Do NOT hand-edit the output to re-tint or re-translate it.** This is the root
+> cause of a recurring bug: the OBFC-era builder hard-coded Lesotho indigo/green +
+> English, so every build had to be re-tinted to GENERIC blue + Inter and Frenchified
+> by hand — fragile, and a Python quote typo shipped the Comores SARL leaflet in
+> Lesotho colours once. If you find yourself search-replacing colour hexes or button
+> labels in a built page, STOP: fix the builder/config so the build is correct, don't
+> patch the artifact. (Captured: `2 - eR services/knowledge/lessons.md`, Comores
+> 2026-06-24 lesson 1 + 2026-06-25 lesson 8.)
+
 Copy `guide-config.example.json` → `guide-config.json`, set `assistant_name`,
 `avatar`, `input_html`, `output_html`, `audio_dir`, `audio_mode` ("url" = lazy,
 recommended; "inline" = one self-contained file), the `anchors` (inject `id`s onto
@@ -183,9 +280,30 @@ the leaflet's section heads — match the exact strings), and the `segments`. Th
 ```
 python3 assets/build-guided-leaflet.py guide-config.json
 ```
-The widget inherits the brand automatically (its CSS reads the same `--brand-*`
-tokens). Verify headless: one replay button per targeted segment, widget
-bottom-right, no console errors, `@media print` hides it.
+
+**Language of the widget chrome (`labels`).** The widget's own buttons/labels —
+*Ask*, *Pause*, *Resume*, *Dismiss*, *Re-open*, *"Hear … explain this"* — default
+to **English**. On a non-English page they must match the page language (a French
+page should not say "Ask Zalia"). Add a `labels` block to the config to override
+any of them; omit it for English (back-compatible — a config with no `labels` keeps
+the English defaults). Keys: `ask`, `resume`, `pause`, `dismiss`, `reopen`, `hear`
+(use `{name}` for the agent name). French example:
+```json
+"labels": { "ask": "Demander à", "resume": "Reprendre", "pause": "Pause",
+            "dismiss": "Fermer", "reopen": "Rouvrir",
+            "hear": "Écouter {name} expliquer" }
+```
+
+**The widget inherits the brand automatically — no re-tint pass.** Its CSS reads
+the page's `--brand-*` tokens (via `--guide-accent` / `--guide-font`), so the
+bubble, CTA, aura and ring come out in the **page's own colours and font** with no
+manual editing. If you set `--brand-primary` on the page, also set
+`--guide-accent-rgb` (the same colour as an `r,g,b` triplet) so the aura/ring glow
+matches — otherwise the glow falls back to the slate default. Un-tokenised pages
+still get a legible fallback.
+
+Verify headless: one replay button per targeted segment, widget bottom-right, no
+console errors, `@media print` hides it, and the chrome reads in the page language.
 
 **Bilingual / clickability gotcha (if you add a language toggle):** the caption
 bubble is `pointer-events:none` (so it doesn't block the page); a control placed
@@ -213,8 +331,49 @@ confirm before publishing to anything live.
 - The bundled `avatar-default.webp` and the default token values are
   just starting points — Phase 1 replaces the look, Phase 0 the name/voice.
 
+## Playbooks / domaines (la substance, séparée de la méthode)
+
+This skill is the **method**; reusable domain substance lives in playbooks it consumes:
+
+- **OHADA company/legal-form leaflets** → `2 - eR services/knowledge/ohada-formes-juridiques-playbook.md`
+  (the 5 OHADA forms — entreprenant · commerçant personne physique · SARL · SAS · SA —
+  with their articles + the transversal patterns: spouse/matrimonial regime, taxation
+  physical-person vs company, and the comparison logic; an "OHADA shared vs national
+  overlay" table; the Comores leaflet ecosystem as the worked example). Organised by
+  legal system (OHADA), not by country or language — reusable across the 17 OHADA states.
+
 ## Companions (separate skills, optional)
 
 - **counterpart-intake-page** — a page to collect a native speaker's voice sample /
   answers (useful when sourcing a guide voice in a local language).
 - **restore-asset-watcher** — keep a docker-cp'd page alive across redeploys.
+
+## Changelog
+
+- **0.2.2** (2026-06-25) — Added an explicit **builder reconciliation** note at the top of
+  Phase 6: the reference builder MUST integrate i18n (`labels`) + the page `--brand-*`
+  tokens so a build comes out brand-correct and in the page language with **no manual
+  post-pass** — never hand-edit a built page to re-tint or re-translate it (root cause of
+  a recurring bug; the Comores SARL leaflet shipped once in Lesotho colours after a manual
+  pass). Captured from the final Comores campaign (6 leaflets — entreprenant · commerçant
+  PP · SARL · SAS · comparison · the `/formes-juridiques` home page — all Zalia-narrated).
+- **0.2.1** (2026-06-24) — Added a **Playbooks / domaines** section pointing to the OHADA
+  legal-form playbook (`2 - eR services/knowledge/ohada-formes-juridiques-playbook.md`) —
+  the reusable substance (5 forms + articles + transversal patterns) that this method
+  consumes, with the Comores leaflet ecosystem as the worked example.
+- **0.2.0** (2026-06-24) — Four lessons from a real campaign (Comores
+  entreprenant/SAS/SARL + the "Zalia" French voice guides):
+  1. **i18n widget chrome** — the builder no longer hard-codes English on the bubble
+     (Ask / Pause / Resume / Dismiss / Re-open / "Hear … explain this"). A config
+     `labels` block overrides them per language; omit it for English (back-compatible).
+  2. **Widget inherits the brand** — its CSS now reads `--brand-*` (via `--guide-accent`
+     / `--guide-font`) instead of the hard-coded OBFC indigo/green/Poppins, so a build
+     comes out in the page's own colours/font with no manual re-tint pass.
+  3. **Comparison / which-one mode** — new `comparison-template.html` (hero · two-level
+     "big difference" · colour-coded matrix that stacks to cards ≤820px · pros/cons ·
+     "which fits you?" · links), brand-neutral, driven by `--brand-*` + `--cat-{key}-*`.
+  4. **Voice-clone-from-video recipe** (Phase 5) — extract audio with ffmpeg → clone in
+     ElevenLabs (IVC, `remove_background_noise=true`) → synthesise with
+     `eleven_multilingual_v2` (native French, vs LuxTTS anglo-phonetic) → avatar from a
+     video frame. Added alongside LuxTTS, not replacing it.
+- **0.1.0** — Initial generalised brand-matched leaflet + voice-guide builder.

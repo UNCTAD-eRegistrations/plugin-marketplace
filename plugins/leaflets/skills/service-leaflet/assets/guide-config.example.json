@@ -1,5 +1,6 @@
 {
-  "_comment": "Worked example. Copy to guide-config.json and edit. All paths are relative to THIS config file. 'assistant_name' is the voice guide's name (chosen in Phase 0). 'avatar' is its portrait. 'audio_mode': 'url' lazy-loads audio/<file> (recommended, light); 'inline' base64-inlines the clips into one self-contained file. 'anchors' inject ids onto the leaflet's section heads so a segment can scroll/highlight to them (match the exact HTML string). 'segments' = the narration: text + the element it scrolls to (target null = top; block = scrollIntoView start|center).",
+  "_comment": "Worked example. Copy to guide-config.json and edit. All paths are relative to THIS config file. 'assistant_name' is the voice guide's name (chosen in Phase 0). 'avatar' is its portrait. 'audio_mode': 'url' lazy-loads audio/<file> (recommended, light); 'inline' base64-inlines the clips into one self-contained file. 'anchors' inject ids onto the leaflet's section heads so a segment can scroll/highlight to them (match the exact HTML string). 'segments' = the narration: text + the element it scrolls to (target null = top; block = scrollIntoView start|center). 'labels' overrides the widget's chrome strings per language (see _labels_comment); omit it entirely for English. BRAND: the widget inherits the PAGE's colours/font automatically — it reads --brand-* tokens via --guide-* (no re-tint pass). If your page changes --brand-primary, also set --guide-accent-rgb on the page so the aura/ring glow matches.",
+  "_labels_comment": "i18n of the widget chrome. ENGLISH is the default — drop the whole 'labels' block for an English page. For another language, override only the keys you need. 'hear' uses {name} for the agent name. French example: { \"ask\": \"Demander \\u00e0\", \"resume\": \"Reprendre\", \"pause\": \"Pause\", \"dismiss\": \"Fermer\", \"reopen\": \"Rouvrir\", \"hear\": \"\\u00c9couter {name} expliquer\" }. The block below shows the English defaults explicitly so you can see every key.",
   "assistant_name": "Ava",
   "cta_label": "Let Ava guide you",
   "input_html": "leaflet.html",
@@ -7,6 +8,14 @@
   "audio_dir": "audio",
   "audio_mode": "url",
   "avatar": "avatar-default.webp",
+  "labels": {
+    "ask": "Ask",
+    "resume": "Resume",
+    "pause": "Pause",
+    "dismiss": "Dismiss",
+    "reopen": "Re-open",
+    "hear": "Hear {name} explain this"
+  },
   "title_replace": [
     "<title>Apply for a permit</title>",
     "<title>Apply for a permit (guided)</title>"
