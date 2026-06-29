@@ -10,7 +10,7 @@ description: >
   user points to (URL or screenshots), plus an optional guided version, and can
   deploy both. Generalises an earlier single-registry leaflet builder.
 metadata:
-  version: 0.2.2
+  version: 0.3.0
 ---
 
 # service-leaflet — brand-matched applicant leaflet + voice guide
@@ -165,6 +165,80 @@ else is `--brand-*`. **Feed it from `service-concept-brief`** — its optional
 **inter-form comparison column** (the N traced differences) is exactly the matrix's
 rows, already sourced. Same verification: no console errors, no overflow at 1280
 **and** at 390 (confirm the matrix has stacked to cards at 390).
+
+### Ecosystem chrome — shared ribbon + footer across a family of fiches
+
+When you build **a family of leaflets for one country** (e.g. the OHADA legal forms —
+entreprenant · commerçant · SARL · SAS · SA — plus a comparison and a chooser-hub), give
+every page the **same chrome** so the set reads as one ecosystem rather than seven unrelated
+pages. Six conventions, all proven on the Comores ecosystem (7 live pages):
+
+**1. Flag ribbon (`ruban drapeau`).** A thin striped band pinned at the very top — the host
+country's flag colours, one `<span>` per stripe — as the shared brand mark across the whole
+set. Swap the hexes for the country's flag; keep the structure.
+```css
+.flagbar { height:5px; display:flex; }
+.flagbar span { flex:1; }
+.flagbar span:nth-child(1){ background:#0171c0 } /* Comoros flag — swap per country */
+.flagbar span:nth-child(2){ background:#009945 }
+.flagbar span:nth-child(3){ background:#f2b400 }
+.flagbar span:nth-child(4){ background:#e11f1c }
+```
+```html
+<div class="flagbar"><span></span><span></span><span></span><span></span></div>
+```
+
+**2. Common footer (citizen pages) — full-bleed `--brand-primary`.** White text at reduced
+opacity, a three-column grid: brand (white logo + tagline) · **inter-fiche nav** (every form
+in the family; the current page carries `aria-current="page"` and renders bold) · contact +
+partner logos. A bottom strip carries the copyright + an "information à valeur indicative"
+disclaimer. **Partner logos are whitened in CSS, not pre-edited** — serve the real colour
+logos from a dedicated `/logos/` route and apply `filter:brightness(0) invert(1)` so one file
+works on any background. Collapses to one column ≤720px; `display:none` in print.
+```css
+footer { padding:42px 0 30px; background:var(--brand-primary,#0171c0); color:rgba(255,255,255,.85); }
+.footer-grid { display:grid; grid-template-columns:1.3fr 1fr 1.1fr; gap:32px; max-width:1080px; margin:0 auto; }
+.footer-col a[aria-current="page"] { color:#fff; font-weight:700; }              /* current fiche, bold */
+.footer-partners img { height:30px; filter:brightness(0) invert(1); opacity:.92; } /* whiten any logo */
+@media (max-width:720px){ .footer-grid{ grid-template-columns:1fr } }
+@media print { footer{ display:none } }
+```
+The nav `<ul>` lists every form + a "Toutes les formes" link to the hub; the partners row
+points at `/logos/<partner>.{png,svg}`.
+
+**3. Greffe variant footer (internal / back-office sheets).** A control sheet for an agency
+desk is **not** a citizen page: keep its footer **white** (no brand band), give it a one-line
+dotted-link inter-sheet nav (current sheet bold, siblings linked, "à venir" greyed), and close
+with a **small UN emblem** (`/logos/un-emblem.svg`, ~30px) beside a formal one-sentence
+assistance note. Same family, soberer register.
+```html
+<div class="wrap footer-un">
+  <img src="/logos/un-emblem.svg" alt="UN emblem" class="un-emblem" width="30" height="30">
+  <p class="un-note">Document établi avec l'assistance du programme … des Nations&nbsp;Unies.</p>
+</div>
+```
+
+**4. Title conventions.** Distinguish an **explainer of one form** from the **chooser-hub**:
+- *Explain one form* → "**Comprendre le statut de** …" (e.g. "Comprendre le statut d'entreprenant").
+- *Choose among forms (the hub)* → "**Choisir la forme juridique** de votre entreprise".
+
+Translate the *pattern*, not the words, for other languages: *understand-this-one* vs
+*choose-among-many*.
+
+**5. Ecosystem linking rule — the hub and the comparison are two different destinations.**
+- The **hub** (`/formes-juridiques`) lists **all** forms — a generic "see all forms" link
+  always points here.
+- A **comparison** page (`/comparer`) compares **exactly the two named forms** (e.g.
+  entreprenant ↔ SARL). A "compare X and Y" link appears **only on the pages where both X and
+  Y are in play** — never send an SA or SAS reader to an entreprenant↔SARL comparison.
+
+When in doubt, link to the hub. Wire the inter-fiche footer nav so every sibling is reachable
+from every page: a **late-added form must be back-linked into its siblings**, not left
+reachable only from the hub.
+
+**6. `text-wrap: balance` on hero titles from the start.** Put it on `h1.hero-title` the
+moment you write the CSS, not as a later fix — it balances multi-line headings with no manual
+line-break pass (Comores lesson #9).
 
 ## Phase 4 — Narration script (only if a guide is wanted)
 
@@ -350,6 +424,19 @@ This skill is the **method**; reusable domain substance lives in playbooks it co
 
 ## Changelog
 
+- **0.3.0** (2026-06-29) — Added **Ecosystem chrome** (Phase 3): the shared layout used when
+  building a *family* of leaflets for one country, captured from the final Comores ecosystem
+  (7 live pages). Six conventions: (1) **flag ribbon** — a thin striped top band in the host
+  country's flag colours; (2) **common footer** — full-bleed `--brand-primary`, white text, a
+  three-column grid with an **inter-fiche nav** (current page `aria-current`/bold) and partner
+  logos **whitened in CSS** (`filter:brightness(0) invert(1)`) from a `/logos/` route; (3) a
+  **greffe variant footer** for internal/back-office sheets (white, one-line sibling nav, small
+  `un-emblem.svg` + formal note); (4) **title conventions** — "Comprendre le statut de…" for a
+  single-form explainer vs "Choisir la forme juridique…" for the chooser-hub; (5) the
+  **ecosystem linking rule** — hub (all forms) vs comparison (exactly two named forms) are
+  distinct destinations, a generic link goes to the hub, a "compare X and Y" link only where
+  both are in play, and a late-added form is back-linked into its siblings; (6) `text-wrap:
+  balance` on hero titles from the start.
 - **0.2.2** (2026-06-25) — Added an explicit **builder reconciliation** note at the top of
   Phase 6: the reference builder MUST integrate i18n (`labels`) + the page `--brand-*`
   tokens so a build comes out brand-correct and in the page language with **no manual
