@@ -24,7 +24,12 @@ hardcoded to one registry:
   conceptual "what each type IS" content map per service branch, by cross-reading the
   **law** and the **live BPA service** and reconciling them. The source of truth the
   leaflet consumes (Phase 2); also feeds manuals, training, and design docs. See
-  `skills/service-concept-brief/SKILL.md`.
+  `skills/service-concept-brief/SKILL.md`. **For legal-form / entity-type services.**
+- **service-journey-brief** (`/service-journey-brief`) — the sibling for a **single-path
+  / non-entity-type service** (a permit, certificate, filing): a journey-shaped traced
+  map (purpose → who it's for → what you provide → steps → what you receive →
+  obligations), same law+form reconciliation discipline. See
+  `skills/service-journey-brief/SKILL.md`.
 
 ## Assets
 
