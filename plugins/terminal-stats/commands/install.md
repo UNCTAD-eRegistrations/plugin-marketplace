@@ -59,7 +59,7 @@ LCARS Terminal Statusline — Installed
   Restart Claude Code to activate the statusline.
   
   Features: 3-panel display (SYS/CTX/OPS), gradient context bar,
-            thermal rate gauge, git info, token I/O, cache rate, cost.
+            thermal rate gauge, git info, cache rate, idle timer, cost.
 ```
 
 If anything failed, report the specific error.
