@@ -18,14 +18,14 @@ eval $(echo "$input" | jq -r '
   @sh "VIM_MODE=\(.vim.mode // "")",
   @sh "CTX_SIZE=\(.context_window.context_window_size // 200000)",
   @sh "CUR_INPUT=\(.context_window.current_usage.input_tokens // 0)",
-  @sh "CUR_OUTPUT=\(.context_window.current_usage.output_tokens // 0)",
   @sh "CACHE_CREATE=\(.context_window.current_usage.cache_creation_input_tokens // 0)",
   @sh "CACHE_READ=\(.context_window.current_usage.cache_read_input_tokens // 0)",
   @sh "RL_5H=\(.rate_limits.five_hour.used_percentage // -1)",
   @sh "RL_5H_RESET=\(.rate_limits.five_hour.resets_at // "")",
   @sh "RL_7D=\(.rate_limits.seven_day.used_percentage // -1)",
   @sh "RL_7D_RESET=\(.rate_limits.seven_day.resets_at // "")",
-  @sh "EFFORT=\(.effort.level // "")"
+  @sh "EFFORT=\(.effort.level // "")",
+  @sh "TRANSCRIPT=\(.transcript_path // "")"
 ' | tr ',' '\n')
 PCT=$(echo "$PCT" | cut -d. -f1)
 
@@ -71,7 +71,7 @@ tf() {
 
 # ━━━ Computed values ━━━
 USED=$((CUR_INPUT + CACHE_CREATE + CACHE_READ))
-US=$(tf "$USED"); SS=$(tf "$CTX_SIZE"); IS=$(tf "$CUR_INPUT"); OS=$(tf "$CUR_OUTPUT")
+US=$(tf "$USED"); SS=$(tf "$CTX_SIZE")
 CH=0; TC=$((CACHE_CREATE + CACHE_READ))
 [ "$TC" -gt 0 ] 2>/dev/null && CH=$((CACHE_READ * 100 / TC))
 CS=$(printf '$%.2f' "$COST")
@@ -152,6 +152,29 @@ _countdown() {
     else                              COUNTDOWN="${left}s"; fi
 }
 
+# Helper: age of the most recent transcript entry → how long the session
+# has been sitting idle since its last request. Writes IDLE_STR (e.g.
+# "3h12m") and IDLE_COLOR.
+_idle_time() {
+    IDLE_STR=""; IDLE_COLOR="$SLATE"
+    [ -z "$TRANSCRIPT" ] && return
+    local raw
+    raw=$(tail -n 50 "$TRANSCRIPT" 2>/dev/null | jq -rs '[.[] | select(.timestamp != null) | .timestamp] | last // empty' 2>/dev/null)
+    [ -z "$raw" ] && return
+    local clean="${raw%%.*}"; clean="${clean%%Z}"; clean="${clean%%+*}"
+    local ts
+    ts=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$clean" "+%s" 2>/dev/null || \
+         date -d "$raw" "+%s" 2>/dev/null)
+    [ -z "$ts" ] && return
+    local age=$(( $(date +%s) - ts ))
+    [ "$age" -lt 0 ] && age=0
+    if   [ "$age" -lt 3600 ];   then IDLE_STR="$((age/60))m";                    IDLE_COLOR="$LIME"
+    elif [ "$age" -lt 86400 ];  then IDLE_STR="$((age/3600))h$((age%3600/60))m"; IDLE_COLOR="$GOLD"
+    elif [ "$age" -lt 604800 ]; then IDLE_STR="$((age/86400))d$((age%86400/3600))h"; IDLE_COLOR="$TANGERINE"
+    else                              IDLE_STR="$((age/604800))w"; IDLE_COLOR="$CORAL"; fi
+}
+_idle_time
+
 RL5=$(echo "$RL_5H" | cut -d. -f1)
 RL7=$(echo "$RL_7D" | cut -d. -f1)
 RLG=""; RLC=""; RL7G=""; RL7CC=""
@@ -193,10 +216,11 @@ if [ -n "$BRANCH" ]; then
 fi
 [ -n "$VIM_MODE" ] && { [ "$VIM_MODE" = "NORMAL" ] && L1="${L1} ${GHOST}[N]${RST}" || L1="${L1} ${LIME}${BD}[I]${RST}"; }
 
-# ── Panel CTX: context gauge + token I/O ──
+# ── Panel CTX: context gauge + cache rate + idle timer ──
 PC=$(fg $CR $CG $CB)
-L2="${CTX_P} ${BAR} ${PC}${BD}${PCT}%${RST} ${DM}${US}/${SS}${RST} ${GHOST}░${RST} ${GHOST}in ${RST}${ICE}↓${IS}${RST} ${GHOST}out ${RST}${PEACH}↑${OS}${RST}"
-[ "$TC" -gt 0 ] 2>/dev/null && L2="${L2} ${GHOST}cache ${RST}${TEAL}⛃${CH}%${RST}"
+L2="${CTX_P} ${BAR} ${PC}${BD}${PCT}%${RST} ${DM}${US}/${SS}${RST}"
+[ "$TC" -gt 0 ] 2>/dev/null && L2="${L2} ${GHOST}░${RST} ${GHOST}cache ${RST}${TEAL}⛃${CH}%${RST}"
+[ -n "$IDLE_STR" ] && L2="${L2} ${GHOST}░${RST} ${GHOST}idle ${RST}${IDLE_COLOR}◷ ${IDLE_STR}${RST}"
 
 # ── Panel OPS: cost · time · delta · rate limit ──
 L3="${OPS_P} ${GHOST}cost ${RST}${GOLD}${CS}${RST} ${GHOST}░${RST} ${GHOST}active ${RST}${SLATE}${DS}${RST}"
