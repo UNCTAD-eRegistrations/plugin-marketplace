@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sample screen — desktop reference mockup (screens-first grammar)</title>
+<!-- grammar: one font family for the whole product — the SAME one as the mobile starter -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* grammar: SAME OKLch tokens as the mobile starter — the desktop derives, it never re-themes. */
+:root{
+  --paper:oklch(0.985 0.006 255);        /* page background */
+  --surface:#fff;                        /* cards, bars, panels */
+  --ink:oklch(0.24 0.025 260);           /* main text */
+  --muted:oklch(0.52 0.02 260);          /* secondary text */
+  --faint:oklch(0.64 0.018 260);         /* tertiary text, subtitles */
+  --line:oklch(0.91 0.011 255);          /* every border */
+  --primary:oklch(0.45 0.13 252);        /* the product's action color */
+  --primary-deep:oklch(0.36 0.12 254);
+  --primary-soft:oklch(0.96 0.028 252);
+  --green:oklch(0.55 0.13 150);          /* state: done / confirmed */
+  --green-deep:oklch(0.45 0.13 150);
+  --green-soft:oklch(0.95 0.05 150);
+  --amber-deep:oklch(0.52 0.11 62);      /* state: draft / attention */
+  --amber-soft:oklch(0.96 0.045 78);
+  --f:"Poppins",-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:oklch(0.95 0.01 255);font-family:var(--f);color:var(--ink);-webkit-font-smoothing:antialiased;
+  display:flex;justify-content:center;align-items:center;padding:24px;min-height:100vh}
+.num{font-variant-numeric:tabular-nums}
+
+/* grammar: APP FRAME 1280×800 centered — the desktop equivalent of the phone frame.
+   overflow:clip for the same reason (closed translated panels must not make it scrollable).
+   One shadow on the frame; nothing else carries a big shadow. */
+.app{width:1280px;height:800px;max-width:100%;background:var(--paper);border-radius:20px;border:1px solid var(--line);
+  box-shadow:0 40px 90px -40px oklch(0.4 0.06 255/.5);overflow:clip;display:flex;position:relative}
+
+/* grammar: SIDEBAR ~232px — the system map as navigation. Entries are REAL relative links to the
+   sibling NN-slug-desktop.html files; the current screen carries .on. */
+.side{width:232px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:.6rem;padding:2px 10px 20px}
+.brand .logo{width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;flex:none}
+.brand b{font-size:1.08rem;font-weight:700;letter-spacing:-.01em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:.65rem;padding:.62rem .75rem;border-radius:10px;text-decoration:none;
+  color:var(--muted);font-size:.84rem;font-weight:600}
+.nav a svg{width:1.05rem;height:1.05rem;flex:none}
+.nav a:hover{background:var(--paper);color:var(--ink)}
+.nav a.on{background:var(--primary-soft);color:var(--primary-deep)}
+
+/* grammar: MAIN COLUMN — title bar (title + verbatim subtitle + "?" help, same as mobile) over the work area */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.bar{flex:none;padding:20px 28px 16px;background:var(--surface);border-bottom:1px solid var(--line);
+  display:flex;align-items:flex-start;gap:.8rem}
+.bar .tw{flex:1;min-width:0}
+.bar h1{font-size:1.3rem;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.bar .sub{color:var(--faint);font-size:.78rem;font-weight:500;margin-top:.2rem}
+.help{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);
+  color:var(--muted);font-weight:700;font-size:.95rem;cursor:pointer;flex:none;font-family:var(--f)}
+.help:hover{color:var(--primary);border-color:var(--primary)}
+
+/* grammar: MASTER–DETAIL — the width is USED, not stretched: the mobile list becomes the
+   master column (~380px), the mobile detail view becomes the detail pane (content capped ~620px). */
+.work{flex:1;min-height:0;display:flex}
+.master{width:380px;flex:none;border-right:1px solid var(--line);overflow-y:auto;padding:20px;background:var(--paper)}
+.detail{flex:1;min-width:0;overflow-y:auto;padding:24px 28px 96px}
+.detail-inner{max-width:620px}
+.dview{display:none}
+.dview.on{display:block}
+.dh{margin-bottom:14px}
+.dh b{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;display:block}
+.dh span{font-size:.76rem;color:var(--faint);font-weight:500}
+
+/* grammar: LIST ROWS in the master — same anatomy as mobile, plus .sel (inset bar) for the open item */
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.cat-h{display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem .55rem}
+.cat-h .cname{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--faint)}
+.rep{display:flex;align-items:center;gap:.7rem;padding:.8rem 1rem;border-top:1px solid var(--line);cursor:pointer;background:var(--surface)}
+.rep:hover{background:var(--primary-soft)}
+.rep.sel{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--primary)}
+.rep .ric{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.rep .ric svg{width:1.05rem;height:1.05rem}
+.rep .rt{flex:1;min-width:0}
+.rep .rt b{font-size:.88rem;font-weight:600;display:block}
+.rep .rt span{font-size:.7rem;color:var(--faint);font-weight:500}
+/* grammar: STATUS BADGES — identical classes and meanings as the mobile starter */
+.st-badge{flex:none;font-size:.62rem;font-weight:700;border-radius:7px;padding:.24rem .5rem;letter-spacing:.02em}
+.st-badge.draft{color:var(--amber-deep);background:var(--amber-soft)}
+.st-badge.done{color:var(--green-deep);background:var(--green-soft)}
+.st-badge.todo{color:var(--primary-deep);background:var(--primary-soft)}
+
+/* grammar: STATE BAND + DETAIL ROWS + TOTAL — copied verbatim from the mobile grammar */
+.stateband{display:flex;align-items:center;gap:.55rem;background:var(--amber-soft);color:var(--amber-deep);
+  border:1px solid oklch(0.9 0.05 78);border-radius:12px;padding:.65rem .85rem;font-size:.75rem;font-weight:600;margin-bottom:14px}
+.stateband svg{width:1rem;height:1rem;flex:none}
+.stateband.done{background:var(--green-soft);color:var(--green-deep);border-color:oklch(0.88 0.05 150)}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;padding:4px 0}
+.sec-h{padding:.7rem 1rem .3rem;font-weight:700;font-size:.92rem}
+.rrow{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem 1rem;border-top:1px solid var(--line)}
+.rrow .lbl{font-size:.86rem;font-weight:500;color:var(--muted)}
+.rrow .val{font-size:.9rem;font-weight:600;font-variant-numeric:tabular-nums}
+.rrow.total{background:var(--green-soft);border-top:0;margin:6px 10px;border-radius:11px;padding:.7rem .9rem}
+.rrow.total .lbl{color:var(--green-deep);font-weight:700}
+.rrow.total .val{color:var(--green-deep);font-weight:800;font-size:1.05rem}
+.cta{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;font-family:var(--f);
+  font-weight:700;font-size:.95rem;border:0;border-radius:14px;padding:.85rem;background:var(--primary);color:#fff;cursor:pointer;margin-top:4px}
+.cta:hover{background:var(--primary-deep)}
+.cta svg{width:1.1rem;height:1.1rem}
+.warnband{display:flex;align-items:flex-start;gap:.55rem;background:var(--amber-soft);color:var(--amber-deep);
+  border:1px solid oklch(0.9 0.05 78);border-radius:12px;padding:.65rem .85rem;font-size:.74rem;font-weight:600;line-height:1.45;margin:.4rem 0 .9rem}
+.warnband svg{width:1rem;height:1rem;flex:none;margin-top:.1rem}
+.recap{display:flex;align-items:center;gap:.7rem;border:1px solid var(--line);border-radius:14px;padding:.7rem .9rem;background:var(--paper);margin-bottom:.4rem}
+.recap .ric{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.recap .ric svg{width:1.05rem;height:1.05rem}
+.recap b{font-size:.86rem;font-weight:600;display:block}
+.recap span{font-size:.7rem;color:var(--faint);font-weight:500}
+
+/* grammar: SLIDE-TO-CONFIRM — unchanged from mobile; on desktop it lives inside the centered modal */
+.slide{position:relative;height:58px;border-radius:999px;background:var(--primary-soft);
+  border:1.5px solid oklch(0.88 0.04 252);margin-top:.4rem;user-select:none;overflow:hidden}
+.slide .slabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.4rem;
+  font-size:.85rem;font-weight:600;color:var(--primary-deep);pointer-events:none}
+.slide .slabel svg{width:.95rem;height:.95rem}
+.slide .knob{position:absolute;top:4px;left:4px;width:47px;height:47px;border-radius:50%;background:var(--primary);
+  color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;
+  box-shadow:0 6px 16px -6px oklch(0.4 0.12 255/.7)}
+.slide .knob:active{cursor:grabbing}
+.slide .knob svg{width:1.2rem;height:1.2rem}
+.slide.ok{background:var(--green-soft);border-color:var(--green)}
+.slide.ok .knob{background:var(--green-deep)}
+.slide.ok .slabel{color:var(--green-deep)}
+
+/* grammar: FLOATING PILL — bottom-RIGHT on desktop (bottom-center on mobile); nowrap still mandatory */
+.pill{position:absolute;right:26px;bottom:24px;display:flex;align-items:center;gap:.5rem;
+  background:var(--primary);color:#fff;border:0;border-radius:999px;padding:.85rem 1.5rem;font-family:var(--f);
+  font-weight:600;font-size:.95rem;cursor:pointer;box-shadow:0 18px 40px -14px oklch(0.4 0.12 255/.75);z-index:5;white-space:nowrap}
+.pill:hover{background:var(--primary-deep)}
+.pill svg{width:1.15rem;height:1.15rem}
+
+/* grammar: OVERLAYS — mobile bottom sheets become RIGHT SLIDING PANELS ~380px (translateX + backdrop).
+   EXCEPTION: solemn confirmations (slide-to-confirm) use a CENTERED MODAL, not a panel. Escape closes all. */
+.backdrop{position:absolute;inset:0;background:oklch(0.2 0.02 260/.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:8}
+.backdrop.on{opacity:1;pointer-events:auto}
+.panel{position:absolute;top:0;right:0;bottom:0;width:380px;background:var(--surface);border-left:1px solid var(--line);
+  transform:translateX(105%);transition:transform .25s ease;z-index:9;padding:24px 22px;display:flex;flex-direction:column;
+  box-shadow:-24px 0 60px -36px oklch(0.3 0.05 255/.55)}
+.panel.on{transform:translateX(0)}
+.panel h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin-bottom:.2rem;padding-right:2.4rem}
+.panel .ssub{color:var(--faint);font-size:.76rem;font-weight:500;margin-bottom:1rem}
+.panel-body{flex:1;overflow-y:auto;min-height:0}
+.panel-actions{display:flex;gap:.6rem;margin-top:.8rem;flex:none}
+.pclose{position:absolute;top:20px;right:18px;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pclose:hover{color:var(--primary);border-color:var(--primary)}
+.pclose svg{width:.9rem;height:.9rem}
+.modal{position:absolute;left:50%;top:50%;width:520px;max-width:92%;max-height:88%;transform:translate(-50%,-47%);
+  opacity:0;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:20px;
+  padding:24px;display:flex;flex-direction:column;z-index:10;transition:opacity .2s,transform .2s;
+  box-shadow:0 40px 90px -30px oklch(0.3 0.06 255/.55)}
+.modal.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.modal h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin-bottom:.2rem}
+.modal .ssub{color:var(--faint);font-size:.76rem;font-weight:500;margin-bottom:1rem}
+.modal-body{flex:1;overflow-y:auto;min-height:0}
+.btn{flex:1;font-family:var(--f);font-weight:600;font-size:.92rem;border-radius:12px;padding:.75rem;cursor:pointer;border:0}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-deep)}
+.btn.ghost{background:none;border:1.5px solid var(--line);color:var(--muted)}
+
+/* grammar: HELP BLOCKS — identical to the mobile starter */
+.help-blk{display:flex;gap:.75rem;margin-bottom:1rem}
+.help-blk .hb-ic{width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center}
+.help-blk .hb-ic svg{width:1.05rem;height:1.05rem}
+.hb-ic.blue{background:var(--primary-soft);color:var(--primary)}
+.hb-ic.green{background:var(--green-soft);color:var(--green-deep)}
+.hb-ic.amber{background:var(--amber-soft);color:var(--amber-deep)}
+.help-blk b{font-size:.86rem;font-weight:600;display:block}
+.help-blk p{font-size:.76rem;color:var(--muted);font-weight:500;line-height:1.5;margin-top:.15rem}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <!-- grammar: entries = REAL relative links to sibling NN-slug-desktop.html files; current screen .on -->
+  <aside class="side">
+    <div class="brand"><span class="logo">P</span><b>Product</b></div>
+    <nav class="nav">
+      <a href="00-home-desktop.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>Home</a>
+      <a href="01-items-desktop.html" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Items</a>
+      <a href="02-settings-desktop.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <a href="03-support-desktop.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>Support</a>
+    </nav>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="bar">
+      <div class="tw">
+        <h1>Items</h1>
+        <!-- grammar: the subtitle is the SAME verbatim sentence as the mobile screen's — single voice -->
+        <div class="sub">Your items, each with its state — nothing moves without you</div>
+      </div>
+      <button class="help" onclick="openPanel('pn-help')" aria-label="Help">?</button>
+    </header>
+
+    <div class="work">
+      <!-- grammar: MASTER — the mobile list view, as a persistent column -->
+      <div class="master">
+        <div class="cat">
+          <div class="cat-h"><span class="cname">In progress</span></div>
+          <div class="rep sel" id="row-a102" onclick="select('row-a102','dv-a102')">
+            <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="rt"><b>Item A-102</b><span id="sub-a102">3 lines · updated today</span></div>
+            <span class="st-badge draft" id="badge-a102">Draft</span>
+          </div>
+          <div class="rep" id="row-a103" onclick="select('row-a103','dv-a103')">
+            <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+            <div class="rt"><b>Item A-103</b><span>1 line · needs a value</span></div>
+            <span class="st-badge todo">To complete</span>
+          </div>
+        </div>
+        <div class="cat">
+          <div class="cat-h"><span class="cname">Completed</span></div>
+          <div class="rep" id="row-a101" onclick="select('row-a101','dv-a101')">
+            <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="rt"><b>Item A-101</b><span>Confirmed on 01/07</span></div>
+            <span class="st-badge done">Confirmed · 01/07</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- grammar: DETAIL — the mobile detail view, as the wide pane; one .dview per item -->
+      <div class="detail">
+        <div class="detail-inner">
+
+          <div class="dview on" id="dv-a102">
+            <div class="dh"><b>Item A-102</b><span>Draft · visible to you only</span></div>
+            <div class="stateband" id="band-a102">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
+              Draft — nothing has been sent while you see this band
+            </div>
+            <div class="sec">
+              <div class="sec-h">Lines</div>
+              <div class="rrow"><span class="lbl">Line one</span><span class="val num">1 200</span></div>
+              <div class="rrow"><span class="lbl">Line two</span><span class="val num">640</span></div>
+              <div class="rrow"><span class="lbl">Line three</span><span class="val num">85</span></div>
+              <div class="rrow total"><span class="lbl">Total</span><span class="val num">1 925</span></div>
+            </div>
+            <button class="cta" id="btn-confirm" onclick="openConfirm()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+              Confirm…
+            </button>
+          </div>
+
+          <div class="dview" id="dv-a103">
+            <div class="dh"><b>Item A-103</b><span>To complete · one value missing</span></div>
+            <div class="sec">
+              <div class="sec-h">Lines</div>
+              <div class="rrow"><span class="lbl">Line one</span><span class="val num">310</span></div>
+              <div class="rrow"><span class="lbl">Line two</span><span class="val">—</span></div>
+            </div>
+          </div>
+
+          <div class="dview" id="dv-a101">
+            <div class="dh"><b>Item A-101</b><span>Confirmed on 01/07 · read-only</span></div>
+            <div class="stateband done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirmed on 01/07 — version frozen
+            </div>
+            <div class="sec">
+              <div class="sec-h">Lines</div>
+              <div class="rrow"><span class="lbl">Line one</span><span class="val num">2 400</span></div>
+              <div class="rrow total"><span class="lbl">Total</span><span class="val num">2 400</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- grammar: floating pill — bottom-right on desktop -->
+    <button class="pill" onclick="openPanel('pn-help')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4L7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+      Assistant
+    </button>
+  </div>
+
+  <!-- ================= OVERLAYS ================= -->
+  <div class="backdrop" id="backdrop" onclick="closeOverlays()"></div>
+
+  <!-- grammar: RIGHT PANEL — help/assistant/edit fiches slide from the right (translateX) -->
+  <div class="panel" id="pn-help">
+    <button class="pclose" onclick="closeOverlays()" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <h2>What happens here?</h2>
+    <div class="ssub">This help exists on every page of the system</div>
+    <div class="panel-body">
+      <div class="help-blk">
+        <div class="hb-ic blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+        <div><b>Your items, listed by state</b>
+        <p>The left column lists every item with its key figure and status badge. Click a row to open its detail here.</p></div>
+      </div>
+      <div class="help-blk">
+        <div class="hb-ic amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <div><b>Draft until you confirm</b>
+        <p>An item marked "Draft" has not left your workspace. Confirming freezes a version and flips the badge to green.</p></div>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="btn primary" onclick="closeOverlays()">Got it</button>
+    </div>
+  </div>
+
+  <!-- grammar: CENTERED MODAL — the EXCEPTION, reserved for solemn confirmations (slide-to-confirm) -->
+  <div class="modal" id="md-confirm">
+    <h2>Confirm</h2>
+    <div class="ssub">The last gesture before it counts</div>
+    <div class="modal-body">
+      <div class="recap">
+        <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div><b>Item A-102 · 3 lines · total 1 925</b><span>Exactly this content — nothing else</span></div>
+      </div>
+      <div class="warnband">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        This gesture is final. The confirmed version is frozen; a correction will be a new version.
+      </div>
+      <div class="slide" id="slide">
+        <div class="slabel" id="slabel">Slide to confirm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="knob" id="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="btn ghost" onclick="closeOverlays()">Not now</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// grammar: MASTER–DETAIL — select() swaps the .sel row and the visible .dview
+function select(rowId,dvId){
+  document.querySelectorAll('.rep').forEach(r=>r.classList.remove('sel'));
+  document.getElementById(rowId).classList.add('sel');
+  document.querySelectorAll('.dview').forEach(v=>v.classList.remove('on'));
+  document.getElementById(dvId).classList.add('on');
+}
+
+// grammar: OVERLAYS — panels slide from the right, the modal fades centered; Escape closes all
+function openPanel(id){closeOverlays();document.getElementById('backdrop').classList.add('on');document.getElementById(id).classList.add('on');}
+function openModal(id){closeOverlays();document.getElementById('backdrop').classList.add('on');document.getElementById(id).classList.add('on');}
+function closeOverlays(){document.getElementById('backdrop').classList.remove('on');
+  document.querySelectorAll('.panel,.modal').forEach(o=>o.classList.remove('on'));}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOverlays();});
+
+// grammar: DEEP LINKS — ?view=dv-x opens a given detail view (per-view embedding in presentations)
+const qv=new URLSearchParams(location.search).get('view');
+if(qv&&document.getElementById(qv)){
+  const row=document.querySelector(`[onclick*="${qv}"]`);
+  if(row)select(row.id,qv);
+}
+
+// grammar: CONFIRM FLOW — the solemn gesture opens the CENTERED MODAL, never a side panel
+let confirmed=false;
+function openConfirm(){
+  if(confirmed)return;
+  resetSlide();
+  openModal('md-confirm');
+}
+// grammar: STATE FLIP — one confirmed gesture updates band, badge, list subtitle and button together
+function onConfirmed(){
+  document.getElementById('slabel').innerHTML='Confirmed';
+  setTimeout(()=>{
+    closeOverlays();
+    confirmed=true;
+    const band=document.getElementById('band-a102');
+    band.className='stateband done';
+    band.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmed today — version frozen';
+    const b=document.getElementById('badge-a102');
+    b.textContent='Confirmed · today';b.className='st-badge done';
+    document.getElementById('sub-a102').textContent='Confirmed today · total 1 925';
+    document.getElementById('btn-confirm').innerHTML=
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmed';
+  },350);
+}
+
+// grammar: SLIDE-TO-CONFIRM — identical pointer-event logic as the mobile starter, threshold 85%
+const slide=document.getElementById('slide'),knob=document.getElementById('knob');
+let drag=null;
+function resetSlide(){
+  slide.classList.remove('ok');
+  knob.style.transition='none';knob.style.left='4px';
+  document.getElementById('slabel').innerHTML='Slide to confirm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+}
+knob.addEventListener('pointerdown',e=>{
+  if(slide.classList.contains('ok'))return;
+  drag={x:e.clientX,left:knob.offsetLeft};
+  knob.setPointerCapture(e.pointerId);knob.style.transition='none';
+});
+knob.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const max=slide.clientWidth-knob.offsetWidth-4;
+  const l=Math.min(max,Math.max(4,drag.left+e.clientX-drag.x));
+  knob.style.left=l+'px';
+});
+knob.addEventListener('pointerup',e=>{
+  if(!drag)return;
+  const max=slide.clientWidth-knob.offsetWidth-4;
+  const l=knob.offsetLeft;drag=null;
+  knob.style.transition='left .2s';
+  if(l>max*0.85){knob.style.left=max+'px';slide.classList.add('ok');onConfirmed();}
+  else knob.style.left='4px';
+});
+</script>
+</body>
+</html>

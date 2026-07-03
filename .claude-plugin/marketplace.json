@@ -131,6 +131,15 @@
       },
       "source": "./plugins/leaflets",
       "category": "documentation"
+    },
+    {
+      "name": "screens-first-design",
+      "description": "Define a product's UX screen by screen: an invariant page schema decided first, then per screen one clickable mobile mockup + one spec fiche, parallel agents copying a bundled reference grammar (OKLch tokens, phone frame, bottom sheets, slide-to-confirm — plus a desktop grammar: app frame, sidebar navigation, master-detail, right panels; mobile first, desktop derives), preview verification before showing, a regenerable docs compendium + guided tour + team presentations, a same-day D-numbered decisions journal, and a pre-verbal design check on every screen. Method proven on a full product design (8 screens + tour + presentations in one day).",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/screens-first-design",
+      "category": "documentation"
     }
   ]
 }

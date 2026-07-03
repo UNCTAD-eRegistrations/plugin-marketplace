@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sample screen — reference mockup (screens-first grammar)</title>
+<!-- grammar: one font family for the whole product; load once, reference via var(- -f) -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* grammar: ALL colors are OKLch tokens declared here — never named CSS colors, never raw hex in components.
+   Three state families, used consistently product-wide: primary (action/info), green (done/safe), amber (attention/draft). */
+:root{
+  --paper:oklch(0.985 0.006 255);        /* page background */
+  --surface:#fff;                        /* cards, bars, sheets */
+  --ink:oklch(0.24 0.025 260);           /* main text */
+  --muted:oklch(0.52 0.02 260);          /* secondary text */
+  --faint:oklch(0.64 0.018 260);         /* tertiary text, subtitles */
+  --line:oklch(0.91 0.011 255);          /* every border */
+  --primary:oklch(0.45 0.13 252);        /* the product's action color */
+  --primary-deep:oklch(0.36 0.12 254);
+  --primary-soft:oklch(0.96 0.028 252);  /* soft chip/hover background */
+  --green:oklch(0.55 0.13 150);          /* state: done / confirmed */
+  --green-deep:oklch(0.45 0.13 150);
+  --green-soft:oklch(0.95 0.05 150);
+  --amber-deep:oklch(0.52 0.11 62);      /* state: draft / attention */
+  --amber-soft:oklch(0.96 0.045 78);
+  --f:"Poppins",-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:oklch(0.95 0.01 255);font-family:var(--f);color:var(--ink);-webkit-font-smoothing:antialiased;
+  display:flex;justify-content:center;align-items:flex-start;gap:40px;padding:36px 24px;min-height:100vh}
+/* grammar: tabular numerals wherever numbers align in columns */
+.num{font-variant-numeric:tabular-nums}
+
+/* grammar: PHONE FRAME 390×820 — overflow:clip is mandatory (NOT hidden:
+   closed sheets are translated below the frame and overflow:hidden would make the frame scrollable).
+   One shadow on the frame; nothing else in the mockup carries a big shadow. */
+.phone{width:390px;height:820px;background:var(--paper);border-radius:34px;border:1px solid var(--line);
+  box-shadow:0 40px 90px -40px oklch(0.4 0.06 255/.5);overflow:clip;position:relative;flex:none;display:flex;flex-direction:column}
+/* grammar: VIEWS — each screen state is an absolutely-positioned .view; show() toggles .on. */
+.view{position:absolute;inset:0;display:none;flex-direction:column;background:var(--paper)}
+.view.on{display:flex}
+
+/* grammar: TITLE BAR — title + one-line subtitle (the screen's single voice: reuse it VERBATIM
+   in tour/presentation cards) + external "?" help button present on EVERY page of the product. */
+.bar{flex:none;padding:22px 20px 14px;background:var(--surface);border-bottom:1px solid var(--line);
+  display:flex;align-items:flex-start;gap:.7rem}
+.bar .back{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
+  color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;margin-top:2px}
+.bar .tw{flex:1;min-width:0}
+.bar h1{font-size:1.22rem;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.bar .sub{color:var(--faint);font-size:.76rem;font-weight:500;margin-top:.2rem}
+.help{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);
+  color:var(--muted);font-weight:700;font-size:.95rem;cursor:pointer;flex:none;margin-top:2px}
+.help:hover{color:var(--primary);border-color:var(--primary)}
+.bar svg{width:1.05rem;height:1.05rem}
+
+/* grammar: the scroll area leaves room at the bottom for the floating pill */
+.scroll{flex:1;overflow-y:auto;padding:20px;padding-bottom:110px}
+
+/* grammar: LIST ROWS — icon chip + title/subtitle + status badge. SVG stroke icons only (stroke-width 2). */
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.cat-h{display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem .55rem}
+.cat-h .cname{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--faint)}
+.rep{display:flex;align-items:center;gap:.7rem;padding:.8rem 1rem;border-top:1px solid var(--line);cursor:pointer;background:var(--surface)}
+.rep:hover{background:var(--primary-soft)}
+.rep .ric{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.rep .ric svg{width:1.05rem;height:1.05rem}
+.rep .rt{flex:1;min-width:0}
+.rep .rt b{font-size:.88rem;font-weight:600;display:block}
+.rep .rt span{font-size:.7rem;color:var(--faint);font-weight:500}
+/* grammar: STATUS BADGES — state speaks by color, one visual language product-wide:
+   amber = draft/attention · green = done/confirmed · primary = something to do. */
+.st-badge{flex:none;font-size:.62rem;font-weight:700;border-radius:7px;padding:.24rem .5rem;letter-spacing:.02em}
+.st-badge.draft{color:var(--amber-deep);background:var(--amber-soft)}
+.st-badge.done{color:var(--green-deep);background:var(--green-soft)}
+.st-badge.todo{color:var(--primary-deep);background:var(--primary-soft)}
+
+/* grammar: STATE BAND at the top of a detail view — restates the badge in a sentence */
+.stateband{display:flex;align-items:center;gap:.55rem;background:var(--amber-soft);color:var(--amber-deep);
+  border:1px solid oklch(0.9 0.05 78);border-radius:12px;padding:.65rem .85rem;font-size:.75rem;font-weight:600;margin-bottom:14px}
+.stateband svg{width:1rem;height:1rem;flex:none}
+.stateband.done{background:var(--green-soft);color:var(--green-deep);border-color:oklch(0.88 0.05 150)}
+
+/* grammar: DETAIL ROWS — label left (muted), value right (bold, tabular numerals) */
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;padding:4px 0}
+.sec-h{padding:.7rem 1rem .3rem;font-weight:700;font-size:.92rem}
+.rrow{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem 1rem;border-top:1px solid var(--line)}
+.rrow .lbl{font-size:.86rem;font-weight:500;color:var(--muted)}
+.rrow .val{font-size:.9rem;font-weight:600;font-variant-numeric:tabular-nums}
+/* grammar: the TOTAL row gets visual mass — quantity perceived before read */
+.rrow.total{background:var(--green-soft);border-top:0;margin:6px 10px;border-radius:11px;padding:.7rem .9rem}
+.rrow.total .lbl{color:var(--green-deep);font-weight:700}
+.rrow.total .val{color:var(--green-deep);font-weight:800;font-size:1.05rem}
+
+/* grammar: PRIMARY ACTION — one full-width button per view, primary color, one verb */
+.cta{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;font-family:var(--f);
+  font-weight:700;font-size:.95rem;border:0;border-radius:14px;padding:.85rem;background:var(--primary);color:#fff;cursor:pointer;margin-top:4px}
+.cta:hover{background:var(--primary-deep)}
+.cta svg{width:1.1rem;height:1.1rem}
+
+/* grammar: WARNING BAND before an irreversible gesture — states the consequence in one breath */
+.warnband{display:flex;align-items:flex-start;gap:.55rem;background:var(--amber-soft);color:var(--amber-deep);
+  border:1px solid oklch(0.9 0.05 78);border-radius:12px;padding:.65rem .85rem;font-size:.74rem;font-weight:600;line-height:1.45;margin:.4rem 0 .9rem}
+.warnband svg{width:1rem;height:1rem;flex:none;margin-top:.1rem}
+.recap{display:flex;align-items:center;gap:.7rem;border:1px solid var(--line);border-radius:14px;padding:.7rem .9rem;background:var(--paper);margin-bottom:.4rem}
+.recap .ric{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.recap .ric svg{width:1.05rem;height:1.05rem}
+.recap b{font-size:.86rem;font-weight:600;display:block}
+.recap span{font-size:.7rem;color:var(--faint);font-weight:500}
+
+/* grammar: SLIDE-TO-CONFIRM — the gesture carries the meaning: solemnity by a continuous slide,
+   not a warning paragraph. Pointer events on the knob, threshold 85%. */
+.slide{position:relative;height:58px;border-radius:999px;background:var(--primary-soft);
+  border:1.5px solid oklch(0.88 0.04 252);margin-top:.4rem;user-select:none;overflow:hidden}
+.slide .slabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.4rem;
+  font-size:.85rem;font-weight:600;color:var(--primary-deep);pointer-events:none}
+.slide .slabel svg{width:.95rem;height:.95rem}
+.slide .knob{position:absolute;top:4px;left:4px;width:47px;height:47px;border-radius:50%;background:var(--primary);
+  color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;
+  box-shadow:0 6px 16px -6px oklch(0.4 0.12 255/.7)}
+.slide .knob:active{cursor:grabbing}
+.slide .knob svg{width:1.2rem;height:1.2rem}
+.slide.ok{background:var(--green-soft);border-color:var(--green)}
+.slide.ok .knob{background:var(--green-deep)}
+.slide.ok .slabel{color:var(--green-deep)}
+
+/* grammar: FLOATING PILL — the per-page entry to a cross-cutting feature (assistant, search…).
+   white-space:nowrap is mandatory, or the pill wraps on narrow content. */
+.pill{position:absolute;left:50%;transform:translateX(-50%);bottom:24px;display:flex;align-items:center;gap:.5rem;
+  background:var(--primary);color:#fff;border:0;border-radius:999px;padding:.85rem 1.5rem;font-family:var(--f);
+  font-weight:600;font-size:.95rem;cursor:pointer;box-shadow:0 18px 40px -14px oklch(0.4 0.12 255/.75);z-index:5;white-space:nowrap}
+.pill:hover{background:var(--primary-deep)}
+.pill svg{width:1.15rem;height:1.15rem}
+
+/* grammar: BOTTOM SHEET + BACKDROP — sheets slide from the bottom (translateY 105% → 0),
+   backdrop click and Escape both close. Everything modal in the product is a sheet. */
+.backdrop{position:absolute;inset:0;background:oklch(0.2 0.02 260/.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:8}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:24px 24px 0 0;
+  transform:translateY(105%);transition:transform .25s ease;z-index:9;padding:14px 22px 26px;max-height:85%;
+  display:flex;flex-direction:column;box-shadow:0 -20px 60px -30px oklch(0.3 0.05 255/.6)}
+.sheet.on{transform:translateY(0)}
+.grab{width:44px;height:4.5px;border-radius:3px;background:var(--line);margin:0 auto 14px;flex:none}
+.sheet h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin-bottom:.2rem}
+.sheet .ssub{color:var(--faint);font-size:.76rem;font-weight:500;margin-bottom:1rem}
+.sheet-body{overflow-y:auto}
+.sheet-actions{display:flex;gap:.6rem;margin-top:.8rem}
+.btn{flex:1;font-family:var(--f);font-weight:600;font-size:.92rem;border-radius:12px;padding:.75rem;cursor:pointer;border:0}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-deep)}
+.btn.ghost{background:none;border:1.5px solid var(--line);color:var(--muted)}
+
+/* grammar: HELP SHEET blocks — icon chip (state color) + bold claim + one-breath paragraph */
+.help-blk{display:flex;gap:.75rem;margin-bottom:1rem}
+.help-blk .hb-ic{width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center}
+.help-blk .hb-ic svg{width:1.05rem;height:1.05rem}
+.hb-ic.blue{background:var(--primary-soft);color:var(--primary)}
+.hb-ic.green{background:var(--green-soft);color:var(--green-deep)}
+.hb-ic.amber{background:var(--amber-soft);color:var(--amber-deep)}
+.help-blk b{font-size:.86rem;font-weight:600;display:block}
+.help-blk p{font-size:.76rem;color:var(--muted);font-weight:500;line-height:1.5;margin-top:.15rem}
+
+/* grammar: LEGEND ASIDE for the reviewer — numbered talking points + links to the fiche and docs.
+   Hidden below 860px (the mockup alone remains). */
+.legend{width:300px;padding-top:8px;flex:none}
+.legend h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700;margin-bottom:1rem}
+.legend .li{margin-bottom:1.1rem}
+.legend .li b{font-size:.88rem;font-weight:600;display:block}
+.legend .li p{font-size:.78rem;color:var(--muted);line-height:1.5;margin-top:.2rem}
+.legend .doc{font-size:.76rem;color:var(--faint);margin-top:1.6rem;line-height:1.5}
+.legend .doc a{color:var(--primary)}
+/* grammar: MEDIA QUERIES — 860px drops the legend; 440px makes the phone fill a real phone's viewport */
+@media (max-width:860px){.legend{display:none}body{padding:12px}}
+@media (max-width:440px){body{padding:0}.phone{width:100vw;height:100dvh;border-radius:0;border:0}}
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- ================= VIEW 1 · LIST ================= -->
+  <!-- grammar: every view = title bar + scroll area (+ optional floating pill) -->
+  <section class="view on" id="v-home">
+    <header class="bar">
+      <div class="tw">
+        <h1>Sample screen</h1>
+        <div class="sub">Your items, each with its state — nothing moves without you</div>
+      </div>
+      <button class="help" onclick="openSheet('sh-help')" aria-label="Help">?</button>
+    </header>
+    <div class="scroll">
+
+      <div class="cat">
+        <div class="cat-h"><span class="cname">In progress</span></div>
+        <!-- grammar: a row that navigates calls show('v-detail'); a row that only illustrates uses alert('Mockup: …') -->
+        <div class="rep" onclick="show('v-detail')">
+          <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div class="rt"><b>Item A-102</b><span id="sub-a102">3 lines · updated today</span></div>
+          <span class="st-badge draft" id="badge-a102">Draft</span>
+        </div>
+        <div class="rep" onclick="alert('Mockup: this row opens the same detail pattern as Item A-102.')">
+          <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+          <div class="rt"><b>Item A-103</b><span>1 line · needs a value</span></div>
+          <span class="st-badge todo">To complete</span>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="cat-h"><span class="cname">Completed</span></div>
+        <div class="rep" onclick="alert('Mockup: a confirmed item — opens read-only, with its dated trace.')">
+          <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="rt"><b>Item A-101</b><span>Confirmed on 01/07</span></div>
+          <span class="st-badge done">Confirmed · 01/07</span>
+        </div>
+      </div>
+
+    </div>
+    <!-- grammar: floating pill — the cross-cutting feature's entry, identical on every view -->
+    <button class="pill" onclick="openSheet('sh-help')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4L7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+      Assistant
+    </button>
+  </section>
+
+  <!-- ================= VIEW 2 · DETAIL ================= -->
+  <section class="view" id="v-detail">
+    <header class="bar">
+      <button class="back" onclick="show('v-home')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="tw">
+        <h1>Item A-102</h1>
+        <div class="sub">Draft · visible to you only</div>
+      </div>
+      <button class="help" onclick="openSheet('sh-help')" aria-label="Help">?</button>
+    </header>
+    <div class="scroll">
+      <!-- grammar: the state band restates the badge in one breath -->
+      <div class="stateband" id="detail-band">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
+        Draft — nothing has been sent while you see this band
+      </div>
+      <div class="sec">
+        <div class="sec-h">Lines</div>
+        <div class="rrow"><span class="lbl">Line one</span><span class="val num">1 200</span></div>
+        <div class="rrow"><span class="lbl">Line two</span><span class="val num">640</span></div>
+        <div class="rrow"><span class="lbl">Line three</span><span class="val num">85</span></div>
+        <div class="rrow total"><span class="lbl">Total</span><span class="val num">1 925</span></div>
+      </div>
+      <button class="cta" id="btn-confirm" onclick="openConfirm()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+        Confirm…
+      </button>
+    </div>
+    <button class="pill" onclick="openSheet('sh-help')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4L7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+      Assistant
+    </button>
+  </section>
+
+  <!-- ================= SHEETS ================= -->
+  <!-- grammar: one shared backdrop; each sheet toggled by openSheet(id); Escape closes -->
+  <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
+
+  <!-- grammar: CONFIRM SHEET — recap of exactly what happens, warning band, slide-to-confirm -->
+  <div class="sheet" id="sh-confirm">
+    <div class="grab"></div>
+    <h2>Confirm</h2>
+    <div class="ssub">The last gesture before it counts</div>
+    <div class="sheet-body">
+      <div class="recap">
+        <div class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div><b>Item A-102 · 3 lines · total 1 925</b><span>Exactly this content — nothing else</span></div>
+      </div>
+      <div class="warnband">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        This gesture is final. The confirmed version is frozen; a correction will be a new version.
+      </div>
+      <div class="slide" id="slide">
+        <div class="slabel" id="slabel">Slide to confirm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="knob" id="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" onclick="closeSheets()">Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- grammar: HELP SHEET — the "?" opens the same help pattern on every page of the product -->
+  <div class="sheet" id="sh-help">
+    <div class="grab"></div>
+    <h2>What happens here?</h2>
+    <div class="ssub">This help exists on every page of the system</div>
+    <div class="sheet-body">
+      <div class="help-blk">
+        <div class="hb-ic blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+        <div><b>Your items, listed by state</b>
+        <p>Each row shows one item with its key figure and its status badge. Open a row to see the detail.</p></div>
+      </div>
+      <div class="help-blk">
+        <div class="hb-ic amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <div><b>Draft until you confirm</b>
+        <p>An item marked "Draft" has not left your workspace. Confirming freezes a version and flips the badge to green.</p></div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn primary" onclick="closeSheets()">Got it</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- grammar: LEGEND ASIDE — the reviewer's numbered talking points; links to the fiche and docs.html -->
+<aside class="legend">
+  <h3>Sample screen · reference grammar</h3>
+  <div class="li"><b>1. The list, by state</b><p>Rows with icon chip, key figure, and a status badge: Draft (amber) / To complete (blue) / Confirmed (green). One color language for the whole product.</p></div>
+  <div class="li"><b>2. Confirm from the detail</b><p>"Confirm…" opens the confirm sheet in the same page: exact recap of what happens, one-breath warning, slide to confirm. Try it: the band and the badge flip to "Confirmed".</p></div>
+  <div class="li"><b>3. The pieces to copy</b><p>Phone frame (overflow:clip), title bar + "?" help, status badges, bottom sheet + backdrop + Escape, slide-to-confirm (pointer events), floating pill (nowrap), 860/440px media queries.</p></div>
+  <div class="doc">Spec fiche: <a href="#">NN-slug.md</a> (replace per screen)<br>UX schema: <a href="#">ux-pattern.md</a><br>Full documentation: <a href="#">docs.html</a></div>
+</aside>
+
+<script>
+// grammar: VIEWS & SHEETS — the whole navigation model in three functions + Escape
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));document.getElementById(id).classList.add('on');}
+function openSheet(id){closeSheets();document.getElementById('backdrop').classList.add('on');document.getElementById(id).classList.add('on');}
+function closeSheets(){document.getElementById('backdrop').classList.remove('on');document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('on'));}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheets();});
+
+// grammar: DEEP LINKS — ?view=v-x opens a given view; enables per-view embedding in presentations
+const qv=new URLSearchParams(location.search).get('view');
+if(qv&&document.getElementById(qv))show(qv);
+
+// grammar: CONFIRM FLOW — reset the slider each time the sheet opens
+let confirmed=false;
+function openConfirm(){
+  if(confirmed)return;
+  resetSlide();
+  openSheet('sh-confirm');
+}
+// grammar: STATE FLIP — one confirmed gesture updates band, badge, list subtitle and button together
+function onConfirmed(){
+  document.getElementById('slabel').innerHTML='Confirmed';
+  setTimeout(()=>{
+    closeSheets();
+    confirmed=true;
+    const band=document.getElementById('detail-band');
+    band.className='stateband done';
+    band.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmed today — version frozen';
+    const b=document.getElementById('badge-a102');
+    b.textContent='Confirmed · today';b.className='st-badge done';
+    document.getElementById('sub-a102').textContent='Confirmed today · total 1 925';
+    document.getElementById('btn-confirm').innerHTML=
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmed';
+  },350);
+}
+
+// grammar: SLIDE-TO-CONFIRM — pointer events (works in preview automation too), threshold 85%
+const slide=document.getElementById('slide'),knob=document.getElementById('knob');
+let drag=null;
+function resetSlide(){
+  slide.classList.remove('ok');
+  knob.style.transition='none';knob.style.left='4px';
+  document.getElementById('slabel').innerHTML='Slide to confirm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+}
+knob.addEventListener('pointerdown',e=>{
+  if(slide.classList.contains('ok'))return;
+  drag={x:e.clientX,left:knob.offsetLeft};
+  knob.setPointerCapture(e.pointerId);knob.style.transition='none';
+});
+knob.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const max=slide.clientWidth-knob.offsetWidth-4;
+  const l=Math.min(max,Math.max(4,drag.left+e.clientX-drag.x));
+  knob.style.left=l+'px';
+});
+knob.addEventListener('pointerup',e=>{
+  if(!drag)return;
+  const max=slide.clientWidth-knob.offsetWidth-4;
+  const l=knob.offsetLeft;drag=null;
+  knob.style.transition='left .2s';
+  if(l>max*0.85){knob.style.left=max+'px';slide.classList.add('ok');onConfirmed();}
+  else knob.style.left='4px';
+});
+</script>
+</body>
+</html>
