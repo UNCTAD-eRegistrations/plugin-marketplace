@@ -8,10 +8,10 @@ description: >
   environment secrets to Docker Swarm secrets.
 license: UNCTAD-Internal
 compatibility: Requires access to eRegistrations deployment configuration repositories.
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash(docker *), Bash(ls *), Bash(diff *), Bash(git *), AskUserQuestion, TodoWrite
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(docker *), Bash(ls *), Bash(diff *), Bash(git *), Bash(gh *), AskUserQuestion, TodoWrite
 metadata:
-  version: "2.3.0"
-  version-date: "2026-07-03"
+  version: "2.4.0"
+  version-date: "2026-07-06"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<path-to-docker-compose.yml>"
   jira: "TOBE-17731"
@@ -29,6 +29,7 @@ You are an expert Docker and Docker Swarm specialist. Your task is to migrate do
 6. Compare against reference stack files for validation
 7. Validate YAML syntax and completeness
 8. Memoize prior answers on re-run to avoid re-asking the same questions
+9. Land the migration as a reviewable PR (branch, commit, push, PR body)
 
 ## Reasoning Principles
 
@@ -105,6 +106,18 @@ options:
     description: "Skip reference validation"
 default: "Auto-detect from same environment"
 ```
+
+**Auto-detect heuristic (when the user picks "Auto-detect from same environment"):**
+
+The source lives at `Conf-<ENV>/compose/<country>/docker-compose.yml`. Glob the siblings `Conf-<ENV>/compose/*/docker-stack.yml` (same env only) and pick the reference by **smallest service-set difference** from the source:
+
+1. Extract the source's service names (top-level keys under `services:`).
+2. For each sibling stack, extract its service names and compute the symmetric difference (services in one but not the other) against the source.
+3. Pick the sibling with the fewest differing services — it shares the most structure, so its Swarm patterns transfer most cleanly.
+4. On a tie, prefer **`mali`** — it is the canonical, fully-converted eRegistrations reference stack (all conventions below are grounded in it). If `Conf-<ENV>/compose/mali/docker-stack.yml` doesn't exist for this env, fall back to `mali-amm`, then any tie-winner alphabetically.
+5. Print the chosen reference and its diff count: `Reference: mali (Δ2 services: source lacks js-assistant, portainer)`, so the operator can override.
+
+Never fail silently to "no reference" when siblings exist — always name the pick and its rationale.
 
 **Question 4 - Stack Name:**
 ```
@@ -296,6 +309,29 @@ deploy:
       memory: 256M
 ```
 
+**`extends:` directive handling (file-based):**
+
+Docker Swarm does NOT support `extends:`. eRegistrations sources commonly extend shared blocks from `common-services.yml` — e.g. `minio`, `minio-init`, `chrome-url-to-pdf`:
+
+```yaml
+# SOURCE (compose):
+minio:
+  extends:
+    file: ../../../common-services.yml
+    service: minio
+  environment:
+    - "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD"
+```
+
+**Convention (grounded in `mali`): resolve and inline, then drop the `extends:` reference.**
+
+1. Read the referenced file + service block (`common-services.yml` → `minio`).
+2. Merge it into the local service: the referenced block is the base, the local keys override/append (standard compose `extends` merge semantics — scalars replace, lists concatenate).
+3. Write the fully-resolved service block into `docker-stack.yml` and **delete the `extends:` key entirely**. The output stack must be self-contained — a `docker stack deploy` never reads `common-services.yml`.
+4. Then apply all the normal Phase 3–5 transformations (deploy block, secrets, networks) to the now-inlined block.
+
+The reference stack is the ground truth for what the resolved block should contain — diff your inlined `minio`/`chrome-url-to-pdf` against `mali`'s to confirm parity.
+
 **Compose v2 resource fields (cpus / mem_limit / mem_reservation / cpuset):**
 
 Docker Swarm REJECTS the top-level Compose v2 resource fields outright (`docker stack deploy` errors with `property X is not allowed`). When encountered:
@@ -313,7 +349,17 @@ Lesson learned (TOBE-17731 / test.angola, 2026-05-05): the source `docker-compos
 
 **Privileged mode conversion:**
 
-Docker Swarm does NOT support `privileged: true`. When encountered, ask the user which capabilities are needed:
+Docker Swarm does NOT support `privileged: true`. Convert to explicit `cap_add`.
+
+**Pre-answered for eRegistrations canonical services (grounded in `mali` — do NOT prompt for these):**
+
+| Service | `cap_add` |
+|---------|-----------|
+| `mule` | `NET_ADMIN` |
+| `dataweave` | `NET_ADMIN` |
+
+For `mule` and `dataweave`, apply `cap_add: [NET_ADMIN]` silently — every Conf-* sibling stack uses exactly this. Only prompt when a **non-canonical** service (not in the table above) carries `privileged: true`:
+
 ```
 question: "Service 'X' uses privileged: true. Which capabilities does it need?"
 options:
@@ -334,15 +380,68 @@ Common capability mappings:
 | Mount filesystems | SYS_ADMIN |
 | Change file ownership | CHOWN, DAC_OVERRIDE |
 
-**Network changes:**
+**Network topology template (grounded in `mali` / `lomasdezamora` / `angola`):**
+
+eRegistrations swarm stacks use a fixed **three-network** shape at the top level. A compose v1-style single `networks: default: external: { name: deploy_default }` collapses into this:
+
 ```yaml
 networks:
-  app_network:
-    driver: overlay    # was: bridge
-    attachable: true
+  ingress:
+    external: true        # swarm routing-mesh network (published ports); declared external, never attached at service level
+    driver: overlay
+  eregistrations_default:
+    driver: overlay        # internal service-to-service mesh
   bridge:
-    external: true     # for host access
+    external: true         # docker0 host bridge — gives services the host gateway IP for extra_hosts DB access
+    driver: bridge
 ```
+
+**Service-attachment rule (the two networks are additive, not exclusive):**
+
+- **Every** service attaches to `eregistrations_default` — it is the universal internal mesh. No exceptions.
+- A service **additionally** attaches to `bridge` **only if it needs the host gateway** — i.e. it reaches a host-network dependency (Postgres/Mongo) via an `extra_hosts` placeholder, or it is haproxy-routed from the host. In `mali` these are: `graylog`, `keycloak`, `formio`, `restheart`, `camunda`, `bpa-backend`, `minio`, `cashier`, `gdb`, `statistics-backend`.
+- Purely-internal services (e.g. `mule`, `dataweave`, `bpa-frontend`, `websocket`) attach to `eregistrations_default` **only**.
+- `ingress` is declared at the top level but **not** listed under any service's `networks:` — published ports bind it implicitly.
+
+```yaml
+# host-facing service:
+restheart:
+  networks:
+    - eregistrations_default
+    - bridge
+# internal-only service:
+mule:
+  networks:
+    - eregistrations_default
+```
+
+**Canonical `deploy` blocks for `mule` / `dataweave` (grounded in `mali` — add these; sources usually lack them):**
+
+```yaml
+mule:
+  cap_add:
+    - NET_ADMIN
+  deploy:
+    resources:
+      limits:
+        memory: 4096M
+      reservations:
+        memory: 1024M
+    update_config:
+      parallelism: 1
+      delay: 30s
+dataweave:
+  cap_add:
+    - NET_ADMIN
+  deploy:
+    resources:
+      limits:
+        memory: 4096M
+      reservations:
+        memory: 1024M
+```
+
+`mule`'s `update_config: { parallelism: 1, delay: 30s }` serialises its restart so the integration layer never has two instances mid-swap; `dataweave` in `mali` carries the memory bounds but no `update_config`. Don't invent an `update_config` for `dataweave` — match the reference.
 
 **Logging configuration (recommended):**
 ```yaml
@@ -422,6 +521,7 @@ default: NONE — must be answered explicitly
 **If user picks "Keep as $VAR"**:
   - Skip Step 1, 2, 3 of this phase entirely.
   - Pass through every `$VAR` from the source verbatim into the output.
+  - **Compose default-value syntax `${VAR:-default}` is preserved verbatim** — do NOT strip the `:-default` fallback. Example: `KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_DB_USER:-user}` stays exactly as written. Rationale: the fallback is part of the placeholder contract the deploy-time `.env` renders against. Note that for a *sensitive* var the fallback is moot — that whole value gets replaced by a `DOCKER_SECRET:` ref in Phase 5 anyway (so `${KEYCLOAK_POSTGRES_DB_PASSWORD:-password}` becomes a secret ref, fallback and all) — but for a *non-secret* var like the DB username the `:-default` must survive.
   - Phase 7's "no remaining $VAR placeholders" check is **inverted** — the placeholders ARE expected; the check becomes "every $VAR present in source is also present in output (no accidental drops)".
   - The user is responsible for an `.env` file at deploy time; the stack file does NOT carry deployment-specific values.
 
@@ -521,11 +621,43 @@ Look for variables whose names contain the underscore-delimited token PASSWORD, 
 - STATS_DB_PASSWORD, STATS_BE_OAUTH_SECRET
 - PUBLISHER_INTERNAL_OAUTH_CLIENT_SECRET, PUBLISHER_EXTERNAL_OAUTH_CLIENT_SECRET
 
+**Canonical source-var → secret-name mapping (grounded in a real `init-swarm.sh`):**
+
+The secret **name** is NOT the source env-var name — the team renames on the way in. This is the single most error-prone step, and the reason applies even in "Keep as $VAR" mode: the `DOCKER_SECRET:` ref in the stack must use the *secret name*, while `init-swarm.sh` reads the *source var* from `.env`. Use this table verbatim; it is the authoritative pairing (do not re-derive it by reading a sibling's `init-swarm.sh` line by line):
+
+| Source `.env` var | Secret name (`DOCKER_SECRET:` ref) |
+|---|---|
+| `$MAIL_PASSWORD` | `EMAIL_SERVER_PASSWORD` |
+| `$BPA_POSTGRES_DB_PASSWORD` | `BPA_DB_PASSWORD` |
+| `$BPA_BE_OAUTH_CLIENT_SECRET` | `BPA_BE_OAUTH_SECRET` |
+| `$CAMUNDA_POSTGRES_DB_PASSWORD` | `CAMUNDA_DB_PASSWORD` |
+| `$CAMUNDA_OAUTH_CLIENT_SECRET` | `CAMUNDA_OAUTH_SECRET` |
+| `$CAMUNDA_PASSWORD` | `CAMUNDA_PASSWORD` *(unchanged)* |
+| `$CASHIER_POSTGRES_DB_PASSWORD` | `CASHIER_DB_PASSWORD` |
+| `$DS_POSTGRES_DB_PASSWORD` | `DS_DB_PASSWORD` |
+| `$DS_OAUTH_CLIENT_SECRET` | `DS_OAUTH_SECRET` |
+| `$GDB_POSTGRES_DB_PASSWORD` | `GDB_DB_PASSWORD` |
+| `$GDB_OAUTH_CLIENT_SECRET` | `GDB_OAUTH_SECRET` |
+| `$STATISTICS_POSTGRES_DB_PASSWORD` | `STATS_DB_PASSWORD` |
+| `$STATISTICS_BE_OAUTH_CLIENT_SECRET` | `STATS_BE_OAUTH_SECRET` |
+| `$PUBLICPAGES_POSTGRES_DB_PASSWORD` | `STRAPI_DB_PASSWORD` |
+| `$KEYCLOAK_ADMIN_USER_PASSWORD` | `KEYCLOAK_ADMIN_PASSWORD` |
+| `$KEYCLOAK_POSTGRES_DB_PASSWORD` | `KEYCLOAK_DB_PASSWORD` |
+| `$ACTIVEMQ_PASSWORD` | `ACTIVEMQ_PASSWORD` *(unchanged)* |
+| `$FORMIO_PASSWORD` | `FORMIO_PASSWORD` *(unchanged)* |
+| `$GRAYLOG_ROOT_PASSWORD` | `GRAYLOG_ROOT_PASSWORD` *(unchanged)* |
+| `$MINIO_ROOT_PASSWORD` | `MINIO_ROOT_PASSWORD` *(unchanged)* |
+| `$RESTHEART_PASSWORD` | `RESTHEART_PASSWORD` *(unchanged)* |
+
+Composite URIs (`GRAYLOG_MONGODB_URI`, `FORMIO_MONGODB_URI`, `RESTHEART_MONGO_URI`) are assembled from parts in `init-swarm.sh` — see below. Note the rename **contradicts the "Keep $VAR verbatim" contract** for the *value* passthrough, but that contract only governs non-secret vars; secrets always go through this name-mapping regardless of the Phase 4 Step 0 answer. If a country adds a service not in this table, read its `init-swarm.sh` for the pairing and extend the table in a follow-up.
+
+> Secret-name rotation note: on instances that have been through a later secret rotation (e.g. post-CAS→Keycloak), you may see versioned names like `DS_OAUTH_SECRET2` / `GDB_OAUTH_SECRET2`. A **fresh** migration uses the base names above; the `2` suffix is an immutable-secret rotation artifact, not the canonical first-migration name.
+
 **Update service environment variables:**
 ```yaml
 # From:
 - "PASSWORD=$MY_PASSWORD"
-# To:
+# To (using the secret NAME from the table, not the source var name):
 - "PASSWORD=DOCKER_SECRET:MY_SECRET_NAME"
 ```
 
@@ -764,6 +896,14 @@ grep -E '\$[A-Z_]+|\$\{[A-Z_]+\}' docker-stack.yml
    - [ ] No non-secret config vars converted to `DOCKER_SECRET:` refs (check `KEYCLOAK_REALM`, `KEYCLOAK_URL`, `KEYCLOAK_INSTITUTIONS_GROUP_ID`, `*_OAUTH_CLIENT_ID` remain literals/`$VAR`)
    - [ ] Source `docker-compose.yml` carries the SUPERSEDED header (and was renamed to `.pre-swarm` if the user agreed) — skip in dry-run
 
+   **Per-service-block granular checks (not caught by `docker compose config`):**
+   - [ ] Top-level `networks:` is exactly the three canonical networks — `ingress` (external overlay), `eregistrations_default` (overlay), `bridge` (external bridge); no leftover `default`/`deploy_default`
+   - [ ] **Every** service lists `eregistrations_default` under `networks:`; host-facing services (haproxy-routed or reaching a DB via `extra_hosts`) additionally list `bridge`
+   - [ ] Every service whose `environment:` has ≥1 `DOCKER_SECRET:` ref also has a `secrets:` list naming exactly those secrets (a secret ref with no matching `secrets:` entry means the file never mounts under `/run/secrets/` → unresolved value at boot)
+   - [ ] No `extends:` keys remain anywhere — all resolved-and-inlined (Phase 3)
+   - [ ] `mule` and `dataweave` carry `cap_add: [NET_ADMIN]` + `deploy.resources` memory bounds; `mule` also carries `deploy.update_config: {parallelism: 1, delay: 30s}`
+   - [ ] Secret **names** used in `DOCKER_SECRET:` refs match the canonical mapping table (e.g. `EMAIL_SERVER_PASSWORD`, not `MAIL_PASSWORD`)
+
    **Validation commands worth running explicitly (not all caught by `docker compose config`):**
    ```bash
    # v2 resource fields — `docker compose config` accepts them silently, `docker stack deploy` rejects them
@@ -774,6 +914,71 @@ grep -E '\$[A-Z_]+|\$\{[A-Z_]+\}' docker-stack.yml
    ```
 
 5. **Report any issues found** - Output summary to user
+
+### Phase 8: Branch, Commit, Push, PR
+
+Skip this phase in dry-run mode. The migration edits `Conf-<ENV>/compose/<country>/` in the eRegistrations **deployment-config repo** (GitHub origin). Land it as a reviewable PR, not a loose commit on the working branch.
+
+**1. Pre-flight.** Confirm the working tree is clean apart from the migration outputs (`docker-stack.yml`, `init-swarm.sh`, the SUPERSEDED-marked `docker-compose.yml`/`.pre-swarm` rename). Stage only those paths.
+
+**2. Branch name.** Use:
+
+```
+feature/swarm-migration-<env>-<country>
+```
+
+e.g. `feature/swarm-migration-test-lomasdezamora`.
+
+> **Do NOT use a `chore/*` prefix.** The eRegistrations config repo's branch ruleset **rejects `chore/*` on push** (observed TOBE-17731). Use `feature/*`. (This is why the sibling upgrade skills' `chore/upgrade-*` branches must also be renamed on that repo — same ruleset.)
+
+**3. Commit.** Conventional-commit, one-line summary + WHAT/WHY bullets (never HOW):
+
+```bash
+git checkout -b feature/swarm-migration-<env>-<country>
+git add Conf-<ENV>/compose/<country>/docker-stack.yml \
+        Conf-<ENV>/compose/<country>/init-swarm.sh \
+        Conf-<ENV>/compose/<country>/docker-compose.yml   # SUPERSEDED header (or the .pre-swarm rename)
+git commit -m "feat(swarm): migrate <env>.<country> to docker swarm stack TOBE-17731"
+```
+
+**4. Push + open PR** (origin is GitHub → use `gh`; if the branch host is Bitbucket, skip `gh` and print the manual PR URL):
+
+```bash
+git push -u origin feature/swarm-migration-<env>-<country>
+gh pr create --base master --head feature/swarm-migration-<env>-<country> \
+  --title "Swarm migration: <env>.<country>" --body "<body from template below>"
+```
+
+Print the PR URL. Then `git checkout` back to the prior branch.
+
+**PR body template:**
+
+```
+## Summary
+
+Convert `Conf-<ENV>/compose/<country>/docker-compose.yml` to Docker Swarm
+stack format (`docker-stack.yml`) + `init-swarm.sh` secret bootstrap. TOBE-17731.
+
+## What changed
+
+- New `docker-stack.yml`: deploy blocks, three-network topology
+  (ingress / eregistrations_default / bridge), Swarm secrets via `DOCKER_SECRET:`.
+- New `init-swarm.sh`: creates external Docker secrets from the host `.env`
+  (composite Mongo URIs assembled with hostname placeholders, no literal IPs).
+- Source `docker-compose.yml` marked SUPERSEDED (kept for rollback).
+- Reference stack validated against: <reference, e.g. mali>.
+
+## Anomalies / operator decisions
+
+- $VAR policy: <Keep as $VAR | Replaced with literals>
+- <any privileged→cap_add prompts, extends: resolutions, skipped anomalies>
+
+## Test plan
+
+- [ ] Reviewer diffs docker-stack.yml against the <reference> patterns.
+- [ ] `docker stack deploy -c docker-stack.yml <stack>` on the target host (after `init-swarm.sh`).
+- [ ] All services reach 1/1; haproxy-routed endpoints resolve; DB-backed services connect via extra_hosts.
+```
 
 ## eRegistrations Conventions
 
