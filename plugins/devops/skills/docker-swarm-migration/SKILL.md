@@ -887,6 +887,7 @@ grep -E '\$[A-Z_]+|\$\{[A-Z_]+\}' docker-stack.yml
    - [ ] All `privileged: true` converted to specific `cap_add` capabilities
    - [ ] All Compose v2 resource fields removed: `cpus`, `cpuset`, `mem_limit`, `mem_reservation` (Swarm rejects these — equivalents must live in `deploy.resources`)
    - [ ] Networks changed from `bridge` to `overlay` driver
+   - [ ] **Every app service references the overlay network** — each `unctad/*` service block MUST carry a `networks:` key attaching it to `eregistrations_default`. A service with no `networks:` key silently lands on the implicit `<stack>_default` network (a *different* overlay from the one its peers use), so internal calls like `http://ds-frontend:80/version` fail `bad address` and the service becomes unreachable **without erroring** — the symptom shows up far away (e.g. BPA "Servicios" panel `DS FE ? (?)`). This is the network analogue of the `extra_hosts` completeness rule above. (test.cuba, TOBE: ds-frontend + statistics-frontend blocks were hand-added without the key.)
    - [ ] All sensitive variables converted to Docker secrets with `DOCKER_SECRET:` pattern
    - [ ] Secrets section added with all required secrets as `external: true`
    - [ ] No literal IPs baked into composite secret values (init-swarm.sh URIs use hostname placeholders, not raw IPs); every hostname placeholder used in a secret has a matching `extra_hosts` entry on the consuming service
@@ -911,7 +912,19 @@ grep -E '\$[A-Z_]+|\$\{[A-Z_]+\}' docker-stack.yml
 
    # literal IPs in init-swarm.sh URI assembly (excluding loopback / docker-proxy comments)
    grep -nE 'create_secret.*[0-9]{1,3}(\.[0-9]{1,3}){3}' init-swarm.sh && echo "WARN: literal IP in secret value" || echo "OK: no literal IPs in secrets"
+
+   # Overlay-attachment lint — every unctad/* app service MUST have a networks: key.
+   # A service silently left off the overlay is unreachable without erroring (see checklist).
+   # Run before every `docker stack deploy`, not only during migration — this also catches
+   # drift from manual/Bitbucket-web edits that skip the skill entirely.
+   awk '
+     /^  [a-z][a-zA-Z0-9_-]*:[ ]*$/ { if (svc && img && !net) print "  MISSING networks: " svc; svc=$1; img=0; net=0 }
+     /^    image:[[:space:]]*unctad\// { img=1 }
+     /^    networks:/ { net=1 }
+     END { if (svc && img && !net) print "  MISSING networks: " svc }
+   ' docker-stack.yml | grep . && echo "⚠ triage before deploy: attach to eregistrations_default UNLESS reached only via its published port / public URL" || echo "OK: every unctad/* service is on the overlay network"
    ```
+   A flagged service is a **must-fix** if anything reaches it internally by hostname (e.g. `bpa-websocket` → `http://ds-frontend:80/version`). It is an **acceptable exception** only if it is consumed purely via its published port / public domain and makes no internal calls (e.g. `cuba-widget`, reached via `https://<host>/widget`). Confirm which case applies — do not blanket-add the key, and do not blanket-ignore the warning.
 
 5. **Report any issues found** - Output summary to user
 
