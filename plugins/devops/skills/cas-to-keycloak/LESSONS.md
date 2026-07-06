@@ -150,6 +150,21 @@ The phase-8/9 rewrite helpers minted a client-credentials token via `http://loca
 
 **Patch:** `templates/dump-keycloak-local/docker-compose.yml` gives the keycloak service an explicit healthcheck with `start_period: 600s`; SKILL.md seed notes the amd64-host requirement.
 
+## Staged tooling silently lags the plugin
+
+The skill runs from a copy of `dump-keycloak-local/` staged into the country
+repo's `sql/`, and (correctly) won't clobber operator edits — but it also never
+refreshed un-modified files, and the plugin cache is version-pinned. So a fix on
+`main` need never reach a cutover. dev.cuba proved it: the migrator's collision
+fix was already upstream, yet the seed still dropped 23 users because the staged
+copy predated it (issue #42).
+
+**Patch:** ship a `TOOLING_VERSION` stamp (tracks the skill's `metadata.version`)
+and a `check-tooling-version.sh` guard that every mode runs first — it compares
+the staged stamp against the plugin's and stops with a re-stage instruction when
+the staged copy is older or unstamped. Bump `TOOLING_VERSION` in the same commit
+as any change under `dump-keycloak-local/`.
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -173,5 +188,6 @@ The phase-8/9 rewrite helpers minted a client-credentials token via `http://loca
 | 18 | Rewrite helpers' admin token issuer ≠ public API URL → 401 | mint token via the public base URL (SKILL notes) |
 | 19 | Seed image amd64-only + 60s health grace too short | `docker-compose.yml` explicit healthcheck `start_period:600s`; run seed on amd64 host |
 | 20 | Non-collision user-create failures printed "undefined" | `migrate.js` catch surfaces `error`/`message`/status |
+| 21 | Staged tooling silently lags the plugin → upstream fixes miss cutovers | `TOOLING_VERSION` + `check-tooling-version.sh` staleness guard (issue #42) |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)
