@@ -128,6 +128,28 @@ cuba.live LIVE handled it by keeping collision users with **`username = email`**
 
 **Patch:** `templates/dump-keycloak-local/migrator-src/migrate.js` wraps `users.create` in `createUserWithUsernameFallback` — on a 409 username collision it retries once with the email as the username, then flows through the same `.then()` realm-role / client-role / group assignment. Idempotent and generic. (When patching an ALREADY-migrated realm rather than re-seeding, recreate the losers via admin REST with `{type:password,algorithm:bcrypt,hashedSaltedValue,hashIterations:10}` and backfill roles/groups from the migrator's `user-roles.json`/`user-memberships.json`.)
 
+## Backfill must match users by `cas_user_id`, not username
+
+Once the migrator keeps collision losers under `username = email` (previous lesson), matching a user by their original CAS **username** is broken. `backfillUser` searched `kc.users.find({ username: casUsername })` and case-insensitive-filtered — but for a collision loser (`nelson`, cas 106, now stored as `nelsonadpa@gmail.com`) that search returns the *winner* (`nelson`, cas 404) and grafts 106's roles onto 404's account. Verified on dev.cuba: `?username=nelson` returns three users; the filter picked the wrong one. The backfill also *under-counted* "missing users" the same way — collision winners occupy the losers' usernames, so a username diff reported 13 missing when 23 were actually absent.
+
+**Patch:** `cuba-sql/backfill.js` `backfillUser` now resolves the KC user by the stable `cas_user_id` attribute first (`kc.users.find({ q: 'cas_user_id:<id>' })`), falling back to the username match only for pre-attribute migrations. Verified: `?q=cas_user_id:106` → exactly `nelsonadpa@gmail.com`, `?q=cas_user_id:404` → exactly `nelson`. The same rule applies to any post-migration "who's missing" audit — count by `cas_user_id`, never username.
+
+## Split identity across CAS + PARTC → officer rights silently lost
+
+The migrator joins a user's login, roles, and institution/unit memberships on one `cas_user_id`. That drops rights when one human spans two legacy ids. Cuba dev: `nelsonadpa@gmail.com` is CAS user **106** (his live login, `citizen`), but PARTC user **23** — `cas_id=23`, same email — carries his Part B officer business-roles across 3 institutions. The migration carried the login (106, no PARTC membership) and left the officer identity (23) behind. He logs in fine and sees no desks; nothing logs it. Same family as the FK-orphan and username-collision problems: identity keyed on the wrong field.
+
+**Patch:** new **`reconcile`** mode + `templates/dump-keycloak-local/reconcile-identities.sh` — a read-only pre-cutover audit that cross-checks CAS emails against PARTC officer identities and flags (A) email→different-cas-id, (B) dangling cas_id, (C) one email under multiple CAS logins. Surface for a human, don't auto-fix (Part B access is KC group-membership-driven, so remediation is adding the login-id account to the right institution groups). Verified on dev.cuba: flags exactly the nelson split, zero false positives.
+
+## KC admin token issuer must match the API base URL
+
+The phase-8/9 rewrite helpers minted a client-credentials token via `http://localhost:8080` *inside* the keycloak container, then called the **public** admin API — which 401s, because the token's issuer (`localhost:8080`) doesn't match the public hostname. Mint the token against the same base URL you'll call (`https://login.<domain>/realms/<R>/…/token`), or accept a pre-minted token. Cheap fix, otherwise a confusing dead-end.
+
+## Seed throwaway: amd64-only image + short health grace
+
+`unctad/keycloak:2.18` is linux/amd64 only — under qemu on an Apple-Silicon laptop the seed is unusably slow and flaky (also hit Docker Desktop proxy/DNS drops mid-pull). **Run `seed` on an amd64 host — the deploy host itself is the natural choice.** Separately, the throwaway keycloak had no explicit healthcheck, so it inherited the image's 60s `start_period`; a Quarkus cold build + realm import routinely needs 2-3 minutes, so `run.sh` saw "unhealthy" and tore the stack down before import finished.
+
+**Patch:** `templates/dump-keycloak-local/docker-compose.yml` gives the keycloak service an explicit healthcheck with `start_period: 600s`; SKILL.md seed notes the amd64-host requirement.
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -146,5 +168,10 @@ cuba.live LIVE handled it by keeping collision users with **`username = email`**
 | 13 | Legacy `cas` / `partc` databases dropped too soon block downstream fix-ups | SKILL.md deploy phase: 30-day-floor warning |
 | 14 | Orphan PARTC membership → `null` group path → KC 500 "undefined" on user create | `migrator-src/migrate.js` `.filter(Boolean)` on the `groups` array |
 | 15 | Username collision drops a distinct CAS user (409) | `migrate.js` `createUserWithUsernameFallback` retries with email as username |
+| 16 | Backfill matched users by username → wrong/lost roles + under-counted missing | `cuba-sql/backfill.js` matches by `cas_user_id` attribute first |
+| 17 | Split identity (CAS login vs PARTC officer id) silently drops officer rights | new `reconcile` mode + `reconcile-identities.sh` audit |
+| 18 | Rewrite helpers' admin token issuer ≠ public API URL → 401 | mint token via the public base URL (SKILL notes) |
+| 19 | Seed image amd64-only + 60s health grace too short | `docker-compose.yml` explicit healthcheck `start_period:600s`; run seed on amd64 host |
+| 20 | Non-collision user-create failures printed "undefined" | `migrate.js` catch surfaces `error`/`message`/status |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)

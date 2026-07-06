@@ -20,7 +20,7 @@ compatibility: >
   HTTPS from the operator workstation.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(find *), Bash(stat *), Bash(git *), Bash(cp *), Bash(mkdir *), Bash(chmod *), Bash(test *), Bash(bash *), Bash(./run.sh *), Bash(./backfill.sh *), Bash(./fetch-dumps.sh *), Bash(docker *), Bash(xzcat *), Bash(grep *), Bash(awk *), Bash(wc *), Bash(python3 *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   version-date: "2026-05-22"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "fetch|seed|backfill [country]"
@@ -36,6 +36,7 @@ You are an expert eRegistrations DevOps engineer. Your task is to orchestrate th
 | Mode | What it does | Inputs the skill prompts for |
 |---|---|---|
 | `verify` | Diff the country's compose + haproxy against a working KC reference (default: kenya). Reports auth-related env-var deltas and `use_backend` ordering anomalies. **No mutation.** Run before any cutover. | reference country (default kenya) |
+| `reconcile` | Cross-check CAS + PARTC source identities for split-identity hazards the migrator (which keys everything on one `cas_user_id`) would silently drop. **No mutation.** Run before fetch/seed. | ssh host, optional db names |
 | `fetch` | ssh to source Postgres, `sudo -u postgres pg_dump -n cas` + `-n partc`, xz-compress, write to `<repo>/sql/{cas,partc}.sql`. | ssh host, optional db names |
 | `seed` | Spin up throwaway `postgres + cas-db + partc-db + keycloak + migrator` stack (PG 17 throwaway), import realm, load dumps, run migrator, `pg_dump` the enriched Keycloak DB → `<repo>/sql/keycloak.sql`. | (resolves from repo) |
 | `deploy` | scp `sql/keycloak.sql` to the target deploy host, DROP+CREATE the keycloak DB owned by the keycloak role, load the dump as that role (so ownership is right), restart Keycloak, wait for the health endpoint. | ssh host, compose vs swarm, optional db/health overrides |
@@ -103,6 +104,29 @@ For a new country (e.g. `lesotho`):
 - Copy `cuba-sql/` → `lesotho-sql/` as a starting point.
 - Pause and tell the operator: "Cuba's SQL extracts have been copied as a starting point for `lesotho`. Open `lesotho-sql/cas_users.sql` and the partc files, verify property IDs / role names, then re-run."
 - Exit without running.
+
+## Mode: reconcile
+
+Read-only identity audit of the CAS + PARTC **source** data, before any dump or
+seed. The migrator joins a user's login, roles, and institution/unit
+memberships on a single `cas_user_id`; that silently loses rights whenever one
+human spans two legacy ids — most commonly a PARTC officer identity attached to
+an old CAS account while the person's live login is a newer CAS account with
+the same email. The person migrates fine as an applicant and sees no Part B
+desks, with nothing in any log.
+
+1. Prompt for `ssh-host` and (optionally) the `cas`/`partc` db names.
+2. Run `<repo>/sql/dump-keycloak-local/reconcile-identities.sh <host> [cas-db] [partc-db]`.
+3. Report the three anomaly classes it prints:
+   - **A** — PARTC officer identity whose email maps to a *different* cas id than PARTC stored (rights will attach to the wrong / no KC user).
+   - **B** — PARTC officer identity whose `cas_id` has no CAS login at all (dangling).
+   - **C** — one email under multiple CAS logins (ambiguous identity).
+4. Surface for operator decision — do **not** auto-fix. The remediation for class A is to add the corresponding KC institution/unit groups to the login-id account after cutover (Part B access in eRegistrations is group-membership-driven, so the `citizen` realm role stays and only groups are added).
+
+The script resolves each schema's email property id from its own catalog, so it
+is not hardcoded to one instance's property numbering. "Officer identity" is a
+PARTC user with at least one institution/unit business-role — applicant-only
+PARTC users carry no rights and are not flagged.
 
 ## Mode: verify
 

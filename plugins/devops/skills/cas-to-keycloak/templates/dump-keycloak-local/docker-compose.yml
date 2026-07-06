@@ -80,6 +80,17 @@ services:
     volumes:
       - ${REALM_JSON_PATH}:/opt/keycloak/data/import/${KC_REALM_NAME}-realm.json:ro
     networks: [kc]
+    # The image's baked-in healthcheck only grants a 60s start_period, but a
+    # Quarkus cold build + realm import on a busy host regularly needs 2-3
+    # minutes — without this override run.sh sees "unhealthy", dumps logs and
+    # tears the stack down before Keycloak has finished importing. Override
+    # with a generous start_period so the poll waits for the real outcome.
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/keycloak/eregistrations-tools/scripts/check-docker-health/script.sh http://localhost:9000 /health '.status == \"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 600s
 
   migrator:
     image: node:20-alpine
