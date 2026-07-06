@@ -206,7 +206,15 @@ const startMigration = async () => {
         .catch(error => {
           importFailed++;
           console.log();
-          console.log(`Failed to create user ${user.username}.`, error?.response?.data?.errorMessage);
+          // Surface the real reason. `errorMessage` is only populated for KC's
+          // structured 4xx bodies (e.g. the 409 username collision); for any
+          // other failure it is undefined, which previously printed a bare
+          // "Failed to create user X. undefined" and hid the actual cause.
+          const reason = error?.response?.data?.errorMessage
+            || error?.response?.data?.error
+            || error?.message
+            || `HTTP ${error?.response?.status ?? '?'}`;
+          console.log(`Failed to create user ${user.username} (cas_user_id ${user.attribute_cas_user_id}).`, reason);
         }).finally(() => {
           progressBar.update(importFailed + importedSuccessfully);
         });

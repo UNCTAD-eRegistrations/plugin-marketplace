@@ -120,15 +120,32 @@ async function resolveClientHandles(kc) {
 }
 
 async function backfillUser(kc, casUserId, casUsername, realmIdx, clientIdx, realmHandles, clientHandles, stats) {
-  // Keycloak usernames are effectively case-insensitive (only one of
-  // orlando/Orlando/ORLANDO survives realm seeding), but the admin API's
-  // exact=true search is case-sensitive. Use the substring search and filter
-  // for case-insensitive equality so all case-variants in the source map back
-  // to the single surviving Keycloak user.
-  const candidates = await kc.users.find({ username: casUsername, realm: OPS_REALM, max: 50 });
-  const match = candidates.find(u => u.username && u.username.toLowerCase() === casUsername.toLowerCase());
+  // Match on the stable `cas_user_id` attribute FIRST, not the username.
+  // Username is not a reliable key post-migration: on a case-insensitive
+  // collision the migrator keeps the "loser" under its email as username
+  // (see createUserWithUsernameFallback in migrate.js), so a lookup by the
+  // original CAS username would either miss that user entirely or — worse —
+  // resolve to the collision "winner" and graft the loser's roles onto the
+  // wrong person. The migrator stamps cas_user_id on every user, so it is the
+  // one key that survives the rename.
+  let match = null;
+  const byAttr = await kc.users.find({ q: `cas_user_id:${casUserId}`, realm: OPS_REALM, max: 2 });
+  if (byAttr.length === 1) {
+    match = byAttr[0];
+  } else if (byAttr.length > 1) {
+    // Should never happen (cas_user_id is unique per CAS account). Refuse to
+    // guess rather than assign roles to an ambiguous match.
+    stats.usersAmbiguous = stats.usersAmbiguous || [];
+    stats.usersAmbiguous.push(`${casUsername} (cas_user_id ${casUserId})`);
+    return;
+  } else {
+    // Fallback: older migrations (pre-cas_user_id-attribute) or users created
+    // by hand. Keep the case-insensitive username match as a best effort.
+    const candidates = await kc.users.find({ username: casUsername, realm: OPS_REALM, max: 50 });
+    match = candidates.find(u => u.username && u.username.toLowerCase() === casUsername.toLowerCase()) || null;
+  }
   if (!match) {
-    stats.usersNotFound.push(casUsername);
+    stats.usersNotFound.push(`${casUsername} (cas_user_id ${casUserId})`);
     return;
   }
   const kcUserId = match.id;
