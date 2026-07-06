@@ -165,6 +165,30 @@ the staged stamp against the plugin's and stops with a re-stage instruction when
 the staged copy is older or unstamped. Bump `TOOLING_VERSION` in the same commit
 as any change under `dump-keycloak-local/`.
 
+## Email-as-login CAS users have NULL `cas.user_property.value` for `username`
+
+Some CAS installs (elsalvador LIVE) hold users whose `cas.user_property` row at `property_id=1` (username) doesn't exist — they registered with email and have only `property_id=2` (primary_email). The original `cas_users.sql` `LEFT OUTER JOIN cas.user_property … WHERE property_id=1` returns NULL `username` for these users, and the migrator's `KcAdminClient.users.create({ username: null, … })` fails with `User name is missing`. On elsalvador LIVE the gap was **17431 of 59197 users (29%)** lost on the first seed pass.
+
+**Patch:** `cuba-sql/cas_users.sql` (and country-template equivalents) wrap the username SELECT in `COALESCE(up.value, up2.value) AS username` — when CAS lacks an explicit username, fall back to the primary_email. Recovered 15443 users on the elsalvador rerun (final fail count 1988, almost entirely case-insensitive username collisions per the next lesson). The fallback adds a small risk of `<email>` colliding with an existing `<email>` username in another row; that case re-raises as a regular collision and is recoverable via backfill.
+
+## Long-running `backfill.sh` outlives its admin token
+
+`backfill.js` calls `kc.auth({...grantType:'password'})` **once at startup**. The admin-cli token's default `access.token.lifespan` on a freshly-deployed realm is 60s. The user-roles loop on elsalvador LIVE ran through ~14000 users (≈15 min) before all subsequent API calls returned `401 Unauthorized` — **44906 failures** out of ~59000 attempts, all of them token expiry, none data-related.
+
+**Patch:** `backfill.js` lifts the credentials dict into a `const credentials` and calls `await kc.auth(credentials)` inside the existing `processed % 100 === 0` reporting branch. Token refreshes every 100 users (≈5–10s on a warm realm) — bounded, silent, no operator config needed. Alternative deployed elsewhere: bump admin-cli `access.token.lifespan` to 3600s via `kcadm.sh update clients/<id>`; less invasive but country-specific.
+
+## `fetch-dumps.sh` post-dump sanity check crashes the whole script on SIGPIPE
+
+The current `fetch-dumps.sh` runs `xzcat "$outfile" | awk … { exit }'` to row-count the dumped table. `awk … exit` closes its stdin while `xzcat` is still writing → `xzcat` receives SIGPIPE → exits 141. With `set -euo pipefail` the whole script aborts even though the dump itself succeeded and is sitting on disk. Symptom: `Exit code 141` after the locale warning, no `==Done==` banner. Operator thinks fetch failed when the dump is actually fine.
+
+**Patch:** wrap the sanity-check pipeline in `set +o pipefail` (or `|| true` on the inner awk), restore `pipefail` after. Operator-facing fallback: re-run the dump command manually — the dump command itself works; only the sanity check is broken.
+
+## Split-host topology — DB and swarm on separate hosts
+
+`deploy-keycloak-dump.sh` assumes one SSH host runs both the Postgres-with-`sudo -u postgres` and the docker-managed Keycloak service. elsalvador LIVE is split: `unctad_elsalvador_live_db` holds Postgres, `unctad_elsalvador_live` is the swarm manager with Keycloak. The script's single `SSH_HOST` arg can't address both.
+
+**Patch:** none yet (deferred). Operator-side workaround that worked on elsalvador: a one-off split script that `scp + psql`s on the DB host then `ssh + docker service update`s on the swarm host. For a longer-term fix the skill should accept `DB_SSH_HOST` and `SWARM_SSH_HOST` separately. The `docker service update` step also needs `sudo` on the swarm host because the SSH user typically isn't in the `docker` group on production hosts; `sudo -n docker …` is the right call.
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -189,5 +213,11 @@ as any change under `dump-keycloak-local/`.
 | 19 | Seed image amd64-only + 60s health grace too short | `docker-compose.yml` explicit healthcheck `start_period:600s`; run seed on amd64 host |
 | 20 | Non-collision user-create failures printed "undefined" | `migrate.js` catch surfaces `error`/`message`/status |
 | 21 | Staged tooling silently lags the plugin → upstream fixes miss cutovers | `TOOLING_VERSION` + `check-tooling-version.sh` staleness guard (issue #42) |
+| 22 | Email-as-login users skipped (null `cas.user_property` username) | `cuba-sql/cas_users.sql` `COALESCE(up.value, up2.value)` |
+| 23 | Long-running backfill outlives admin token | `backfill.js` re-auths every 100 users |
+| 24 | `fetch-dumps.sh` SIGPIPE crash from awk sanity check + pipefail | wrap sanity check in `set +o pipefail` |
+| 25 | Split-host topology not supported by `deploy-keycloak-dump.sh` | docs only — manual scp+ssh workaround; future: `DB_SSH_HOST` + `SWARM_SSH_HOST` |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)
+
+(Two further elsalvador-run lessons — `flyway.repair()` row deletion on renamed migrations, and `-Dflyway.outOfOrder=true` ignored by raw `Flyway.configure()` — were initially drafted for this file but moved to `upgrade-eregistrations-instance/LESSONS.md`: they're BPA-backend Java behaviour that surfaces post-handoff, not a cas-to-keycloak concern.)
