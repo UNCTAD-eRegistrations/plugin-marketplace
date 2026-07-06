@@ -44,68 +44,59 @@ CREATE TEMP TABLE _unit_map (partc_id int PRIMARY KEY, kc_group_id text NOT NULL
 \copy _inst_map FROM '/tmp/inst_map.csv' WITH (FORMAT csv, HEADER true);
 \copy _unit_map FROM '/tmp/unit_map.csv' WITH (FORMAT csv, HEADER true);
 
--- 1) Translate i<N>[_<role>] tokens to the institution UUID.
-UPDATE ereg_service_role_group r
-   SET "group" = m.kc_group_id
-  FROM _inst_map m
- WHERE r."group" ~ '^i[0-9]+(_.+)?$'
-   AND m.partc_id = ((regexp_match(r."group",'^i([0-9]+)'))[1])::int;
+-- Translate every row into its target group in ONE pass, then atomically
+-- replace the table. Doing the UPDATEs in place first (as an earlier version
+-- did) violates the (service_id, role_id, "group") primary key mid-statement:
+-- when a service-role carries both `i5` and `i5_manager`, both map to the same
+-- institution UUID, and the first row's UPDATE collides with the second before
+-- the later dedup step can run. Verified on dev.cuba (55 such collapses):
+--   ERROR: duplicate key value violates unique constraint
+--          "ereg_service_role_group_pkey"
+-- Computing the new value into a staging table and rewriting via
+-- INSERT ... GROUP BY collapses duplicates in the same statement, so the PK is
+-- never transiently violated and `determinant` is OR-collapsed for free.
 
--- 2) Translate bare <N> tokens (Cuba convention: bare-int = unit_id) and
---    explicit u<N>[_<role>] tokens to the unit UUID.
-UPDATE ereg_service_role_group r
-   SET "group" = m.kc_group_id
-  FROM _unit_map m
- WHERE (r."group" ~ '^[0-9]+$' OR r."group" ~ '^u[0-9]+(_.+)?$')
-   AND m.partc_id = ((regexp_match(r."group",'^u?([0-9]+)'))[1])::int;
+-- 1) Compute the target group per row. Magic tokens (applicant, super_mario)
+--    and rows already holding a UUID fall through the CASE unchanged.
+CREATE TEMP TABLE _new AS
+SELECT r.service_id, r.role_id,
+       CASE
+         WHEN r."group" ~ '^i[0-9]+(_.+)?$'
+           THEN COALESCE(im.kc_group_id, r."group")
+         WHEN r."group" ~ '^[0-9]+$' OR r."group" ~ '^u[0-9]+(_.+)?$'
+           THEN COALESCE(um.kc_group_id, r."group")
+         ELSE r."group"
+       END AS new_group,
+       r.determinant
+FROM ereg_service_role_group r
+LEFT JOIN _inst_map im
+       ON r."group" ~ '^i[0-9]+(_.+)?$'
+      AND im.partc_id = ((regexp_match(r."group",'^i([0-9]+)'))[1])::int
+LEFT JOIN _unit_map um
+       ON (r."group" ~ '^[0-9]+$' OR r."group" ~ '^u[0-9]+(_.+)?$')
+      AND um.partc_id = ((regexp_match(r."group",'^u?([0-9]+)'))[1])::int;
 
--- 3) Verify: should be zero rows after the two UPDATEs above.
+-- 2) Verify every legacy token translated (an untranslated one means the KC
+--    group for that partc id is missing its attribute — an orphan). Raise so
+--    the transaction rolls back rather than shipping a half-mapped table.
 DO $$
 DECLARE n int;
 BEGIN
-    SELECT count(*) INTO n FROM ereg_service_role_group
-     WHERE "group" ~ '^[iu]?[0-9]+(_.+)?$';
+    SELECT count(*) INTO n FROM _new WHERE new_group ~ '^[iu]?[0-9]+(_.+)?$';
     IF n > 0 THEN
         RAISE EXCEPTION 'Untranslated legacy tokens remain: %', n;
     END IF;
 END $$;
 
--- 4) Dedupe — multiple i<N>_<role> rows collapsed to the same UUID.
---    Keep one row per (service_id, role_id, group) tuple. `determinant` is
---    OR-collapsed because the original CAS-flavoured rows could differ
---    only on that flag for the same business meaning.
---    First propagate the OR-ed determinant onto every row of each duplicate
---    set (so the survivor carries it), then delete the extras.
-WITH agg AS (
-    SELECT service_id, role_id, "group",
-           bool_or(determinant) AS determinant
-      FROM ereg_service_role_group
-     GROUP BY service_id, role_id, "group"
-    HAVING count(*) > 1
-)
-UPDATE ereg_service_role_group r
-   SET determinant = a.determinant
-  FROM agg a
- WHERE r.service_id = a.service_id
-   AND r.role_id   = a.role_id
-   AND r."group"   = a."group"
-   AND r.determinant IS DISTINCT FROM a.determinant;
+-- 3) Atomic replace. GROUP BY collapses the (service_id, role_id, group)
+--    duplicates that the token→UUID mapping creates, OR-ing determinant.
+TRUNCATE ereg_service_role_group;
+INSERT INTO ereg_service_role_group (service_id, role_id, "group", determinant)
+SELECT service_id, role_id, new_group, bool_or(determinant)
+  FROM _new
+ GROUP BY service_id, role_id, new_group;
 
-WITH dedup AS (
-    SELECT service_id, role_id, "group",
-           min(ctid) AS keep_ctid
-      FROM ereg_service_role_group
-     GROUP BY service_id, role_id, "group"
-    HAVING count(*) > 1
-)
-DELETE FROM ereg_service_role_group r
- USING dedup d
- WHERE r.service_id = d.service_id
-   AND r.role_id   = d.role_id
-   AND r."group"   = d."group"
-   AND r.ctid     <> d.keep_ctid;
-
--- 5) Final sanity: report how many rows survived.
+-- 4) Final sanity: report how many rows survived.
 DO $$
 DECLARE n int; legacy int; uuids int;
 BEGIN
