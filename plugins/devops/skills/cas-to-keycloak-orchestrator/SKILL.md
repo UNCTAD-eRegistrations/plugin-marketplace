@@ -2,13 +2,14 @@
 name: cas-to-keycloak-orchestrator
 description: >
   End-to-end orchestrator for the CAS → Keycloak cutover. Walks the
-  nine-phase chain (verify → add-service → prepare-realm → fetch → seed →
-  deploy → migrate-apps → backfill → rewrite-bpa-postgres) by invoking the
+  ten-phase chain (verify → add-service → prepare-realm → fetch → seed →
+  deploy → migrate-apps → backfill → rewrite-bpa-postgres →
+  rewrite-camunda-role-groups) by invoking the
   sibling skills via the Skill tool, threading context (resolved realm
   UUIDs, generated OAuth secrets, dump paths, target ssh host) so the
   operator is asked each question once. Surfaces a confirmation gate
   before any mutating step (deploy, migrate-apps, backfill,
-  rewrite-bpa-postgres). Operators wanting to run just one phase
+  rewrite-bpa-postgres, rewrite-camunda-role-groups). Operators wanting to run just one phase
   can keep invoking the individual sibling skills directly — this orchestrator
   is the all-in-one path.
 license: UNCTAD-Internal
@@ -19,8 +20,8 @@ compatibility: >
   target Postgres hosts.
 allowed-tools: Skill, Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion, TodoWrite
 metadata:
-  version: "1.0.0"
-  version-date: "2026-05-22"
+  version: "1.1.0"
+  version-date: "2026-07-03"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "<country> [phase-to-resume-from]"
   jira: "TOBE-17751"
@@ -43,8 +44,9 @@ You are the cas-to-keycloak migration orchestrator. Drive the full chain from a 
 | 6 | migrate-apps | `cas-to-keycloak-migrate-apps` | country compose + haproxy (local) |
 | 7 | backfill | `cas-to-keycloak` (backfill mode) | **target Keycloak** — adds missing role mappings via admin API |
 | 8 | rewrite-bpa-postgres | `cas-to-keycloak-rewrite-bpa-postgres` | **deploy host's BPA postgres** — rewrites legacy PARTC integer FKs in `registration_institution`, `role_institution`, `registration_unit` to KC group UUIDs |
+| 9 | rewrite-camunda-role-groups | `cas-to-keycloak-rewrite-camunda-role-groups` | **deploy host's Camunda postgres** — rewrites legacy CAS tokens (`i<N>[_<role>]`, `u<N>[_<role>]`, bare unit ids) in `ereg_service_role_group` to KC group UUIDs |
 
-Mutating phases (5, 6 with its downstream apply, 7, 8) get an explicit operator confirmation gate before invocation.
+Mutating phases (5, 6 with its downstream apply, 7, 8, 9) get an explicit operator confirmation gate before invocation.
 
 ## Input gathering (do once, up front)
 
@@ -79,6 +81,7 @@ Hard stops before:
 - **Phase 6 (migrate-apps)**: confirm phase 5 completed and the target Keycloak is healthy. The actual app-side mutation (`up -d --force-recreate <services>` + `systemctl reload haproxy`) is the operator's manual step on the deploy host — orchestrator surfaces the exact commands at the gate.
 - **Phase 7 (backfill)**: confirm `AUTH_URL` + realm name + admin credentials before any admin-API call.
 - **Phase 8 (rewrite-bpa-postgres)**: confirm phase 5 completed (BPA postgres on the deploy host has the new KC group UUIDs available via attributes on KC institutions/units) AND `cas`/`partc` legacy DBs are still present on the deploy host (the rewrite skill's "Fallback" path needs them if any KC subgroup is missing `partc_unit_id`/`partc_institution_unit_id`). The rewrite always backs up BPA postgres first, then runs a ROLLBACK'd preview before COMMIT.
+- **Phase 9 (rewrite-camunda-role-groups)**: confirm phase 5 completed (KC institutions/units carry their `partc_*` attributes) and confirm psql access to the Camunda postgres. The rewrite runs in one transaction, snapshots `ereg_service_role_group` into a timestamped backup table first, and aborts (rolling back) if any legacy token cannot be translated.
 
 ## Resume from a phase
 
@@ -88,6 +91,7 @@ Phases safe to re-run anywhere:
 - 0 verify (no mutation)
 - 4 seed (overwrites `sql/keycloak.sql`)
 - 7 backfill (idempotent)
+- 9 rewrite-camunda-role-groups (idempotent — UUID rows are untouched; each run appends a timestamped snapshot to the backup table, and the rollback path restores the earliest one)
 
 Phases that should NOT be re-run blindly:
 - 1, 2, 6 — mutate compose / haproxy / realm.json locally; re-running on already-cutover files may produce double-edits. Inspect `git diff` before re-running.
@@ -106,4 +110,4 @@ When the full chain completes (or the operator chooses to stop earlier), print:
 - Resetting the master Keycloak admin password (the post-seed admin is `admin/admin` from the throwaway). Surfaced in the post-deploy gate; the operator runs `kcadm.sh set-password` themselves.
 - Per-country business-role mappings beyond what `cas-to-keycloak seed` migrates.
 - Browser-side cache invalidation (fleet-wide `Clear-Site-Data` haproxy header is operator-owned per LESSONS.md).
-- Anything outside the cas-to-keycloak pipeline (Mongo, camunda, restheart, business data).
+- Anything outside the cas-to-keycloak pipeline (Mongo, restheart, business data; Camunda only via phase 9's `ereg_service_role_group` rewrite).
