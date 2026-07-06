@@ -20,7 +20,7 @@ compatibility: >
   HTTPS from the operator workstation.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(find *), Bash(stat *), Bash(git *), Bash(cp *), Bash(mkdir *), Bash(chmod *), Bash(test *), Bash(bash *), Bash(./run.sh *), Bash(./backfill.sh *), Bash(./fetch-dumps.sh *), Bash(docker *), Bash(xzcat *), Bash(grep *), Bash(awk *), Bash(wc *), Bash(python3 *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   version-date: "2026-05-22"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "fetch|seed|backfill [country]"
@@ -90,14 +90,39 @@ dump-keycloak-local/
 │   ├── migrate.js
 │   ├── package.json
 │   └── package-lock.json
+├── TOOLING_VERSION        # authoritative version of this tooling (tracks skill metadata.version)
+├── check-tooling-version.sh  # staleness guard (see below)
 └── backfill-other-name-attrs.sh
 ```
 
 On every run:
 1. Resolve `<repo>/sql/dump-keycloak-local/` as the staging target.
-2. Copy missing files from `templates/dump-keycloak-local/` into the target.
+2. Copy missing files from `templates/dump-keycloak-local/` into the target — **including `TOOLING_VERSION`**.
 3. **Never overwrite operator-modified files** without explicit confirmation. If a file already exists and differs from the template, diff and ask.
 4. `sql/` is gitignored by convention in these repos; staging into it is non-destructive to git history.
+
+### Staleness guard (run before EVERY mode)
+
+The staged copy can silently lag the plugin — a fix that lands upstream never
+reaches a cutover whose `sql/dump-keycloak-local/` was staged from an older
+plugin. This is not hypothetical: a dev.cuba seed dropped 23 users to a bug
+that was already fixed in the migrator, because the staged copy predated the
+fix (issue #42).
+
+Before doing any work in fetch / seed / deploy / backfill / reconcile, run:
+
+```bash
+<skill-templates>/dump-keycloak-local/check-tooling-version.sh <repo>/sql/dump-keycloak-local
+```
+
+- **exit 0** — staged copy matches (or is newer than) the plugin; proceed.
+- **exit 3** — staged copy is older or unstamped. **Stop.** Re-stage the tooling
+  (`cp -a <skill-templates>/dump-keycloak-local/. <repo>/sql/dump-keycloak-local/`)
+  after reconciling any operator edits per rule 3, then re-run the check.
+
+Bump `TOOLING_VERSION` to the skill's new `metadata.version` in the same commit
+whenever any file under `dump-keycloak-local/` changes, so the guard can see the
+difference.
 
 For a new country (e.g. `lesotho`):
 - Detect that `<repo>/sql/dump-keycloak-local/lesotho-sql/` does not exist.
