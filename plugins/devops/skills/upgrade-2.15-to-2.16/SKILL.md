@@ -181,6 +181,26 @@ Replace any list item whose stripped content is `- BUILD_TYPE=<expected_BT>` (or
 **Rule 5 — Ensure `USE_NEW_DS=true` is present.**
 If no list item already starts with `USE_NEW_DS=` (with or without surrounding quotes), append `- USE_NEW_DS=true` to the env list, matching the indentation of the surrounding items. If present with a value other than `true`, raise it as a Rule 5 anomaly: print the existing line and ask `(c)ontinue (overwrite to true) / (s)kip / (a)bort`.
 
+**Rule 5b — Ensure the sibling `haproxy.cfg` has the new-DS Angular routing (the two-file contract).**
+`USE_NEW_DS=true` (Rule 5) is only *half* of enabling the new DS. The compose flag makes bpa-frontend link to the new Angular routes (`/part-b`, `/inspector`, `/financial-report`, `/files`), but those routes **404 unless haproxy also routes them to the `dsfrontend`/`ds_frontend` backend** — with `/part-b/edit/*` deliberately kept on the OLD `display_system` backend. This skill owns the flag; historically only `create-draft-instance` knew the routing recipe, so **upgraded** instances got the flag without the routing and `/part-b` broke. This rule closes that split-ownership gap. It never silently rewrites haproxy (that file is delicate and its shape varies per instance) — it detects the gap and hands the operator a guided insert.
+
+After Rule 5, compute the sibling haproxy path from the same `<UPPER_ENV>`/`<country>` as `TARGET`, swapping `compose/` → `haproxy/`: `HAPROXY=Conf-<UPPER_ENV>/haproxy/<country>/haproxy.cfg`.
+
+1. **Locate.** Run `test -f "$HAPROXY"`.
+   - If missing: do **not** edit anything. Emit a loud warning and record it for the STEP 4 / report: "⚠ `USE_NEW_DS=true` set but no sibling haproxy at `$HAPROXY` — the new-DS Angular routes will 404 until routing is added to whatever haproxy fronts this instance. See `create-draft-instance` Phase 5 (section *MANDATORY when ds-frontend is kept*)." This is a **warn, not an abort** (some instances sit behind a shared/central haproxy). Skip the rest of Rule 5b.
+
+2. **Idempotency check (marker).** Run `grep -n 'is_ds_partb_path' "$HAPROXY" || true`.
+   - If the marker **is present** → the new-Angular routing already exists. **Skip — do not touch haproxy.** Record "haproxy new-DS routing already present" for the report. (This is what makes Rule 5b safe to re-run.)
+
+3. **Marker absent → the gap is real.** Do **not** paste a canonical block verbatim: haproxy structure varies per instance (e.g. dev.cuba guards its `dsfrontend` routing with `is_cms` and uses `/parta/` for `is_ds_frontend_path`; test.cuba does neither). Raise a **Rule 5b anomaly** — soft pause, default abort — printing the finding + guided-insert pointer, then ask `(c)ontinue (routing added / will be added) / (s)kip (leave haproxy — accept /part-b 404) / (a)bort`.
+
+   Finding to print:
+   - "`USE_NEW_DS=true` is being set on bpa-frontend but `$HAPROXY` has no `is_ds_partb_path` ACL — `/part-b`, `/inspector`, `/financial-report`, `/files` will 404."
+   - "**Source of truth for the routing:** `create-draft-instance/SKILL.md` Phase 5, section *'MANDATORY when ds-frontend is kept'*, steps 1–6 — the new-module path ACLs (`is_ds_partb_path` + the `is_partb_edit_path` exclusion so `/part-b/edit/*` stays on `display_system`), the `is_angular_asset` static-asset shortcut (2a), the TOBE-16081 POST `/services/*` → `/services-new/*` rewrite (2b), the language-prefix redirects (3), and the **guarded** `use_backend ds_frontend` / `use_backend display_system` rules (5, 6). Reference it — do not fork a divergent copy here."
+   - "**Adapt to THIS file's structure:** reuse the `dsfrontend`/`ds_frontend` backend name, the host-guard convention (`is_cms` vs `is_display_system`) and the `is_ds_frontend_path` prefix already present in `$HAPROXY`. A proven adaptation exists on test.cuba: commit `20531e71e1c9ae18f9a6898506218ec3dbddf5fb` in the eregistrations config repo (`haproxy.cfg`, +32 lines) — read it as a worked example, not a copy source."
+
+   On `c`: continue (operator asserts routing is/will be handled). If the operator edits `$HAPROXY` in this same tree, include it in the STEP 6 commit (`git add "$HAPROXY"` alongside `$TARGET`) so the two-file change ships together. On `s`: continue but record **"haproxy new-DS routing MISSING — /part-b will 404"** as a prominent report item. On `a`: `git restore -- "$TARGET"` and exit cleanly.
+
 **Rule 6 — Ensure `GDB_URL` is present.**
 If no list item already starts with `GDB_URL=`, append `- GDB_URL=https://gdb.$YOUR_DOMAIN_NAME/` (preserving env-list indentation and `$VAR` interpolation style — note the trailing `/`). If present, leave as-is.
 
@@ -310,6 +330,7 @@ from eRegistrations 2.15 to 2.16.
 - Bumped `EREGISTRATIONS_VERSION` from `<expected_EV>` to `2.16` on bpa-frontend and DS service.
 - Bumped `BUILD_TYPE` from `<expected_BT>` to `BETA` on bpa-frontend and DS service.
 - Ensured `USE_NEW_DS=true` and `GDB_URL=https://gdb.$YOUR_DOMAIN_NAME/` on bpa-frontend.
+- Verified the sibling `Conf-<UPPER_ENV>/haproxy/<country>/haproxy.cfg` carries the new-DS Angular routing (Rule 5b two-file contract) — routing present, or the operator was warned that `/part-b` will 404 until it is added (recipe: `create-draft-instance` Phase 5).
 - Renamed `RESTHEART_URL` → `RESTHEART_PUBLIC_URL` on bpa-backend.
 - Added `REGISTRY_SERVICE_PUBLIC_URL` and `RESTHEART_USERNAME` on bpa-backend.
 - Added `RESTHEART_PASSWORD` on camunda.
@@ -326,4 +347,5 @@ from eRegistrations 2.15 to 2.16.
 - [ ] CI passes.
 - [ ] Reviewer eyeballs the diff against the rules in this skill.
 - [ ] Smoke-test bpa-frontend renders, bpa-backend `/health` ok, restheart still reachable.
+- [ ] Sibling `haproxy.cfg` routes the new-DS Angular paths (`is_ds_partb_path` present) so `/part-b`, `/inspector`, `/financial-report`, `/files` load and do not 404 — or the Rule 5b warning was explicitly acknowledged.
 ```
