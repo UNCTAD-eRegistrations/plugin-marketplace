@@ -1,0 +1,8 @@
+{
+  "name": "ds-frontend",
+  "description": "ds-frontend delivery and formio fork integration skills for eRegistrations. Ship formio fork changes (formiojs, @formio/angular, formio-signature, formio-dropdown, formio-leaflet-map, formio-nested-html-element) end-to-end to deployed instances — from source PR → transpile-and-mirror → bump ds-frontend pin → CI auto-release → deploy → live-verify.",
+  "version": "1.0.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}

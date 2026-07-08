@@ -140,6 +140,15 @@
       },
       "source": "./plugins/screens-first-design",
       "category": "documentation"
+    },
+    {
+      "name": "ds-frontend",
+      "description": "ds-frontend delivery + formio fork integration. Ship a change in a UNCTAD eRegistrations formio fork (formiojs, @formio/angular, formio-signature, formio-dropdown, formio-leaflet-map, formio-nested-html-element) all the way to a deployed instance: source PR → (formiojs only) transpile-and-mirror into the formiojs-4.x dist repo → bump the git-SHA pin in ds-frontend/package.json on the release branch → CI auto-release → deploy → live-verify. A merged fork PR is NOT deployed — this is the missing post-merge delivery chain.",
+      "author": {
+        "name": "UNCTAD Trade Facilitation Section"
+      },
+      "source": "./plugins/ds-frontend",
+      "category": "devops"
     }
   ]
 }
