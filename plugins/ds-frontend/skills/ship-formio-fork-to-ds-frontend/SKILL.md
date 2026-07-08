@@ -16,10 +16,12 @@ description: >-
   renderer code itself (that's the source PR + TDD), for running ds-frontend locally, for backend bugs
   (BPA-backend Java, ds-backend Python), or for unrelated instance ops (keycloak themes, camunda,
   translations sync, plain image rollbacks). It fires once a formio-fork change exists and must reach
-  a deployed instance.
+  a deployed instance. This covers only the 4.x/ds-frontend side — if the change is cross-cutting
+  (templates/layout shared with formio 3.x), also check whether it needs the separate 3.x chain
+  (formio.js → npm-formiojs → BPA-frontend) before declaring it delivered.
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh *), Bash(npm *), Bash(ls *), Bash(grep *), Bash(head *), Bash(cp *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   version-date: "2026-07-08"
   argument-hint: "[fork] [ticket] [instance]"
 ---
@@ -59,7 +61,9 @@ source repo for a separate `*-4.x`/dist sibling.
 Set these once: `TICKET` (e.g. `VUCE-42`), `DEP` (the package.json key, e.g. `formiojs`),
 `RELEASE_BRANCH` (the current live release line — **discover it, don't assume**; see below),
 `INSTANCE` (e.g. `cuba`).
-Repo roots live one level up from this workspace under `~/PROJECTS/00-eRegistrations-Next/`.
+Locate the local clones of `ds-frontend`, `formiojs-4.x-src`, `formiojs-4.x` (and any Pattern A
+fork repo involved) — the repo root varies per machine, so ask the user if it isn't obvious from
+context. Clone from `UNCTAD-eRegistrations` if a repo is missing locally.
 
 **Discover the live release line (do NOT hardcode a version).** The platform advances
 (`release/2.17` → `release/2.18` → `release/2.19` → …); whichever is newest-and-live is your
@@ -85,15 +89,26 @@ The dist repo (`formiojs-4.x`) holds the **compiled** package. Erick's establish
 the dist repo's matching path, NOT a full rebuild (a full `gulp build` would churn hundreds of files
 and the whole `dist/` bundle; the real bump commits touch only the changed component + its test).
 
+**The dist repo's PR base is NOT its GitHub default branch.** `formiojs-4.x`'s default branch
+(`master`) is a stale upstream line; real bumps target the live version-line branch instead (at time
+of writing, `ver-4.14.1-rc.8`). Don't assume — discover which branch is actually live by finding
+which one contains the SHA ds-frontend currently pins:
+```bash
+cd <ds-frontend> && git show "origin/$RELEASE_BRANCH:package.json" | grep '"formiojs"'   # current dist SHA
+git -C <formiojs-4.x> branch -r --contains <that-SHA> | grep -v master   # → the live base branch
+```
+
 The path mapping is **source `lib/<path>` → dist `<path>`** (the dist repo root == the source repo's
 transpiled `lib/`). Concretely:
 ```bash
 cd <formiojs-4.x-src>            # the SOURCE repo, on the merged change
 npm run transpile && npm run templates    # produces lib/… (babel-CJS, same shape as the dist repo)
-# in the DIST repo formiojs-4.x, on a branch feature/<TICKET>-dist:
+# in the DIST repo formiojs-4.x, branched off the discovered base (NOT master):
+git -C <dist> checkout -b feature/<TICKET>-dist <discovered-base-branch>
 cp <src>/lib/components/<area>/<File>.js   <dist>/components/<area>/<File>.js
 # (optionally also mirror the compiled *.unit.js test, as the existing bumps do)
-git -C <dist> add -A && git -C <dist> commit -m "<TICKET>: <area> <one-line>"   # then PR + merge
+git -C <dist> add -A && git -C <dist> commit -m "<TICKET>: <area> <one-line>"
+# then PR against the discovered base branch (NOT master) + merge
 ```
 **Gate (do not skip):** the new dist commit actually contains your change —
 `git -C <dist> grep "<a-symbol-from-your-diff>" <dist-sha> -- components/...` returns a hit, and the
@@ -119,8 +134,20 @@ Edit the one `package.json` line: replace the **current** SHA with the **new sou
 or the **new dist SHA (Pattern B)**. Commit `chore(deps): <TICKET> bump <DEP> for <reason>`, push,
 open the ds-frontend PR against `RELEASE_BRANCH`.
 **Gate:** after merge, `git show origin/$RELEASE_BRANCH:package.json | grep "\"$DEP\""` shows the new
-SHA; `npm ci` resolves it and `git grep "<symbol-from-diff>" -- node_modules/<DEP>/...` finds the
-change in the installed tree (strongest pre-CI proof the pin resolves to a tree that actually has the fix).
+SHA; `npm ci` resolves it and `grep -rn "<symbol-from-diff>" node_modules/<DEP>/...` finds the
+change in the installed tree (strongest pre-CI proof the pin resolves to a tree that actually has the
+fix — plain `grep`, not `git grep`: `node_modules` is gitignored so `git grep` never searches it).
+
+### Hop 3b — Mirror the pin bump to `develop`
+The release line and `develop` carry **independent** formiojs pins; a release-only bump is silently
+lost the next time a new release line is cut from `develop`. Unless there's a stated reason to skip
+it (e.g. the fix is a release-only hotfix), mirror the same SHA bump to `develop`:
+```bash
+git show origin/develop:package.json | grep "\"$DEP\""   # confirm develop's current pin first
+# edit the same package.json line on a branch off develop, commit, PR against develop, merge
+```
+**Gate:** `git show origin/develop:package.json | grep "\"$DEP\""` shows the same new SHA as
+`$RELEASE_BRANCH`.
 
 ### Hop 4 — CI auto-release builds the image
 ds-frontend uses automated semantic-release: merging the bump to `RELEASE_BRANCH` triggers a
@@ -132,13 +159,15 @@ that is the deployable image.
 
 ### Hop 5 — Deploy to the instance + live-verify
 Roll the instance's `ds-frontend` service to the new image. The mechanism differs by host
-orchestration (Docker Swarm vs compose) — see the memory note
-`eregistrations-host-orchestration-varies-swarm-vs-compose` and
-`eregistrations-live-deploy-and-verify-gotchas`. Floating `:2.18` does NOT auto-pull: force it.
+orchestration (Docker Swarm vs compose). Floating `:2.18` does NOT auto-pull: force it.
 ```bash
 # Swarm:   docker service update --image <registry>/ds-frontend:2.18 --force <service>
 # Compose: docker compose pull ds-frontend && docker compose up -d --force-recreate ds-frontend
 ```
+Some instances (e.g. cuba) manage their config via the `eregistrations` repo, with Jenkins
+auto-redeploying ~10 min after a merge to its master — check whether the instance uses that path
+before reaching for a raw `docker service update --force`, since a manual force can be overwritten
+by the next Jenkins run if the config repo wasn't also updated.
 **Gate — the real definition of done:** verify the **runtime behaviour**, not "image deployed". The
 public URL/status can be CDN-cached stale for hours. The strongest check is to load the affected form
 in a logged-in browser and inspect the live formio runtime — e.g. reach the component instance and
@@ -166,7 +195,8 @@ Only after this passes is the change delivered. THEN post the ticket confirmatio
   *ancestor* SHA and wrongly decide a prior fix was never delivered, then branch the dist mirror off the
   wrong base. Always `git fetch` and read `origin/<branch>`, and order-check SHAs with
   `git merge-base --is-ancestor`. Cross-check against `references/repo-map.md`: e.g. `cbda1f1c` (VUCE-42
-  PR#3) **is** live — it shipped as `2.18.283` and is the current `origin/release/2.18` pin.
+  PR#3) shipped as `2.18.283` on `origin/release/2.18` (as of 2026-06-22) — but pins move; re-read
+  `origin/$RELEASE_BRANCH` fresh per Hop 3 rather than trusting any SHA recorded here or in the docs.
 - **The pin is immutable.** There is no floating ref to "just rebuild"; you must bump the SHA.
 - **Floating `:2.18` is digest-cached on swarm.** `--force` (or compose `pull` + `--force-recreate`),
   else the node keeps the old image.
@@ -187,3 +217,14 @@ Use it to sanity-check that your own chain has every hop and that the SHAs line 
 Every hop's gate passed, ending with a **live runtime check on the instance** proving the new
 behaviour — and only then the stakeholder/ticket update. A merged PR, a green CI, or "the image is
 out" are necessary but not sufficient; the runtime check is the contract.
+
+## Changelog
+
+- 1.0.0 (2026-07-08) — Initial extraction of the formio-fork delivery chain from the VUCE-42 trail.
+- 1.0.1 (2026-07-08) — Review fixes (PR #47): removed hardcoded personal repo path in favor of
+  discovery; Hop 2 now discovers the dist repo's real PR base branch instead of defaulting to
+  `master`; added Hop 3b to mirror pin bumps to `develop` (verified divergence: develop stuck on
+  `cbda1f1c` while `release/2.18` moved to `09ac8c78`); fixed the Hop 3 gate command (`git grep`
+  never matches inside gitignored `node_modules` — switched to plain `grep -rn`); dropped a stale
+  "current pin" claim and two dangling personal-memory references; noted the separate formio 3.x /
+  BPA-frontend chain and the `eregistrations` config-repo deploy path as scope/deploy clarifications.
