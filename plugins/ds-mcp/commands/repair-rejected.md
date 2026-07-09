@@ -12,7 +12,7 @@ status got stuck at `filevalidated`, so Part A (applicant view) shows **Validate
 correctly shows **Rejected**. This converges Camunda's canonical status and updates the matching
 DS file rows. Restricted to the `super_mario` role. Idempotent — safe to re-run.
 
-Arguments: `$ARGUMENTS` — the instance profile name (e.g. `bhutan-ibls`), and an optional Camunda
+Arguments: `$ARGUMENTS` — the instance profile name (e.g. `bhutan-staging`), and an optional Camunda
 `process_id` to repair a single file instead of the whole instance.
 
 ## Connecting to DS
@@ -59,6 +59,6 @@ Pass `instance="<name>"` to every `mcp__DS__*` call.
 ## Usage
 
 ```
-/ds-mcp:repair-rejected bhutan-ibls                              # dry-run preview, then confirm
-/ds-mcp:repair-rejected bhutan-ibls d55c933c-794e-11f1-85f1-...  # single file
+/ds-mcp:repair-rejected bhutan-staging                              # dry-run preview, then confirm
+/ds-mcp:repair-rejected bhutan-staging d55c933c-794e-11f1-85f1-...  # single file
 ```

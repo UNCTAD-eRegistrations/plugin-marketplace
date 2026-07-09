@@ -6,7 +6,7 @@ Read-only MCP tools for admin/ops monitoring of eRegistrations Display System �
 
 Install the **bpa-mcp** plugin first — it provides authentication and instance management that DS depends on.
 
-## Tools (32)
+## Tools (58)
 
 ### System & Auth
 - `ds_health` — Instance health check (no auth required)
