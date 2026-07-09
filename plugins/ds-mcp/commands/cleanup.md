@@ -2,7 +2,7 @@
 description: Wipe ALL applicant files + Camunda processes for a DS instance (super_mario only, destructive)
 argument-hint: <instance>
 effort: high
-allowed-tools: [mcp__DS__applicant_file_cleanup, mcp__DS__ds_health, mcp__DS__ds_instance_list, mcp__DS__ds_auth_login]
+allowed-tools: [mcp__DS__applicant_file_cleanup, mcp__DS__ds_health, mcp__DS__instance_list, mcp__DS__ds_auth_login]
 ---
 
 # DS Cleanup — wipe applicant files
@@ -17,7 +17,7 @@ Arguments: `$ARGUMENTS` — the instance profile name (e.g. `jamaica`).
 ## Connecting to DS
 
 Before any tool call:
-1. If the instance is unknown, call `ds_instance_list()` to see registered profiles.
+1. If the instance is unknown, call `instance_list()` to see registered profiles.
 2. Check health/auth: `ds_health(instance="<name>")`. If auth fails, call
    `ds_auth_login(instance="<name>")`, wait for success, then retry.
 
