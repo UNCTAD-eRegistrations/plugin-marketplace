@@ -10,8 +10,8 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI (≥2.13 recommended), git, ssh access to GitHub. UNCTAD-eRegistrations org assumed for helm umbrella repo and Jenkins job mappings.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(ls *), Bash(grep *), Bash(find *), Bash(mkdir *), Bash(cp *), Bash(mv *), Bash(rm *), Bash(cat *), Bash(echo *), Bash(date *), Bash(seq *), Bash(sleep *), Bash(awk *), Bash(sed *), Bash(base64 *), Bash(node *), Bash(npm *), Bash(mvn *), Bash(du *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.1"
-  version-date: "2026-05-07"
+  version: "1.4.0"
+  version-date: "2026-07-09"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[github-target-url] [--dry-run]"
 ---
@@ -54,12 +54,13 @@ When `--dry-run` is detected in arguments:
 [DRY-RUN] + "repository": "github.com/..."
 ```
 
-**Phase 4.5:** Show ruleset payload without applying:
+**Phase 4.5:** Show ruleset payloads without applying:
 ```
 [DRY-RUN] Would POST to: repos/<owner/repo>/rulesets
-[DRY-RUN] Ruleset name: "delete protection"
-[DRY-RUN] Branches: main, master, develop, beta, release-candidate, release/*
-[DRY-RUN] Rules: deletion (active enforcement)
+[DRY-RUN] Ruleset 1: "delete protection" — rule: deletion (active)
+[DRY-RUN]   Branches: main, master, develop, beta, release-candidate, release/*
+[DRY-RUN] Ruleset 2: "eRegistrations branch naming" — rule: creation (active)
+[DRY-RUN]   Allowed: develop, master, main, release/**, feature/**, fix/**, beta, release-candidate, dependabot/**, gh-readonly-queue/**, renovate/**
 ```
 
 **Phase 5 / 5.5:** Show what summary would contain and which validation checks would run (do not execute checks since nothing was actually migrated)
@@ -86,7 +87,7 @@ Initialize with TodoWrite at start of migration:
 | 8 | Convert CI/CD pipelines | Phase 3 (skip if `IS_CONF_REPO=yes`) |
 | 9 | GATE: Validate workflow syntax | Gate 3-4 (skip if `IS_CONF_REPO=yes`) |
 | 10 | Update file references | Phase 4 |
-| 11 | Apply branch deletion protection ruleset | Phase 4.5 |
+| 11 | Apply branch protection rulesets (delete protection + branch naming) | Phase 4.5 |
 | 12 | Grant team access (v4-development [+ v4-fe-development if frontend]) | Phase 4.6 |
 | 13 | Generate migration summary | Phase 5 |
 | 14 | **MANDATORY: Run validation suite** | Phase 5.5 |
@@ -1280,13 +1281,18 @@ Ask user before each file update:
 
 ---
 
-## Phase 4.5: Branch Deletion Protection
+## Phase 4.5: Branch Protection Rulesets
 
-**Purpose**: Apply standard "delete protection" ruleset to prevent accidental deletion of long-lived branches. Uses GitHub's modern Rulesets API (preferred over legacy branch protection).
+**Purpose**: Apply the TWO standard eRegistrations repo rulesets. Uses GitHub's modern Rulesets API (preferred over legacy branch protection).
 
-**Scope**: This is the ONLY protection automatically applied. PR review requirements, status checks, and force-push protection are intentionally NOT applied here — they should be configured per-repo by the team.
+1. **`delete protection`** — prevents deletion of long-lived branches.
+2. **`eRegistrations branch naming`** — blocks *creation* of branches that don't follow the naming convention.
 
-**Protected branches**: `main`, `master`, `develop`, `beta`, `release-candidate`, and all `release/*` branches (e.g. `release/2.17`, `release/2.18`)
+**Scope**: These two rulesets are the ONLY protection automatically applied. PR review requirements, status checks, and force-push protection are intentionally NOT applied here — they should be configured per-repo by the team.
+
+**`delete protection` — protected branches**: `main`, `master`, `develop`, `beta`, `release-candidate`, and all `release/*` branches (e.g. `release/2.17`, `release/2.18`). **`release/*` is MANDATORY** — it is the current fleet standard and must never be dropped, even if some existing repos are found without it.
+
+**`eRegistrations branch naming` — allowed branches**: `develop`, `master`, `main`, `release/**`, `feature/**`, `fix/**`, `beta`, `release-candidate`, plus bot prefixes (`dependabot/**`, `gh-readonly-queue/**`, `renovate/**`). Creating any other branch name is blocked. This ruleset is applied AFTER the Phase 2 push, so pre-existing non-conforming branches (e.g. a legacy `static` branch) are grandfathered — the rule gates *creation* only.
 
 ### Step 4.5.1: Check for Existing Ruleset (Idempotency)
 
@@ -1368,13 +1374,70 @@ gh api "repos/$GITHUB_REPO/rulesets/$RULESET_ID" \
 }
 ```
 
-### Step 4.5.4: Failure Handling
+### Step 4.5.4: Apply eRegistrations Branch Naming Ruleset
+
+Restricts *creation* of branches to the standard set. Apply AFTER the Phase 2 push so pre-existing non-conforming branches are grandfathered (the rule fires on new branch creation only).
+
+Idempotency check, then POST only if absent:
+
+```bash
+[ -f /tmp/migration-state.sh ] && source /tmp/migration-state.sh
+: "${GITHUB_REPO:=$(git remote get-url origin | sed -E 's/.*github.com[:\/](.+)\.git/\1/')}"
+
+EXISTING_NAMING_ID=$(gh api "repos/$GITHUB_REPO/rulesets" \
+  --jq '.[] | select(.name=="eRegistrations branch naming" and .source_type=="Repository") | .id' 2>/dev/null)
+
+if [ -n "$EXISTING_NAMING_ID" ]; then
+  echo "Repo-scoped ruleset 'eRegistrations branch naming' already exists (id=$EXISTING_NAMING_ID) — skipping creation"
+else
+  gh api -X POST "repos/$GITHUB_REPO/rulesets" --input - <<'JSON'
+{
+  "name": "eRegistrations branch naming",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [
+        "refs/heads/develop",
+        "refs/heads/master",
+        "refs/heads/main",
+        "refs/heads/release/**",
+        "refs/heads/feature/**",
+        "refs/heads/fix/**",
+        "refs/heads/beta",
+        "refs/heads/release-candidate",
+        "refs/heads/dependabot/**",
+        "refs/heads/gh-readonly-queue/**",
+        "refs/heads/renovate/**"
+      ],
+      "include": ["~ALL"]
+    }
+  },
+  "rules": [ { "type": "creation" } ],
+  "bypass_actors": []
+}
+JSON
+fi
+```
+
+Verify:
+
+```bash
+NID=$(gh api "repos/$GITHUB_REPO/rulesets" \
+  --jq '.[] | select(.name=="eRegistrations branch naming" and .source_type=="Repository") | .id')
+gh api "repos/$GITHUB_REPO/rulesets/$NID" \
+  --jq '{name, enforcement, exclude: .conditions.ref_name.exclude, include: .conditions.ref_name.include, rules: [.rules[].type]}'
+```
+
+> **Note**: The rulesets *list* endpoint (`GET /repos/$GITHUB_REPO/rulesets`) does NOT return `conditions` — only `id`/`name`/`target`/`enforcement`/`source_type`. To read or diff an include/exclude list you MUST `GET /repos/$GITHUB_REPO/rulesets/{id}`.
+
+### Step 4.5.5: Failure Handling
 
 | Failure | Likely Cause | Action |
 |---------|--------------|--------|
 | HTTP 403 | Insufficient permissions | Verify `gh auth status` user has admin on the repo |
 | HTTP 404 | Wrong repo path | Re-check `GITHUB_REPO` value |
-| HTTP 422 (already exists) | Ruleset by that name exists | Skip — handled by Step 4.5.1 idempotency check |
+| HTTP 422 (already exists) | Ruleset by that name exists | Skip — handled by the idempotency check (Step 4.5.1 delete protection / Step 4.5.4 branch naming) |
 | HTTP 422 (validation) | Org-level ruleset preempts | Inspect with `gh api repos/$GITHUB_REPO/rulesets --jq '.[].source_type'` — org rulesets take precedence; coordinate with org admin |
 
 If unrecoverable, do NOT abort migration — note in summary that ruleset must be applied manually.
@@ -1588,7 +1651,8 @@ If your branch is not building (can be checked in Github actions tab), you need 
 - [ ] Set up self-hosted runners with appropriate labels
 
 **Repository Settings:**
-- [ ] Verify "delete protection" ruleset is active (automated in Phase 4.5)
+- [ ] Verify "delete protection" ruleset is active AND includes `release/*` (automated in Phase 4.5)
+- [ ] Verify "eRegistrations branch naming" ruleset is active (automated in Phase 4.5)
 - [ ] Verify default branch is set correctly (automated in Step 2.6)
 - [ ] Verify workflow triggers include all needed branches
 - [ ] (Optional) Add additional branch protection rules (PR reviews, status checks) per team policy
@@ -1768,12 +1832,30 @@ else
   done
 fi
 
-# 7. Branch deletion ruleset
-RULESET_OK=$(gh api "repos/$GITHUB_REPO/rulesets" --jq '.[] | select(.name=="delete protection" and .source_type=="Repository") | .enforcement' 2>/dev/null)
-if [ "$RULESET_OK" = "active" ]; then
-  check 7 "Delete protection ruleset" "PASS" "enforcement=active"
+# 7. Branch deletion ruleset — must be active AND include release/*.
+#    The list endpoint omits conditions, so resolve the id then GET the ruleset.
+DP_ID=$(gh api "repos/$GITHUB_REPO/rulesets" --jq '.[] | select(.name=="delete protection" and .source_type=="Repository") | .id' 2>/dev/null | head -1)
+if [ -n "$DP_ID" ]; then
+  DP_FULL=$(gh api "repos/$GITHUB_REPO/rulesets/$DP_ID" 2>/dev/null)
+  DP_ACTIVE=$(echo "$DP_FULL" | jq -r '.enforcement')
+  DP_REL=$(echo "$DP_FULL" | jq -r '((.conditions.ref_name.include // []) | (index("refs/heads/release/*") != null) or (index("refs/heads/release/**") != null))')
+  if [ "$DP_ACTIVE" = "active" ] && [ "$DP_REL" = "true" ]; then
+    check 7 "Delete protection ruleset (incl. release/*)" "PASS" "active; release/* protected"
+  elif [ "$DP_ACTIVE" = "active" ]; then
+    check 7 "Delete protection ruleset (incl. release/*)" "FAIL" "active but release/* MISSING — add refs/heads/release/*"
+  else
+    check 7 "Delete protection ruleset (incl. release/*)" "FAIL" "enforcement=$DP_ACTIVE"
+  fi
 else
-  check 7 "Delete protection ruleset" "FAIL" "Phase 4.5 ruleset missing or not active"
+  check 7 "Delete protection ruleset (incl. release/*)" "FAIL" "Phase 4.5 ruleset missing"
+fi
+
+# 7b. Branch naming ruleset
+NAMING_OK=$(gh api "repos/$GITHUB_REPO/rulesets" --jq '.[] | select(.name=="eRegistrations branch naming" and .source_type=="Repository") | .enforcement' 2>/dev/null)
+if [ "$NAMING_OK" = "active" ]; then
+  check 7b "Branch naming ruleset" "PASS" "enforcement=active"
+else
+  check 7b "Branch naming ruleset" "FAIL" "Phase 4.5 naming ruleset missing or not active"
 fi
 
 # 8. LFS object parity (if applicable)
