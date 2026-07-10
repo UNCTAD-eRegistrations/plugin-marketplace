@@ -1437,7 +1437,7 @@ gh api "repos/$GITHUB_REPO/rulesets/$NID" \
 |---------|--------------|--------|
 | HTTP 403 | Insufficient permissions | Verify `gh auth status` user has admin on the repo |
 | HTTP 404 | Wrong repo path | Re-check `GITHUB_REPO` value |
-| HTTP 422 (already exists) | Ruleset by that name exists | Skip — handled by Step 4.5.1 idempotency check |
+| HTTP 422 (already exists) | Ruleset by that name exists | Skip — handled by the idempotency check (Step 4.5.1 delete protection / Step 4.5.4 branch naming) |
 | HTTP 422 (validation) | Org-level ruleset preempts | Inspect with `gh api repos/$GITHUB_REPO/rulesets --jq '.[].source_type'` — org rulesets take precedence; coordinate with org admin |
 
 If unrecoverable, do NOT abort migration — note in summary that ruleset must be applied manually.
@@ -1838,7 +1838,7 @@ DP_ID=$(gh api "repos/$GITHUB_REPO/rulesets" --jq '.[] | select(.name=="delete p
 if [ -n "$DP_ID" ]; then
   DP_FULL=$(gh api "repos/$GITHUB_REPO/rulesets/$DP_ID" 2>/dev/null)
   DP_ACTIVE=$(echo "$DP_FULL" | jq -r '.enforcement')
-  DP_REL=$(echo "$DP_FULL" | jq -r '((.conditions.ref_name.include // []) | index("refs/heads/release/*") != null)')
+  DP_REL=$(echo "$DP_FULL" | jq -r '((.conditions.ref_name.include // []) | (index("refs/heads/release/*") != null) or (index("refs/heads/release/**") != null))')
   if [ "$DP_ACTIVE" = "active" ] && [ "$DP_REL" = "true" ]; then
     check 7 "Delete protection ruleset (incl. release/*)" "PASS" "active; release/* protected"
   elif [ "$DP_ACTIVE" = "active" ]; then
