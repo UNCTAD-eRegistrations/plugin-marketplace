@@ -6,14 +6,14 @@ Read-only MCP tools for admin/ops monitoring of eRegistrations Display System �
 
 Install the **bpa-mcp** plugin first — it provides authentication and instance management that DS depends on.
 
-## Tools (32)
+## Tools (58)
 
 ### System & Auth
 - `ds_health` — Instance health check (no auth required)
 - `ds_auth_login` — Authenticate via Keycloak (shared with BPA)
 - `business_entity_list` — List business entities
-- `ds_instance_list` — List configured DS instances
-- `ds_instance_add` — Register a custom DS instance
+- `instance_list` — List configured DS instances
+- `instance_add` — Register a custom DS instance
 
 ### Services
 - `service_list` — List published services
@@ -61,6 +61,9 @@ Install the **bpa-mcp** plugin first — it provides authentication and instance
 | Command | Description |
 |---------|-------------|
 | `/ds-mcp:status [instance]` | Check DS connection status |
+| `/ds-mcp:cleanup <instance>` | Wipe ALL applicant files + Camunda processes (super_mario, destructive) |
+| `/ds-mcp:repair-rejected <instance> [process_id]` | Heal rejected files wrongly shown as "Validated" in Part A (super_mario, TOBE-17948) |
+| `/ds-mcp:issue [description]` | Report a DS MCP tool issue or feature request |
 
 ## Compatible Instances
 

@@ -1,7 +1,7 @@
 ---
 description: Check DS connection status and system health
 effort: low
-allowed-tools: [mcp__DS__ds_health, mcp__DS__ds_instance_list, mcp__DS__ds_auth_login, mcp__DS__service_list]
+allowed-tools: [mcp__DS__ds_health, mcp__DS__instance_list, mcp__DS__ds_auth_login, mcp__DS__service_list]
 ---
 
 # DS Status
@@ -12,7 +12,7 @@ Arguments: `$ARGUMENTS`
 
 ## Instructions
 
-1. Call `ds_instance_list()` to show configured instances with DS URLs.
+1. Call `instance_list()` to show configured instances with DS URLs.
 
 2. If an instance was specified (e.g. `/ds-mcp:status jamaica`), check that instance. Otherwise check all instances with ds_url.
 
