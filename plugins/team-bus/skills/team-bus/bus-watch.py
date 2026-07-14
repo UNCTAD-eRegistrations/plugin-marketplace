@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-"""team-bus watcher — fetch + diff, no LLM.
+"""team-bus watcher v2 — fetch + diff, no LLM.
 
-Home dir: ~/.claude/team-bus/ (override with TEAM_BUS_HOME)
-  jira.env      JIRA_BASE=https://<org>.atlassian.net  JIRA_EMAIL=...  JIRA_TOKEN=...
-  routing.json  {"ignore_authors":[...],"jira_tickets":[...],"github_prs":[{"repo":...,"number":...,"check":...}]}
-  state.json    created/updated automatically
-
+Watches, per Jira ticket in routing.json:
+  - new comments and EDITED comments
+  - changelog: status transitions, assignee, description, attachments, parent
+  - plus GitHub PR state/build changes
+State: per-ticket watermark (last processed Jira timestamp string).
+First sight of a ticket = baseline only (no event flood).
 Prints one JSON line per NEW event; "NO_NEW_EVENTS" when quiet.
-First run only records a baseline (no event flood).
 """
 import json, os, subprocess, sys
 
 HOME = os.environ.get("TEAM_BUS_HOME", os.path.expanduser("~/.claude/team-bus"))
-ENV = os.path.join(HOME, "jira.env")
+KEYS = os.path.join(HOME, "jira.env")
 ROUTING = os.path.join(HOME, "routing.json")
 STATE = os.path.join(HOME, "state.json")
 
 
-def load_env():
+def load_keys():
     env = {}
-    if os.path.exists(ENV):
-        for line in open(ENV):
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k] = v
+    for line in open(KEYS):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            env[k] = v
     return env
 
 
@@ -35,11 +34,12 @@ def curl(url, email, token):
 
 
 def main():
-    env = load_env()
-    base, email, token = env.get("JIRA_BASE"), env.get("JIRA_EMAIL"), env.get("JIRA_TOKEN")
+    keys = load_keys()
+    base = keys.get("JIRA_BASE", "").rstrip("/")
+    email, token = keys.get("JIRA_EMAIL"), keys.get("JIRA_TOKEN")
     if not (base and email and token):
         print(json.dumps({"source": "bus", "kind": "error",
-                          "summary": f"missing JIRA_BASE/JIRA_EMAIL/JIRA_TOKEN in {ENV}"}))
+                          "summary": f"missing JIRA_BASE/JIRA_EMAIL/JIRA_TOKEN in {KEYS}"}))
         return 1
 
     routing = json.load(open(ROUTING))
@@ -48,25 +48,64 @@ def main():
     events = []
 
     for ticket in routing.get("jira_tickets", []):
-        d = curl(f"{base}/rest/api/2/issue/{ticket}/comment?orderBy=-created&maxResults=10",
+        skey = f"jira:{ticket}"
+        prev = state.get(skey)
+        # migrate v1 state (comment-id string) -> v2 watermark dict
+        if not isinstance(prev, dict):
+            prev = None
+        watermark = prev.get("watermark") if prev else None
+        newmark = watermark or ""
+
+        d = curl(f"{base}/rest/api/2/issue/{ticket}"
+                 "?fields=summary,status,assignee,updated&expand=changelog",
                  email, token)
-        comments = d.get("comments", [])
-        last = state.get(f"jira:{ticket}")
-        newest = comments[0]["id"] if comments else last
-        for c in comments:
-            if last is None:
-                break  # baseline run for this ticket
-            if int(c["id"]) <= int(last):
-                break
-            if c.get("author", {}).get("emailAddress", "") in own:
+        if not d.get("fields"):
+            continue
+        url = f"{base}/browse/{ticket}"
+
+        # changelog histories (status, assignee, description, attachments, parent…)
+        for h in d.get("changelog", {}).get("histories", []):
+            ts = h.get("created", "")
+            newmark = max(newmark, ts)
+            if watermark is None or ts <= watermark:
                 continue
-            events.append({
-                "source": "jira", "key": ticket, "kind": "comment",
-                "author": c.get("author", {}).get("displayName", "?"),
-                "summary": c.get("body", "").replace("\n", " ")[:300],
-                "url": f"{base}/browse/{ticket}",
-            })
-        state[f"jira:{ticket}"] = newest
+            author = h.get("author", {})
+            if author.get("emailAddress", "") in own:
+                continue
+            for item in h.get("items", []):
+                field = item.get("field", "")
+                frm = (item.get("fromString") or "—")[:60]
+                to = (item.get("toString") or "—")[:120]
+                kind = "status" if field == "status" else "change"
+                events.append({
+                    "source": "jira", "key": ticket, "kind": kind,
+                    "author": author.get("displayName", "?"),
+                    "summary": f"{field}: {frm} → {to}",
+                    "url": url,
+                })
+
+        # comments: new + edited
+        c = curl(f"{base}/rest/api/2/issue/{ticket}/comment?orderBy=-created&maxResults=15",
+                 email, token)
+        for com in c.get("comments", []):
+            created, updated = com.get("created", ""), com.get("updated", "")
+            newmark = max(newmark, created, updated)
+            if watermark is None:
+                continue
+            author = com.get("author", {})
+            if author.get("emailAddress", "") in own:
+                continue
+            body = com.get("body", "").replace("\n", " ")[:300]
+            if created > watermark:
+                events.append({"source": "jira", "key": ticket, "kind": "comment",
+                               "author": author.get("displayName", "?"),
+                               "summary": body, "url": url})
+            elif updated > watermark:
+                events.append({"source": "jira", "key": ticket, "kind": "comment-edit",
+                               "author": author.get("displayName", "?"),
+                               "summary": "(edited) " + body, "url": url})
+
+        state[skey] = {"watermark": newmark or d["fields"].get("updated", "")}
 
     for pr in routing.get("github_prs", []):
         out = subprocess.run(
@@ -75,19 +114,17 @@ def main():
             capture_output=True, text=True, timeout=30).stdout
         if out:
             d = json.loads(out)
-            build = next((c.get("conclusion") or c.get("status")
-                          for c in d.get("statusCheckRollup", [])
-                          if c.get("name") == pr.get("check", "")), None)
+            build = next((x.get("conclusion") or x.get("status")
+                          for x in d.get("statusCheckRollup", [])
+                          if x.get("name") == pr.get("check", "build-and-push-docker")), None)
             sig = f"{d.get('state')}|{build}"
-            skey = f"gh:{pr['repo']}#{pr['number']}"
-            if state.get(skey) is not None and state[skey] != sig:
-                events.append({
-                    "source": "github", "key": f"{pr['repo']}#{pr['number']}",
-                    "kind": "status", "author": "-",
-                    "summary": f"PR state {d.get('state')}, build {build}",
-                    "url": f"https://github.com/{pr['repo']}/pull/{pr['number']}",
-                })
-            state[skey] = sig
+            gkey = f"gh:{pr['repo']}#{pr['number']}"
+            if state.get(gkey) is not None and state[gkey] != sig:
+                events.append({"source": "github", "key": f"{pr['repo']}#{pr['number']}",
+                               "kind": "status", "author": "-",
+                               "summary": f"PR state {d.get('state')}, build {build}",
+                               "url": f"https://github.com/{pr['repo']}/pull/{pr['number']}"})
+            state[gkey] = sig
 
     os.makedirs(HOME, exist_ok=True)
     json.dump(state, open(STATE, "w"), indent=1)

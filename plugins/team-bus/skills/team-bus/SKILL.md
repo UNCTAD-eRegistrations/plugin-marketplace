@@ -1,8 +1,8 @@
 ---
 name: team-bus
 metadata:
-  version: 1.0.0
-description: Set up Jira-centered collaboration between team members and their Claude sessions — a 15-minute watcher that surfaces new ticket comments and PR status changes in your session, plus the shared conventions (findings as ticket comments, one epic as shared memory). TRIGGER when the user says "team bus", "set up the bus", "watch these tickets", "follow the epic", or wants their Claude session to react to Jira/PR activity without manual polling.
+  version: 1.1.0
+description: Set up Jira-centered collaboration between team members and their Claude sessions — a 15-minute watcher that surfaces new/edited ticket comments, status transitions, field changes (assignee, description, attachments) and PR status changes in your session, plus the shared conventions (findings as ticket comments, one epic as shared memory). TRIGGER when the user says "team bus", "set up the bus", "watch these tickets", "follow the epic", or wants their Claude session to react to Jira/PR activity without manual polling.
 ---
 
 # team-bus — one watcher per person, Jira as the shared memory
