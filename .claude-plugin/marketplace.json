@@ -1,154 +1,154 @@
 {
-  "$schema": "https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/.claude-plugin/marketplace.schema.json",
-  "name": "unctad-digital-government",
-  "description": "Official plugin marketplace for UNCTAD Digital Government Tools — eRegistrations platform, BPA service development, government procedure reform, and digital public services",
-  "owner": {
+ "$schema": "https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/.claude-plugin/marketplace.schema.json",
+ "name": "unctad-digital-government",
+ "description": "Official plugin marketplace for UNCTAD Digital Government Tools — eRegistrations platform, BPA service development, government procedure reform, and digital public services",
+ "owner": {
+  "name": "UNCTAD Trade Facilitation Section"
+ },
+ "plugins": [
+  {
+   "name": "bpa-mcp",
+   "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan, Guatemala). Install this first — all other plugins depend on it.",
+   "author": {
     "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/bpa-mcp",
+   "category": "integration"
   },
-  "plugins": [
-    {
-      "name": "bpa-mcp",
-      "description": "Install the BPA MCP server and register eRegistrations instance profiles (Nigeria, Jamaica, Lesotho, El Salvador, Kenya, Cuba, Colombia, Gambia, Bhutan, Guatemala). Install this first — all other plugins depend on it.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/bpa-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "ds-mcp",
-      "description": "DS (Display System) MCP server — read-only admin/ops monitoring for application files, workflows, processes, documents, payments, and user search. Requires bpa-mcp plugin for authentication.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/ds-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "gdb-mcp",
-      "description": "GDB (Generic Database Builder) MCP server — manage databases, schemas, and records. Create registers, define fields, populate data, publish, duplicate. Requires bpa-mcp plugin for authentication.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/gdb-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "graylog-mcp",
-      "description": "Graylog MCP server — search and monitor logs across eRegistrations instances with Elasticsearch syntax. Uses Graylog-native auth (NOT Keycloak). Requires bpa-mcp plugin for instance management.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/graylog-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "translations-mcp",
-      "description": "Translations MCP server — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids) plus one-command recovery from missing Global Translation bootstrap (translation_global_status / translation_global_reload). Requires bpa-mcp plugin for authentication.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/translations-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "service-documentation",
-      "description": "Generate citizen-facing HTML service manuals (single and batch) and export structured Excel documentation covering fields, determinants, roles, bots, costs, and document requirements.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/service-documentation",
-      "category": "documentation"
-    },
-    {
-      "name": "keycloak-mcp",
-      "description": "Keycloak Admin MCP server for eRegistrations IAM management — manage users, roles, realms, themes, tokens, and diagnostics across all eRegistrations Keycloak instances. Requires bpa-mcp plugin for authentication.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/keycloak-mcp",
-      "category": "integration"
-    },
-    {
-      "name": "devops",
-      "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/devops",
-      "category": "devops"
-    },
-    {
-      "name": "deploy",
-      "description": "Self-service deployment requests on the singlewindow Coolify server. Invoke from the repo you want to deploy; the skill opens a well-formed issue on unctad-ai/deploy and GitHub Actions handles onboarding. Commands: /request-deploy.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/deploy",
-      "category": "devops"
-    },
-    {
-      "name": "handoff",
-      "description": "Session handoff — capture state so any AI agent can continue your work. Auto-detects git state, plans, and environment context. Commands: /handoff:create, /handoff:quick, /handoff:resume.",
-      "author": {
-        "name": "Software Factory"
-      },
-      "source": "./plugins/handoff",
-      "category": "productivity"
-    },
-    {
-      "name": "share-service",
-      "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs. Commands: /share <file>, /share list.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/share-service",
-      "category": "productivity"
-    },
-    {
-      "name": "terminal-stats",
-      "description": "Rich terminal statusline with gradient context bar, dual 5h/7d thermal usage gauges, git info, cache hit rate, idle timer, and cost tracking. 3-panel display (SYS/CTX/OPS). macOS and Linux.",
-      "author": {
-        "name": "Software Factory"
-      },
-      "source": "./plugins/terminal-stats",
-      "category": "customization"
-    },
-    {
-      "name": "service-design",
-      "description": "Skills for designing and extending eRegistrations BPA services across the BPA-backend + MCP cross-repo boundary. Bundles bpa-add-history-endpoint (Hibernate Envers revision history for any @Audited resource — Bot, Cost, Notification, Classification, etc.; mirrors the message_history pattern shipped in MCP v1.33.0). Each skill encodes a working diff with rationalization counters captured from baseline subagent testing — including the mvn verify / Spotless trap that has cost real CI time on this codebase.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/service-design",
-      "category": "documentation"
-    },
-    {
-      "name": "leaflets",
-      "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide (user-chosen name, man/woman voice, and language). Includes two grounding skills (service-concept-brief for legal-form types, service-journey-brief for single services) that derive a traced content map by cross-reading the law and the live BPA service.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/leaflets",
-      "category": "documentation"
-    },
-    {
-      "name": "screens-first-design",
-      "description": "Define a product's UX screen by screen: an invariant page schema decided first, then per screen one clickable mobile mockup + one spec fiche, parallel agents copying a bundled reference grammar (OKLch tokens, phone frame, bottom sheets, slide-to-confirm — plus a desktop grammar: app frame, sidebar navigation, master-detail, right panels; mobile first, desktop derives), preview verification before showing, a regenerable docs compendium + guided tour + team presentations, a same-day D-numbered decisions journal, and a pre-verbal design check on every screen. Method proven on a full product design (8 screens + tour + presentations in one day).",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/screens-first-design",
-      "category": "documentation"
-    },
-    {
-      "name": "ds-frontend",
-      "description": "ds-frontend delivery + formio fork integration. Ship a change in a UNCTAD eRegistrations formio fork (formiojs, @formio/angular, formio-signature, formio-dropdown, formio-leaflet-map, formio-nested-html-element) all the way to a deployed instance: source PR → (formiojs only) transpile-and-mirror into the formiojs-4.x dist repo → bump the git-SHA pin in ds-frontend/package.json on the release branch → CI auto-release → deploy → live-verify. A merged fork PR is NOT deployed — this is the missing post-merge delivery chain.",
-      "author": {
-        "name": "UNCTAD Trade Facilitation Section"
-      },
-      "source": "./plugins/ds-frontend",
-      "category": "devops"
-    }
-  ]
+  {
+   "name": "ds-mcp",
+   "description": "DS (Display System) MCP server — read-only admin/ops monitoring for application files, workflows, processes, documents, payments, and user search. Requires bpa-mcp plugin for authentication.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/ds-mcp",
+   "category": "integration"
+  },
+  {
+   "name": "gdb-mcp",
+   "description": "GDB (Generic Database Builder) MCP server — manage databases, schemas, and records. Create registers, define fields, populate data, publish, duplicate. Requires bpa-mcp plugin for authentication.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/gdb-mcp",
+   "category": "integration"
+  },
+  {
+   "name": "graylog-mcp",
+   "description": "Graylog MCP server — search and monitor logs across eRegistrations instances with Elasticsearch syntax. Uses Graylog-native auth (NOT Keycloak). Requires bpa-mcp plugin for instance management.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/graylog-mcp",
+   "category": "integration"
+  },
+  {
+   "name": "translations-mcp",
+   "description": "Translations MCP server — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids) plus one-command recovery from missing Global Translation bootstrap (translation_global_status / translation_global_reload). Requires bpa-mcp plugin for authentication.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/translations-mcp",
+   "category": "integration"
+  },
+  {
+   "name": "service-documentation",
+   "description": "Generate citizen-facing HTML service manuals (single and batch) and export structured Excel documentation covering fields, determinants, roles, bots, costs, and document requirements.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/service-documentation",
+   "category": "documentation"
+  },
+  {
+   "name": "keycloak-mcp",
+   "description": "Keycloak Admin MCP server for eRegistrations IAM management — manage users, roles, realms, themes, tokens, and diagnostics across all eRegistrations Keycloak instances. Requires bpa-mcp plugin for authentication.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/keycloak-mcp",
+   "category": "integration"
+  },
+  {
+   "name": "devops",
+   "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/devops",
+   "category": "devops"
+  },
+  {
+   "name": "deploy",
+   "description": "Self-service deployment requests on the singlewindow Coolify server. Invoke from the repo you want to deploy; the skill opens a well-formed issue on unctad-ai/deploy and GitHub Actions handles onboarding. Commands: /request-deploy.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/deploy",
+   "category": "devops"
+  },
+  {
+   "name": "handoff",
+   "description": "Session handoff — capture state so any AI agent can continue your work. Auto-detects git state, plans, and environment context. Commands: /handoff:create, /handoff:quick, /handoff:resume.",
+   "author": {
+    "name": "Software Factory"
+   },
+   "source": "./plugins/handoff",
+   "category": "productivity"
+  },
+  {
+   "name": "share-service",
+   "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs. Commands: /share <file>, /share list.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/share-service",
+   "category": "productivity"
+  },
+  {
+   "name": "terminal-stats",
+   "description": "Rich terminal statusline with gradient context bar, dual 5h/7d thermal usage gauges, git info, cache hit rate, idle timer, and cost tracking. 3-panel display (SYS/CTX/OPS). macOS and Linux.",
+   "author": {
+    "name": "Software Factory"
+   },
+   "source": "./plugins/terminal-stats",
+   "category": "customization"
+  },
+  {
+   "name": "service-design",
+   "description": "Skills for designing and extending eRegistrations BPA services across the BPA-backend + MCP cross-repo boundary. Bundles bpa-add-history-endpoint (Hibernate Envers revision history for any @Audited resource — Bot, Cost, Notification, Classification, etc.; mirrors the message_history pattern shipped in MCP v1.33.0). Each skill encodes a working diff with rationalization counters captured from baseline subagent testing — including the mvn verify / Spotless trap that has cost real CI time on this codebase.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/service-design",
+   "category": "documentation"
+  },
+  {
+   "name": "leaflets",
+   "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide (user-chosen name, man/woman voice, and language). Includes two grounding skills (service-concept-brief for legal-form types, service-journey-brief for single services) that derive a traced content map by cross-reading the law and the live BPA service.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/leaflets",
+   "category": "documentation"
+  },
+  {
+   "name": "screens-first-design",
+   "description": "Define a product's UX screen by screen: an invariant page schema decided first, then per screen one clickable mobile mockup + one spec fiche, parallel agents copying a bundled reference grammar (OKLch tokens, phone frame, bottom sheets, slide-to-confirm — plus a desktop grammar: app frame, sidebar navigation, master-detail, right panels; mobile first, desktop derives), preview verification before showing, a regenerable docs compendium + guided tour + team presentations, a same-day D-numbered decisions journal, and a pre-verbal design check on every screen. Method proven on a full product design (8 screens + tour + presentations in one day).",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/screens-first-design",
+   "category": "documentation"
+  },
+  {
+   "name": "team-bus",
+   "description": "Jira-centered collaboration for humans + Claude sessions: a 15-min watcher surfacing new ticket comments and PR status changes in your session, plus the team conventions (findings as ticket comments, epic as shared memory).",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/team-bus",
+   "category": "workflow"
+  }
+ ]
 }
