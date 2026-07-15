@@ -1,7 +1,7 @@
 {
   "name": "team-bus",
   "description": "Jira-centered collaboration for humans + Claude sessions: a 15-min watcher that surfaces new ticket comments and PR status changes in your session, plus the team conventions (findings as ticket comments, epic as shared memory).",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }

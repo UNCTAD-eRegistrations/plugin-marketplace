@@ -56,15 +56,20 @@ def main():
         watermark = prev.get("watermark") if prev else None
         newmark = watermark or ""
 
-        d = curl(f"{base}/rest/api/2/issue/{ticket}"
-                 "?fields=summary,status,assignee,updated&expand=changelog",
+        d = curl(f"{base}/rest/api/2/issue/{ticket}?fields=summary,status,assignee,updated",
                  email, token)
         if not d.get("fields"):
             continue
         url = f"{base}/browse/{ticket}"
 
-        # changelog histories (status, assignee, description, attachments, parent…)
-        for h in d.get("changelog", {}).get("histories", []):
+        # changelog: fetch the LAST page explicitly (expand=changelog returns only
+        # the oldest 50 histories — busy tickets silently lose the newest ones)
+        cl = curl(f"{base}/rest/api/2/issue/{ticket}/changelog?maxResults=1", email, token)
+        total = cl.get("total", 0)
+        start = max(0, total - 30)
+        cl = curl(f"{base}/rest/api/2/issue/{ticket}/changelog?startAt={start}&maxResults=30",
+                  email, token)
+        for h in cl.get("values", []):
             ts = h.get("created", "")
             newmark = max(newmark, ts)
             if watermark is None or ts <= watermark:

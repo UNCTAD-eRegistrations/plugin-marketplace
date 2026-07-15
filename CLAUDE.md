@@ -15,18 +15,6 @@ Never use the old `mcp__BPA-jamaica__` or `mcp__BPA-lesotho2__` syntax — those
 
 ## Working with Plugins
 
-### Plugin structure
-
-```
-plugin-name/
-├── .claude-plugin/
-│   └── plugin.json       # name, version, description, category, dependencies
-├── commands/             # slash commands (.md files)
-├── agents/               # agent definitions (.md files)
-├── skills/               # skill definitions (SKILL.md files)
-└── README.md
-```
-
 ### Command files (`commands/*.md`)
 
 Frontmatter fields:
@@ -71,19 +59,7 @@ Do NOT use `TaskCreate`/`TaskUpdate` — these are not Claude Code SDK tools. Fo
 
 ## Instance Profiles
 
-| Profile | Country |
-|---------|---------|
-| `nigeria` | Nigeria |
-| `jamaica` | Jamaica |
-| `lesotho2` | Lesotho |
-| `kenya-test` | Kenya (Test) |
-| `investkenya` | Kenya (InvestKenya) |
-| `cuba` | Cuba |
-| `cuba-test` | Cuba (Test) |
-| `elsalvador-dev` | El Salvador (Dev) |
-| `colombia-test` | Colombia (Test) |
-| `gambia` | Gambia |
-| `bhutan-staging` | Bhutan (Staging) |
+Live source: `mcp__BPA__instance_list()` — always current, never drifts.
 
 ## Versioning
 
@@ -102,5 +78,3 @@ Do NOT use `TaskCreate`/`TaskUpdate` — these are not Claude Code SDK tools. Fo
 | Determinant | Conditional logic that shows/hides form components |
 | Classification | Lookup table / dropdown catalog |
 | Institution | Government agency assigned to a role |
-
-See `~/nova/eregistrations/glossary.md` for the full glossary.
