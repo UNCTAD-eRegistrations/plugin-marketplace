@@ -6,8 +6,9 @@
 # The zip layout matches what Kimi Code expects: the plugin's files at the zip
 # root, with .kimi-plugin/plugin.json as the manifest.
 #
-# Runs on our self-hosted runners; only python3 + curl are required (no gh CLI,
-# no zip binary).
+# Runs on GitHub-hosted runners: the org's self-hosted runner group disallows
+# public repositories (allows_public_repositories: false), and GitHub-hosted
+# minutes are free for public repos. Only python3 + curl are required.
 name: Publish Kimi plugin zips
 
 on:
@@ -25,7 +26,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: [self-hosted, Linux, X64, normal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
