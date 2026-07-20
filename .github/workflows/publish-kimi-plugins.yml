@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, X64, normal]
     steps:
       - uses: actions/checkout@v7
 
