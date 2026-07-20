@@ -89,7 +89,7 @@ DISPLAY_NAMES = {
 # Kimi Code equivalents (same idea as the superpowers Kimi port).
 SKILL_INSTRUCTIONS = """Kimi Code tool mapping for UNCTAD eRegistrations plugins:
 
-- MCP tool names are identical in Kimi Code: call `mcp__BPA__*`, `mcp__DS__*`, `mcp__GDB__*`, `mcp__Keycloak__*`, `mcp__Graylog__*`, and `mcp__Translations__*` exactly as written in the skill.
+- MCP tools: skills write them as `mcp__BPA__*`, `mcp__DS__*`, `mcp__GDB__*`, `mcp__Keycloak__*`, `mcp__Graylog__*`, or `mcp__Translations__*`. Kimi Code namespaces plugin-declared MCP servers, so the exposed names are `mcp__plugin-<plugin-id>_<Server>__<tool>` — e.g. `mcp__BPA__instance_list` becomes `mcp__plugin-bpa-mcp_BPA__instance_list`. The server segment (BPA, DS, GDB, Keycloak, Graylog, Translations), the tool names, and all parameters (including `instance=`) are unchanged — call the exposed equivalent.
 - Slash commands keep their `<plugin>:<command>` names (e.g. `/bpa-mcp:install`, `/bpa-mcp:login`).
 - When a skill or command says to "restart Claude" (e.g. after installing an MCP server), run `/reload` or start a new session instead.
 - When a skill uses the Task tool (`subagent_type: "general-purpose"`) to delegate data fetching or other work, use Kimi Code's `Agent` tool: `subagent_type: "coder"` for fetching/implementation work, `subagent_type: "explore"` for read-only exploration, `subagent_type: "plan"` for read-only planning. Do not pass `general-purpose` as `subagent_type`.

@@ -69,18 +69,23 @@ root. Use the marketplace catalog instead.
 
 **Bulk install (team rollout).** `/plugins install` accepts only one source at a time. To
 provision several plugins in one shot — e.g. on every team member's machine — use
-`scripts/kimi-install.py`, which downloads the zips and registers them exactly like the
-installer does:
+`scripts/kimi-install.py`, which downloads the zips, registers them exactly like the
+installer does, and then runs `/bpa-mcp:install` headlessly to register all eRegistrations
+instance profiles:
 
 ```bash
-# everything in the catalog
 curl -sL https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/scripts/kimi-install.py | python3 -
 
 # or a specific list
 python3 scripts/kimi-install.py bpa-mcp handoff share-service
+
+# skip the headless /bpa-mcp:install step
+python3 scripts/kimi-install.py --no-bpa-install
 ```
 
-Then `/plugins reload` in Kimi Code. Plugins installed this way remain manageable from `/plugins`.
+Prerequisites: Kimi Code on PATH (`kimi`) and `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+Afterwards, the only remaining step inside Kimi Code is `/bpa-mcp:login <instance>` to
+authenticate. Plugins installed this way remain manageable from `/plugins`.
 
 Working from a clone? Use the local variant (relative sources) or install a plugin
 directory directly:

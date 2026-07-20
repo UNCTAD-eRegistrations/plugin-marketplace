@@ -15,6 +15,12 @@ Afterwards, run `/plugins reload` in Kimi Code (or restart it) to activate.
 Usage:
   python3 scripts/kimi-install.py                  # install every catalog plugin
   python3 scripts/kimi-install.py bpa-mcp handoff  # install specific plugins
+  python3 scripts/kimi-install.py --no-bpa-install # skip the BPA instance setup
+
+After provisioning, the script runs `/bpa-mcp:install` headlessly
+(`kimi -p "/bpa-mcp:install" --yolo`) to register the eRegistrations instance
+profiles, unless --no-bpa-install is given or the `kimi` binary is not on PATH.
+Requires `uv`/`uvx` on PATH (the MCP servers run via uvx).
 
 Works standalone — the catalog is fetched from GitHub, so users can also run:
   curl -sL https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/scripts/kimi-install.py | python3 -
@@ -27,6 +33,7 @@ script. Plugins installed this way can still be managed from `/plugins`.
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.request
@@ -52,7 +59,8 @@ def now_iso() -> str:
 
 
 def main() -> int:
-    wanted = sys.argv[1:]
+    wanted = [a for a in sys.argv[1:] if not a.startswith("--")]
+    no_bpa_install = "--no-bpa-install" in sys.argv[1:]
     catalog = fetch_json(CATALOG_URL)
     entries = {p["id"]: p for p in catalog["plugins"]}
 
@@ -109,7 +117,31 @@ def main() -> int:
     tmp_out.replace(installed_path)
 
     print(f"\nInstalled {len(to_install)} plugin(s) into {managed}")
-    print("Run `/plugins reload` in Kimi Code (or restart it) to activate.")
+
+    installed_ids = {p.get("id") for p in installed["plugins"]}
+    if no_bpa_install or "bpa-mcp" not in installed_ids:
+        print("Run `/plugins reload` in Kimi Code (or restart it) to activate.")
+        return 0
+
+    # Register the eRegistrations instance profiles by running the plugin's own
+    # install command in a headless Kimi session (a new session picks up the
+    # freshly provisioned plugins and starts the BPA MCP server by itself).
+    kimi = shutil.which("kimi")
+    if not kimi:
+        print("`kimi` not on PATH — run `/bpa-mcp:install` inside Kimi Code to "
+              "register instance profiles.")
+        return 0
+    if not (shutil.which("uvx") or shutil.which("uv")):
+        print("\033[33m!\033[0m `uv` is required by the BPA MCP server but was not found.")
+        print("  Install it first: curl -LsSf https://astral.sh/uv/install.sh | sh")
+        return 1
+    print("\nRegistering BPA instance profiles (headless `kimi -p /bpa-mcp:install`)...")
+    rc = subprocess.run([kimi, "-p", "/bpa-mcp:install"]).returncode
+    if rc != 0:
+        print("\033[33m!\033[0m Headless install failed — run `/bpa-mcp:install` inside "
+              "Kimi Code instead.")
+        return rc
+    print("\nDone. Open Kimi Code and run `/bpa-mcp:login <instance>` to authenticate.")
     return 0
 
 
