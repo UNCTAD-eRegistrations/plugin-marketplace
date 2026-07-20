@@ -71,11 +71,16 @@ Live source: `mcp__BPA__instance_list()` — always current, never drifts.
 
 The repository also ships Kimi Code manifests so the same plugins install in Kimi Code:
 
-- `.kimi-plugin/plugin.json` in each published plugin and `kimi-marketplace.json` at the
-  root are **generated** — never edit them by hand. Re-run
+- `.kimi-plugin/plugin.json` in each published plugin, plus `kimi-marketplace.json`
+  (distributable catalog — sources are per-plugin zip URLs on the rolling `kimi-latest`
+  release) and `kimi-marketplace.local.json` (relative sources, for clones) at the root
+  are **generated** — never edit them by hand. Re-run
   `python3 scripts/generate-kimi-manifests.py` after changing any
   `.claude-plugin/plugin.json`, `.mcp.json`, or adding/removing `skills/`/`commands/`.
   `--check` verifies they are up to date.
+- `.github/workflows/publish-kimi-plugins.yml` rebuilds the `kimi-latest` release zips on
+  every push to `main` that touches plugins, so the remote catalog always installs the
+  latest published state.
 - The generator copies metadata from `.claude-plugin/plugin.json`, converts `.mcp.json`
   to Kimi's `mcpServers` (dropping the Claude-only `"type": "stdio"` and `${VAR}` env
   expansions), and injects a `skillInstructions` block that maps Claude idioms

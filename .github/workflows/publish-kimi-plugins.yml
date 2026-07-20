@@ -1,0 +1,50 @@
+# Publishes per-plugin zip archives to the rolling `kimi-latest` GitHub release.
+# kimi-marketplace.json points at these zips, so Kimi Code users can install the
+# marketplace from a plain URL (no clone needed):
+#   /plugins marketplace https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/kimi-marketplace.json
+#
+# The zip layout matches what Kimi Code expects: the plugin's files at the zip
+# root, with .kimi-plugin/plugin.json as the manifest.
+name: Publish Kimi plugin zips
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/**"
+      - "kimi-marketplace.json"
+      - "scripts/generate-kimi-manifests.py"
+      - ".github/workflows/publish-kimi-plugins.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip each Kimi-ported plugin
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # The plugin set = entries in kimi-marketplace.json (single source of truth).
+          for name in $(python3 -c "import json; print(' '.join(p['id'] for p in json.load(open('kimi-marketplace.json'))['plugins']))"); do
+            test -f "plugins/$name/.kimi-plugin/plugin.json"
+            (cd "plugins/$name" && zip -qr "../../dist/$name.zip" .)
+            echo "zipped $name"
+          done
+          ls -la dist/
+
+      - name: Upload zips to the rolling kimi-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create kimi-latest \
+            --title "Kimi Code plugins (rolling)" \
+            --notes "Auto-published per-plugin zips for the Kimi Code marketplace catalog (kimi-marketplace.json). Rebuilt on every push to main." \
+            --latest=false || true
+          gh release upload kimi-latest dist/*.zip --clobber
