@@ -1,0 +1,89 @@
+# Publishes per-plugin zip archives to the rolling `kimi-latest` GitHub release.
+# kimi-marketplace.json points at these zips, so Kimi Code users can install the
+# marketplace from a plain URL (no clone needed):
+#   /plugins marketplace https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/kimi-marketplace.json
+#
+# The zip layout matches what Kimi Code expects: the plugin's files at the zip
+# root, with .kimi-plugin/plugin.json as the manifest.
+#
+# Runs on our self-hosted runners; only python3 + curl are required (no gh CLI,
+# no zip binary).
+name: Publish Kimi plugin zips
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/**"
+      - "kimi-marketplace.json"
+      - "scripts/generate-kimi-manifests.py"
+      - ".github/workflows/publish-kimi-plugins.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: [self-hosted, Linux, X64, normal]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Zip each Kimi-ported plugin
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import json, os, zipfile
+
+          os.makedirs("dist", exist_ok=True)
+          # The plugin set = entries in kimi-marketplace.json (single source of truth).
+          plugins = [p["id"] for p in json.load(open("kimi-marketplace.json"))["plugins"]]
+          for name in plugins:
+              root = os.path.join("plugins", name)
+              manifest = os.path.join(root, ".kimi-plugin", "plugin.json")
+              assert os.path.isfile(manifest), f"missing {manifest}"
+              out = os.path.join("dist", f"{name}.zip")
+              with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+                  for dirpath, dirnames, filenames in os.walk(root):
+                      dirnames.sort()
+                      for f in sorted(filenames):
+                          full = os.path.join(dirpath, f)
+                          z.write(full, os.path.relpath(full, root))
+              print(f"zipped {name} -> {out}")
+          EOF
+          ls -la dist/
+
+      - name: Upload zips to the rolling kimi-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          API="https://api.github.com/repos/$REPO"
+          AUTH="Authorization: Bearer $GH_TOKEN"
+
+          # Get or create the rolling release.
+          release=$(curl -sf -H "$AUTH" "$API/releases/tags/kimi-latest" || true)
+          if [ -z "$release" ]; then
+            release=$(curl -sf -X POST -H "$AUTH" "$API/releases" -d '{
+              "tag_name": "kimi-latest",
+              "name": "Kimi Code plugins (rolling)",
+              "body": "Auto-published per-plugin zips for the Kimi Code marketplace catalog (kimi-marketplace.json). Rebuilt on every push to main.",
+              "make_latest": "false"
+            }')
+          fi
+          release_id=$(printf '%s' "$release" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+          upload_url="https://uploads.github.com/repos/$REPO/releases/$release_id/assets"
+
+          for zip in dist/*.zip; do
+            name=$(basename "$zip")
+            # Clobber: delete an existing asset with the same name, then upload.
+            asset_id=$(curl -sf -H "$AUTH" "$API/releases/$release_id/assets?per_page=100" \
+              | python3 -c "import json,sys; print(next((a['id'] for a in json.load(sys.stdin) if a['name'] == '$name'), ''))")
+            if [ -n "$asset_id" ]; then
+              curl -sf -X DELETE -H "$AUTH" "$API/releases/assets/$asset_id" > /dev/null
+            fi
+            curl -sf -X POST -H "$AUTH" -H "Content-Type: application/zip" \
+              --data-binary "@$zip" "$upload_url?name=$name" > /dev/null
+            echo "uploaded $name"
+          done

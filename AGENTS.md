@@ -15,10 +15,14 @@ eRegistrations services).
 
 - Claude marketplace manifest: `.claude-plugin/marketplace.json` (name: `unctad-digital-government`,
   owner: UNCTAD Trade Facilitation Section).
-- Kimi marketplace catalog: `kimi-marketplace.json` (generated — see below).
+- Kimi marketplace catalogs: `kimi-marketplace.json` (distributable; per-plugin zip URLs
+  on the rolling `kimi-latest` release, rebuilt by the `publish-kimi-plugins` workflow on
+  every push to `main`) and `kimi-marketplace.local.json` (relative sources, for clones).
+  Both are generated — see `scripts/generate-kimi-manifests.py`.
 - Upstream GitHub repo: `UNCTAD-eRegistrations/plugin-marketplace`.
 - Claude consumers install plugins via `/plugin install <name>@unctad-digital-government`;
-  Kimi consumers clone the repo and use `/plugins marketplace ./kimi-marketplace.json`.
+  Kimi consumers use `/plugins marketplace <raw-URL of kimi-marketplace.json>` — installing
+  the repo URL directly does not work (monorepo; Kimi expects one manifest per repo/zip).
 - All BPA-interacting plugins depend on the **`bpa-mcp` plugin** and an authenticated
   BPA connection (MCP server installed via `uv tool install mcp-eregistrations`).
 
@@ -26,7 +30,8 @@ eRegistrations services).
 
 ```
 .claude-plugin/marketplace.json   # Claude marketplace manifest — the registry of published plugins
-kimi-marketplace.json             # Kimi Code marketplace catalog (GENERATED — do not edit)
+kimi-marketplace.json             # Kimi Code catalog, zip-URL sources (GENERATED — do not edit)
+kimi-marketplace.local.json       # Kimi Code catalog, local sources for clones (GENERATED)
 plugins/                          # Published plugins (one directory per plugin)
 plugins/_drafts/                  # AI-generated plugins NOT yet verified against a live BPA
                                   # instance; excluded from marketplace discovery
@@ -63,8 +68,9 @@ Rules enforced by `scripts/validate-plugins.py`:
   `description`; `name` must match the directory, and declared `skills`/`commands` paths
   must exist inside the plugin. These files are generated — fix the source
   (`.claude-plugin/plugin.json`, `.mcp.json`) and re-run the generator instead of editing.
-- `.claude-plugin/marketplace.json` and `kimi-marketplace.json` must be valid JSON; every
-  listed `source` must exist under `plugins/`. `plugins/_drafts/` entries are never listed.
+- `.claude-plugin/marketplace.json` and `kimi-marketplace*.json` must be valid JSON; every
+  listed local `source` must exist under `plugins/` (remote zip URLs are not checked).
+  `plugins/_drafts/` entries are never listed.
   Note: `plugins/ds-frontend` currently exists but is intentionally not listed, and
   `terminal-stats` is Claude Code–only (both are excluded from the Kimi catalog via
   `KIMI_EXCLUDED` in the generator).
@@ -99,8 +105,10 @@ invalid frontmatter.
 Other scripts in `scripts/`:
 
 - `generate-kimi-manifests.py` — generates `.kimi-plugin/plugin.json` per published plugin
-  and the root `kimi-marketplace.json` from the Claude metadata (see "Kimi Code dual
-  format" in CLAUDE.md). Run it after any plugin metadata/MCP/skills/commands change.
+  and the root `kimi-marketplace.json` (zip-URL sources) + `kimi-marketplace.local.json`
+  (relative sources) from the Claude metadata (see "Kimi Code dual format" in CLAUDE.md).
+  Run it after any plugin metadata/MCP/skills/commands change. The zips the remote catalog
+  points at are rebuilt by `.github/workflows/publish-kimi-plugins.yml` on push to `main`.
 - `sync-skills.sh` — copies skills from a top-level `skills/` directory into the
   `service-documentation` plugin. Run it after updating any of `service-manual`,
   `service-manual-all`, `eregistrations-docs` there.
@@ -195,6 +203,10 @@ There is no unit test suite — plugin correctness is verified in two ways:
   the GitHub repo as a marketplace (`/plugin marketplace add
   UNCTAD-eRegistrations/plugin-marketplace`) and install plugins by name. Publishing = pushing
   to the default branch with an updated `marketplace.json` and bumped `plugin.json` versions.
+- Kimi Code distribution: users load `kimi-marketplace.json` from its raw GitHub URL. Its
+  sources are per-plugin zips on the rolling `kimi-latest` release, rebuilt automatically by
+  the `publish-kimi-plugins` workflow on every push to `main` that touches `plugins/` — so
+  publishing is again just pushing to the default branch (manifests regenerated first).
 - The BPA MCP server binary itself is external (`uv tool install mcp-eregistrations`); this
   repo only ships the plugin wrapper, instance registration commands (`/bpa-install`,
   `/bpa-login`), and skills.

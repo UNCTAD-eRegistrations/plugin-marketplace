@@ -7,7 +7,7 @@
       "version": "1.58.7",
       "description": "Install the BPA MCP server and register eRegistrations instance profiles.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/bpa-mcp.zip"
+      "source": "./plugins/bpa-mcp"
     },
     {
       "id": "ds-mcp",
@@ -15,7 +15,7 @@
       "version": "1.58.7",
       "description": "DS (Display System) MCP server for admin/ops monitoring of eRegistrations application files, workflows, payments, and documents.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/ds-mcp.zip"
+      "source": "./plugins/ds-mcp"
     },
     {
       "id": "gdb-mcp",
@@ -23,7 +23,7 @@
       "version": "1.58.7",
       "description": "GDB (Generic Database Builder) MCP server for managing databases, schemas, and records in eRegistrations.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/gdb-mcp.zip"
+      "source": "./plugins/gdb-mcp"
     },
     {
       "id": "graylog-mcp",
@@ -31,7 +31,7 @@
       "version": "1.58.7",
       "description": "Graylog MCP server for searching and monitoring logs across eRegistrations instances.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/graylog-mcp.zip"
+      "source": "./plugins/graylog-mcp"
     },
     {
       "id": "translations-mcp",
@@ -39,7 +39,7 @@
       "version": "1.58.7",
       "description": "Translations MCP server for eRegistrations — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids), plus one-command recovery from missing translation bootstrap via translation_global_status / translation_global_reload.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/translations-mcp.zip"
+      "source": "./plugins/translations-mcp"
     },
     {
       "id": "service-documentation",
@@ -47,7 +47,7 @@
       "version": "1.0.0",
       "description": "Generate citizen-facing HTML service manuals, batch-generate all service manuals, and export structured Excel documentation for eRegistrations BPA services.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/service-documentation.zip"
+      "source": "./plugins/service-documentation"
     },
     {
       "id": "keycloak-mcp",
@@ -55,7 +55,7 @@
       "version": "1.58.7",
       "description": "Install the Keycloak Admin MCP server for eRegistrations IAM management.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/keycloak-mcp.zip"
+      "source": "./plugins/keycloak-mcp"
     },
     {
       "id": "devops",
@@ -63,7 +63,7 @@
       "version": "2.27.1",
       "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/devops.zip"
+      "source": "./plugins/devops"
     },
     {
       "id": "deploy",
@@ -71,7 +71,7 @@
       "version": "1.9.0",
       "description": "Self-service deployment requests on the singlewindow Coolify server.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/deploy.zip"
+      "source": "./plugins/deploy"
     },
     {
       "id": "handoff",
@@ -79,7 +79,7 @@
       "version": "1.0.0",
       "description": "Session handoff — capture state so any AI agent can continue your work.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/handoff.zip"
+      "source": "./plugins/handoff"
     },
     {
       "id": "share-service",
@@ -87,7 +87,7 @@
       "version": "1.3.0",
       "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/share-service.zip"
+      "source": "./plugins/share-service"
     },
     {
       "id": "service-design",
@@ -95,7 +95,7 @@
       "version": "0.1.0",
       "description": "Skills for designing and extending eRegistrations BPA services — including resource history endpoints, audit visibility, and cross-repo (BPA-backend + MCP) feature patterns extracted from working diffs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/service-design.zip"
+      "source": "./plugins/service-design"
     },
     {
       "id": "leaflets",
@@ -103,7 +103,7 @@
       "version": "0.5.0",
       "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide that narrates the page.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/leaflets.zip"
+      "source": "./plugins/leaflets"
     },
     {
       "id": "screens-first-design",
@@ -111,7 +111,7 @@
       "version": "0.1.0",
       "description": "Define a product's UX screen by screen: an invariant page schema decided first, then per screen one clickable mobile mockup + one spec fiche, parallel agents copying a bundled reference grammar (mobile phone frame AND desktop app frame — mobile first, desktop derives), preview verification before showing, a regenerable docs compendium + guided tour + team presentations, a same-day decisions journal, and a pre-verbal design check on every screen.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/screens-first-design.zip"
+      "source": "./plugins/screens-first-design"
     },
     {
       "id": "team-bus",
@@ -119,7 +119,7 @@
       "version": "1.1.1",
       "description": "Jira-centered collaboration for humans + Claude sessions: a 15-min watcher that surfaces new ticket comments and PR status changes in your session, plus the team conventions (findings as ticket comments, epic as shared memory).",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
-      "source": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace/releases/download/kimi-latest/team-bus.zip"
+      "source": "./plugins/team-bus"
     }
   ]
 }

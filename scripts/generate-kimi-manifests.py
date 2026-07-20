@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """
 Generate Kimi Code plugin manifests (.kimi-plugin/plugin.json) and the Kimi
-marketplace catalog (kimi-marketplace.json) from the Claude plugin metadata.
+marketplace catalogs (kimi-marketplace.json, kimi-marketplace.local.json) from
+the Claude plugin metadata.
 
 The repository is dual-format:
   - .claude-plugin/plugin.json  — Claude Code manifest (source of truth)
   - .kimi-plugin/plugin.json    — Kimi Code manifest (GENERATED — do not edit by hand)
+
+Catalogs:
+  - kimi-marketplace.json       — distributable catalog; sources are per-plugin zip
+                                  URLs on the rolling `kimi-latest` GitHub release
+                                  (published by .github/workflows/publish-kimi-plugins.yml)
+  - kimi-marketplace.local.json — same entries with relative ./plugins/<name> sources,
+                                  for use from a local clone
 
 Usage:
   python3 scripts/generate-kimi-manifests.py           # regenerate everything
@@ -22,6 +30,14 @@ from pathlib import Path
 
 REPO_URL = "https://github.com/UNCTAD-eRegistrations/plugin-marketplace"
 AUTHOR = {"name": "UNCTAD Trade Facilitation Section"}
+
+# Rolling release tag whose assets are the per-plugin zips referenced by
+# kimi-marketplace.json. Published by .github/workflows/publish-kimi-plugins.yml.
+KIMI_RELEASE_TAG = "kimi-latest"
+
+
+def zip_url(name: str) -> str:
+    return f"{REPO_URL}/releases/download/{KIMI_RELEASE_TAG}/{name}.zip"
 
 # Plugins that are published for Claude Code but intentionally NOT ported to Kimi Code.
 KIMI_EXCLUDED = {
@@ -149,7 +165,8 @@ def main() -> int:
     published = [p["name"] for p in marketplace["plugins"]]
 
     changed: list[str] = []
-    kimi_plugins = []
+    remote_plugins = []
+    local_plugins = []
 
     for name in published:
         if name in KIMI_EXCLUDED:
@@ -159,16 +176,28 @@ def main() -> int:
         manifest = build_manifest(plugin_dir)
         out = plugin_dir / ".kimi-plugin" / "plugin.json"
         write_or_check(out, render(manifest), args.check, changed)
-        kimi_plugins.append({
+        entry = {
             "id": name,
             "displayName": manifest["interface"]["displayName"],
-            "source": f"./plugins/{name}",
-        })
+            "version": manifest["version"],
+            "description": manifest["interface"]["shortDescription"],
+            "homepage": REPO_URL,
+        }
+        # Remote catalog: per-plugin zips published by the
+        # publish-kimi-plugins.yml workflow to the rolling KIMI_RELEASE_TAG release.
+        remote_plugins.append({**entry, "source": zip_url(name)})
+        # Local catalog: relative paths for use from a clone.
+        local_plugins.append({**entry, "source": f"./plugins/{name}"})
         print(f"  ✓ {name}: .kimi-plugin/plugin.json")
 
-    catalog = {"version": "2", "plugins": kimi_plugins}
+    catalog = {"version": "2", "plugins": remote_plugins}
     write_or_check(root / "kimi-marketplace.json", render(catalog), args.check, changed)
-    print(f"  ✓ kimi-marketplace.json ({len(kimi_plugins)} plugins)")
+    print(f"  ✓ kimi-marketplace.json ({len(remote_plugins)} plugins, zip URLs)")
+
+    local_catalog = {"version": "2", "plugins": local_plugins}
+    write_or_check(root / "kimi-marketplace.local.json", render(local_catalog),
+                   args.check, changed)
+    print(f"  ✓ kimi-marketplace.local.json ({len(local_plugins)} plugins, local paths)")
 
     if args.check:
         if changed:

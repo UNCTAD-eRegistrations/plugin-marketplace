@@ -7,7 +7,7 @@ Checks:
   - marketplace.json: valid JSON
   - .kimi-plugin/plugin.json: valid JSON, name matches directory, declared
     skills/commands/mcpServers paths stay inside the plugin
-  - kimi-marketplace.json: valid JSON, every source exists
+  - kimi-marketplace*.json: valid JSON, every local source exists
   - SKILL.md        : frontmatter has name, description, allowed-tools, metadata.version/version-date
   - commands/*.md   : frontmatter has description, allowed-tools
 
@@ -170,8 +170,10 @@ def validate_kimi_marketplace_json(path: Path) -> list[str]:
         if not entry.get("id") or not entry.get("source"):
             errors.append(f"entry missing 'id' or 'source': {entry}")
             continue
-        if not (root / entry["source"]).is_dir():
-            errors.append(f"source '{entry['source']}' for '{entry['id']}' does not exist")
+        source = entry["source"]
+        # Remote sources (zip URLs) can't be checked locally; only local paths.
+        if not source.startswith(("http://", "https://")) and not (root / source).is_dir():
+            errors.append(f"source '{source}' for '{entry['id']}' does not exist")
     return errors
 
 
@@ -228,7 +230,7 @@ def validate_file(path: Path) -> list[str]:
     if name == "plugin.json" and ".kimi-plugin" in parts:
         return validate_kimi_plugin_json(path)
 
-    if name == "kimi-marketplace.json":
+    if name.startswith("kimi-marketplace") and name.endswith(".json"):
         return validate_kimi_marketplace_json(path)
 
     if name == "marketplace.json" and ".claude-plugin" in parts:
@@ -252,6 +254,7 @@ def collect_plugin_files(root: Path) -> list[Path]:
         ".claude-plugin/marketplace.json",
         "plugins/*/.kimi-plugin/plugin.json",
         "kimi-marketplace.json",
+        "kimi-marketplace.local.json",
         "plugins/*/skills/*/SKILL.md",
         "plugins/_drafts/*/skills/*/SKILL.md",
         "plugins/*/commands/*.md",
