@@ -1,6 +1,7 @@
 {
   "name": "service-documentation",
   "description": "Generate citizen-facing HTML service manuals, batch-generate all service manuals, and export structured Excel documentation for eRegistrations BPA services",
+  "version": "1.0.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }

@@ -5,6 +5,9 @@ Validate plugin file quality before commit.
 Checks:
   - plugin.json     : valid JSON, required fields, name matches directory
   - marketplace.json: valid JSON
+  - .kimi-plugin/plugin.json: valid JSON, name matches directory, declared
+    skills/commands/mcpServers paths stay inside the plugin
+  - kimi-marketplace.json: valid JSON, every source exists
   - SKILL.md        : frontmatter has name, description, allowed-tools, metadata.version/version-date
   - commands/*.md   : frontmatter has description, allowed-tools
 
@@ -120,6 +123,58 @@ def validate_marketplace_json(path: Path) -> list[str]:
         return [f"invalid JSON: {e}"]
 
 
+def validate_kimi_plugin_json(path: Path) -> list[str]:
+    errors = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return [f"invalid JSON: {e}"]
+
+    for field in ("name", "version", "description"):
+        if not data.get(field):
+            errors.append(f"missing '{field}'")
+
+    plugin_dir = path.parent.parent
+    if data.get("name") and data["name"] != plugin_dir.name:
+        errors.append(f"name '{data['name']}' doesn't match directory '{plugin_dir.name}'")
+
+    # declared paths must exist and stay inside the plugin root
+    for field in ("skills", "commands"):
+        for rel in ([data[field]] if isinstance(data.get(field), str)
+                    else data.get(field) or []):
+            target = (plugin_dir / rel).resolve()
+            if not str(target).startswith(str(plugin_dir.resolve())):
+                errors.append(f"'{field}' path '{rel}' escapes the plugin root")
+            elif not target.exists():
+                errors.append(f"'{field}' path '{rel}' does not exist")
+
+    mcp_servers = data.get("mcpServers")
+    if mcp_servers is not None and not isinstance(mcp_servers, dict):
+        errors.append("'mcpServers' must be an object")
+
+    return errors
+
+
+def validate_kimi_marketplace_json(path: Path) -> list[str]:
+    errors = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return [f"invalid JSON: {e}"]
+
+    root = path.parent
+    plugins = data.get("plugins")
+    if not isinstance(plugins, list):
+        return ["missing 'plugins' array"]
+    for entry in plugins:
+        if not entry.get("id") or not entry.get("source"):
+            errors.append(f"entry missing 'id' or 'source': {entry}")
+            continue
+        if not (root / entry["source"]).is_dir():
+            errors.append(f"source '{entry['source']}' for '{entry['id']}' does not exist")
+    return errors
+
+
 def validate_skill_md(path: Path) -> list[str]:
     fields, err = parse_frontmatter(path)
     if fields is None:
@@ -170,6 +225,12 @@ def validate_file(path: Path) -> list[str]:
             return validate_plugin_json(path)
         return validate_marketplace_json(path)
 
+    if name == "plugin.json" and ".kimi-plugin" in parts:
+        return validate_kimi_plugin_json(path)
+
+    if name == "kimi-marketplace.json":
+        return validate_kimi_marketplace_json(path)
+
     if name == "marketplace.json" and ".claude-plugin" in parts:
         return validate_marketplace_json(path)
 
@@ -189,6 +250,8 @@ def collect_plugin_files(root: Path) -> list[Path]:
         "plugins/*/.claude-plugin/plugin.json",
         "plugins/_drafts/*/.claude-plugin/plugin.json",
         ".claude-plugin/marketplace.json",
+        "plugins/*/.kimi-plugin/plugin.json",
+        "kimi-marketplace.json",
         "plugins/*/skills/*/SKILL.md",
         "plugins/_drafts/*/skills/*/SKILL.md",
         "plugins/*/commands/*.md",

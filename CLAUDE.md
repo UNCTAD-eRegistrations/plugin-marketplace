@@ -67,6 +67,24 @@ Live source: `mcp__BPA__instance_list()` — always current, never drifts.
 - Skill versions in `SKILL.md` metadata: same scheme
 - Always add a changelog entry when bumping a skill version
 
+## Kimi Code dual format
+
+The repository also ships Kimi Code manifests so the same plugins install in Kimi Code:
+
+- `.kimi-plugin/plugin.json` in each published plugin and `kimi-marketplace.json` at the
+  root are **generated** — never edit them by hand. Re-run
+  `python3 scripts/generate-kimi-manifests.py` after changing any
+  `.claude-plugin/plugin.json`, `.mcp.json`, or adding/removing `skills/`/`commands/`.
+  `--check` verifies they are up to date.
+- The generator copies metadata from `.claude-plugin/plugin.json`, converts `.mcp.json`
+  to Kimi's `mcpServers` (dropping the Claude-only `"type": "stdio"` and `${VAR}` env
+  expansions), and injects a `skillInstructions` block that maps Claude idioms
+  (`Task` tool, `TodoWrite`, "restart Claude") to Kimi Code equivalents.
+- Exclusions are configured in the generator's `KIMI_EXCLUDED` dict (currently
+  `terminal-stats` and `ds-frontend`); `plugins/_drafts/` is never included.
+- Skill and command bodies stay Claude-first (e.g. `allowed-tools` frontmatter); Kimi
+  ignores what it does not support.
+
 ## BPA Terminology
 
 | Term | Meaning |

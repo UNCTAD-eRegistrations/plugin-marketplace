@@ -1,0 +1,8 @@
+{
+  "name": "share-service",
+  "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs. Commands: /share <file>, /share list.",
+  "version": "1.3.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}
