@@ -10,7 +10,7 @@ on:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, normal]
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
