@@ -67,6 +67,21 @@ Installing a single GitHub repo URL (`/plugins install <repo-url>`) does **not**
 this monorepo — Kimi downloads the whole repository and expects one plugin manifest at its
 root. Use the marketplace catalog instead.
 
+**Bulk install (team rollout).** `/plugins install` accepts only one source at a time. To
+provision several plugins in one shot — e.g. on every team member's machine — use
+`scripts/kimi-install.py`, which downloads the zips and registers them exactly like the
+installer does:
+
+```bash
+# everything in the catalog
+curl -sL https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/scripts/kimi-install.py | python3 -
+
+# or a specific list
+python3 scripts/kimi-install.py bpa-mcp handoff share-service
+```
+
+Then `/plugins reload` in Kimi Code. Plugins installed this way remain manageable from `/plugins`.
+
 Working from a clone? Use the local variant (relative sources) or install a plugin
 directory directly:
 
