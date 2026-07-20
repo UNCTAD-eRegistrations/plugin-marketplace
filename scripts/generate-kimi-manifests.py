@@ -39,6 +39,26 @@ KIMI_RELEASE_TAG = "kimi-latest"
 def zip_url(name: str) -> str:
     return f"{REPO_URL}/releases/download/{KIMI_RELEASE_TAG}/{name}.zip"
 
+
+# keywords shown in the Kimi /plugins UI (fallback: the Claude marketplace category).
+KEYWORDS = {
+    "bpa-mcp": ["mcp", "bpa", "eregistrations"],
+    "ds-mcp": ["mcp", "monitoring", "eregistrations"],
+    "gdb-mcp": ["mcp", "database", "eregistrations"],
+    "graylog-mcp": ["mcp", "logs", "monitoring"],
+    "keycloak-mcp": ["mcp", "iam", "keycloak"],
+    "translations-mcp": ["mcp", "translations", "i18n"],
+    "service-documentation": ["documentation", "manuals", "excel"],
+    "devops": ["devops", "deployment", "migration"],
+    "deploy": ["devops", "deployment", "coolify"],
+    "handoff": ["productivity", "session", "handoff"],
+    "share-service": ["productivity", "sharing", "publishing"],
+    "service-design": ["design", "bpa", "backend"],
+    "leaflets": ["documentation", "design", "leaflets"],
+    "screens-first-design": ["design", "ux", "mockups"],
+    "team-bus": ["workflow", "jira", "collaboration"],
+}
+
 # Plugins that are published for Claude Code but intentionally NOT ported to Kimi Code.
 KIMI_EXCLUDED = {
     "ds-frontend": "not listed in the Claude marketplace either (work in progress)",
@@ -162,13 +182,13 @@ def main() -> int:
     root = Path(__file__).parent.parent
     marketplace = json.loads(
         (root / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
-    published = [p["name"] for p in marketplace["plugins"]]
+    published = {p["name"]: p for p in marketplace["plugins"]}
 
     changed: list[str] = []
     remote_plugins = []
     local_plugins = []
 
-    for name in published:
+    for name, pub in published.items():
         if name in KIMI_EXCLUDED:
             print(f"  - {name}: skipped ({KIMI_EXCLUDED[name]})")
             continue
@@ -182,7 +202,10 @@ def main() -> int:
             "version": manifest["version"],
             "description": manifest["interface"]["shortDescription"],
             "homepage": REPO_URL,
+            "keywords": KEYWORDS.get(name) or ([pub["category"]] if pub.get("category") else []),
         }
+        if not entry["keywords"]:
+            del entry["keywords"]
         # Remote catalog: per-plugin zips published by the
         # publish-kimi-plugins.yml workflow to the rolling KIMI_RELEASE_TAG release.
         remote_plugins.append({**entry, "source": zip_url(name)})

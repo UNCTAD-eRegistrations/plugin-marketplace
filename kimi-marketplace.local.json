@@ -7,6 +7,11 @@
       "version": "1.58.7",
       "description": "Install the BPA MCP server and register eRegistrations instance profiles.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "bpa",
+        "eregistrations"
+      ],
       "source": "./plugins/bpa-mcp"
     },
     {
@@ -15,6 +20,11 @@
       "version": "1.58.7",
       "description": "DS (Display System) MCP server for admin/ops monitoring of eRegistrations application files, workflows, payments, and documents.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "monitoring",
+        "eregistrations"
+      ],
       "source": "./plugins/ds-mcp"
     },
     {
@@ -23,6 +33,11 @@
       "version": "1.58.7",
       "description": "GDB (Generic Database Builder) MCP server for managing databases, schemas, and records in eRegistrations.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "database",
+        "eregistrations"
+      ],
       "source": "./plugins/gdb-mcp"
     },
     {
@@ -31,6 +46,11 @@
       "version": "1.58.7",
       "description": "Graylog MCP server for searching and monitoring logs across eRegistrations instances.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "logs",
+        "monitoring"
+      ],
       "source": "./plugins/graylog-mcp"
     },
     {
@@ -39,6 +59,11 @@
       "version": "1.58.7",
       "description": "Translations MCP server for eRegistrations — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids), plus one-command recovery from missing translation bootstrap via translation_global_status / translation_global_reload.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "translations",
+        "i18n"
+      ],
       "source": "./plugins/translations-mcp"
     },
     {
@@ -47,6 +72,11 @@
       "version": "1.0.0",
       "description": "Generate citizen-facing HTML service manuals, batch-generate all service manuals, and export structured Excel documentation for eRegistrations BPA services.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "documentation",
+        "manuals",
+        "excel"
+      ],
       "source": "./plugins/service-documentation"
     },
     {
@@ -55,6 +85,11 @@
       "version": "1.58.7",
       "description": "Install the Keycloak Admin MCP server for eRegistrations IAM management.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "mcp",
+        "iam",
+        "keycloak"
+      ],
       "source": "./plugins/keycloak-mcp"
     },
     {
@@ -63,6 +98,11 @@
       "version": "2.27.1",
       "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "devops",
+        "deployment",
+        "migration"
+      ],
       "source": "./plugins/devops"
     },
     {
@@ -71,6 +111,11 @@
       "version": "1.9.0",
       "description": "Self-service deployment requests on the singlewindow Coolify server.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "devops",
+        "deployment",
+        "coolify"
+      ],
       "source": "./plugins/deploy"
     },
     {
@@ -79,6 +124,11 @@
       "version": "1.0.0",
       "description": "Session handoff — capture state so any AI agent can continue your work.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "productivity",
+        "session",
+        "handoff"
+      ],
       "source": "./plugins/handoff"
     },
     {
@@ -87,6 +137,11 @@
       "version": "1.3.0",
       "description": "Publish HTML or Markdown documents to share.eregistrations.dev and get shareable URLs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "productivity",
+        "sharing",
+        "publishing"
+      ],
       "source": "./plugins/share-service"
     },
     {
@@ -95,6 +150,11 @@
       "version": "0.1.0",
       "description": "Skills for designing and extending eRegistrations BPA services — including resource history endpoints, audit visibility, and cross-repo (BPA-backend + MCP) feature patterns extracted from working diffs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "design",
+        "bpa",
+        "backend"
+      ],
       "source": "./plugins/service-design"
     },
     {
@@ -103,6 +163,11 @@
       "version": "0.5.0",
       "description": "Build brand-matched applicant leaflets (explainer pages) for any online or government service, with an optional named voice guide that narrates the page.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "documentation",
+        "design",
+        "leaflets"
+      ],
       "source": "./plugins/leaflets"
     },
     {
@@ -111,6 +176,11 @@
       "version": "0.1.0",
       "description": "Define a product's UX screen by screen: an invariant page schema decided first, then per screen one clickable mobile mockup + one spec fiche, parallel agents copying a bundled reference grammar (mobile phone frame AND desktop app frame — mobile first, desktop derives), preview verification before showing, a regenerable docs compendium + guided tour + team presentations, a same-day decisions journal, and a pre-verbal design check on every screen.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "design",
+        "ux",
+        "mockups"
+      ],
       "source": "./plugins/screens-first-design"
     },
     {
@@ -119,6 +189,11 @@
       "version": "1.1.1",
       "description": "Jira-centered collaboration for humans + Claude sessions: a 15-min watcher that surfaces new ticket comments and PR status changes in your session, plus the team conventions (findings as ticket comments, epic as shared memory).",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
+      "keywords": [
+        "workflow",
+        "jira",
+        "collaboration"
+      ],
       "source": "./plugins/team-bus"
     }
   ]
