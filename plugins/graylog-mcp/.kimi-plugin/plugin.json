@@ -1,6 +1,6 @@
 {
   "name": "graylog-mcp",
-  "version": "1.58.7",
+  "version": "1.58.8",
   "description": "Graylog MCP server for searching and monitoring logs across eRegistrations instances. Uses Graylog-native auth (NOT Keycloak). Requires bpa-mcp plugin for instance management.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
