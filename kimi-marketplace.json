@@ -1,0 +1,80 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "bpa-mcp",
+      "displayName": "BPA MCP",
+      "source": "./plugins/bpa-mcp"
+    },
+    {
+      "id": "ds-mcp",
+      "displayName": "DS MCP",
+      "source": "./plugins/ds-mcp"
+    },
+    {
+      "id": "gdb-mcp",
+      "displayName": "GDB MCP",
+      "source": "./plugins/gdb-mcp"
+    },
+    {
+      "id": "graylog-mcp",
+      "displayName": "Graylog MCP",
+      "source": "./plugins/graylog-mcp"
+    },
+    {
+      "id": "translations-mcp",
+      "displayName": "Translations MCP",
+      "source": "./plugins/translations-mcp"
+    },
+    {
+      "id": "service-documentation",
+      "displayName": "Service Documentation",
+      "source": "./plugins/service-documentation"
+    },
+    {
+      "id": "keycloak-mcp",
+      "displayName": "Keycloak MCP",
+      "source": "./plugins/keycloak-mcp"
+    },
+    {
+      "id": "devops",
+      "displayName": "DevOps",
+      "source": "./plugins/devops"
+    },
+    {
+      "id": "deploy",
+      "displayName": "Deploy",
+      "source": "./plugins/deploy"
+    },
+    {
+      "id": "handoff",
+      "displayName": "Handoff",
+      "source": "./plugins/handoff"
+    },
+    {
+      "id": "share-service",
+      "displayName": "Share Service",
+      "source": "./plugins/share-service"
+    },
+    {
+      "id": "service-design",
+      "displayName": "Service Design",
+      "source": "./plugins/service-design"
+    },
+    {
+      "id": "leaflets",
+      "displayName": "Leaflets",
+      "source": "./plugins/leaflets"
+    },
+    {
+      "id": "screens-first-design",
+      "displayName": "Screens-First Design",
+      "source": "./plugins/screens-first-design"
+    },
+    {
+      "id": "team-bus",
+      "displayName": "Team Bus",
+      "source": "./plugins/team-bus"
+    }
+  ]
+}
