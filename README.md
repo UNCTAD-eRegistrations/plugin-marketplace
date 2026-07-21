@@ -74,7 +74,7 @@ installer does, and then runs `/bpa-mcp:install` headlessly to register all eReg
 instance profiles:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/UNCTAD-eRegistrations/plugin-marketplace/main/scripts/kimi-install.py | python3 -
+curl -sL https://unctad-eregistrations.github.io/plugin-marketplace/kimi-install.py | python3 -
 
 # or a specific list
 python3 scripts/kimi-install.py bpa-mcp handoff share-service
@@ -82,6 +82,11 @@ python3 scripts/kimi-install.py bpa-mcp handoff share-service
 # skip the headless /bpa-mcp:install step
 python3 scripts/kimi-install.py --no-bpa-install
 ```
+
+The short URL is served by GitHub Pages from `docs/kimi-install.py` (a byte-identical copy
+of `scripts/kimi-install.py`, enforced by the validator) — prefer it when sharing over chat
+or email, where long raw.githubusercontent.com URLs tend to get truncated (a truncated URL
+makes curl download a "404: Not Found" page and python3 fail with a SyntaxError).
 
 Prerequisites: Kimi Code on PATH (`kimi`) and `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
 Afterwards, the only remaining step inside Kimi Code is `/bpa-mcp:login <instance>` to

@@ -291,6 +291,17 @@ def main() -> int:
         total += 1
 
     checked = len(relevant)
+
+    # docs/kimi-install.py must stay identical to scripts/kimi-install.py —
+    # it is the short, shareable URL (GitHub Pages) for the same script.
+    docs_copy = root / "docs" / "kimi-install.py"
+    scripts_copy = root / "scripts" / "kimi-install.py"
+    if docs_copy.exists() and scripts_copy.exists():
+        if docs_copy.read_bytes() != scripts_copy.read_bytes():
+            print("  \033[31m✗\033[0m docs/kimi-install.py: differs from scripts/kimi-install.py"
+                  " — copy the script over (cp scripts/kimi-install.py docs/kimi-install.py)")
+            failed += 1
+
     if failed:
         print(f"\n\033[31m{failed} error(s) in {checked} file(s)\033[0m")
         return 1
