@@ -1,7 +1,7 @@
 {
   "name": "gdb-mcp",
   "description": "GDB (Generic Database Builder) MCP server for managing databases, schemas, and records in eRegistrations. Requires bpa-mcp plugin for authentication.",
-  "version": "1.59.5",
+  "version": "1.59.6",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }
