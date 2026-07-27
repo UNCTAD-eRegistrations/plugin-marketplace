@@ -60,14 +60,42 @@ re-reading this prose. Almost every gate here is **procedural** and
 
 | Gate | Enforced where? |
 |------|-----------------|
-| Instance allowlist (`check_autopilot_allowlist`) | **PLATFORM-ENFORCED** — the only hard control |
+| Instance allowlist (`check_autopilot_allowlist`) | Platform-enforced **at `auth_login`, and only under `AUTOPILOT_MODE`** — see the scope note below |
 | Off-hours apply window | Procedural — **not platform-enforced** |
 | One operator per instance (one-operator / per operator) | Procedural — **not enforced** |
 | Plan review by an analyst | Procedural — **not enforced** |
 
 Because the off-hours window, one-operator-per-instance, and plan-review gates
 are **not enforced** / **unenforceable** at the code layer, the plan file is a
-convenience, not a control. **Only the instance allowlist is platform-enforced.**
+convenience, not a control. **The instance allowlist is the only gate with any
+platform enforcement at all** — and its reach is narrower than it looks.
+
+### Allowlist scope — know exactly what it does and does not block
+
+`check_autopilot_allowlist` is an **internal function of the MCP server**, not
+an exposed MCP tool. **A skill session cannot call it.** Do not read the rule
+below as an instruction to invoke it — you cannot.
+
+Where it actually runs:
+
+- It gates **`auth_login`** (`mcp_eregistrations_bpa/server.py`), refusing a
+  non-allowlisted instance before any auth I/O reaches Keycloak/CAS.
+- It is a **no-op when `AUTOPILOT_MODE` is unset.**
+- **`form_patch` does not call it.** No per-write allowlist check exists.
+
+What that means in practice:
+
+- **Under `AUTOPILOT_MODE`:** a non-allowlisted instance cannot authenticate,
+  so it cannot be written to. The protection is real but **transitive** — it
+  works by denying the session, not by inspecting each write.
+- **Running interactively** (`AUTOPILOT_MODE` unset, an operator already
+  authenticated to any instance): **nothing in the platform blocks a
+  `form_patch` against jamaica or lesotho2.** In that mode every gate on this
+  page, allowlist included, is procedural.
+
+So: pass an explicit allowlisted instance to every apply step and verify the
+resolved value yourself, because on an interactive session **you are the
+enforcement.** Never rely on the platform to catch a wrong instance here.
 
 ### Authoritative record
 
@@ -85,18 +113,21 @@ If-Match**, and therefore **no conflict detection**. The backend is
 rejected — it will be silently clobbered. This skill and any script it drives
 **must not assume conflict detection exists**.
 
-## Instance allowlist (the one enforced control)
+## Instance allowlist — the operator's checklist
 
-Autopilot-driven writes may target only **allowlisted** instances (e.g.
-**els-dev**) and **never jamaica or lesotho2**. Rules:
+Writes may target only **allowlisted** instances (e.g. **els-dev**) and
+**never jamaica or lesotho2**. Read the scope note above first: `form_patch`
+carries no allowlist check, so on an interactive session these rules are
+enforced by **you**, not by the platform.
 
 - Every apply step must pass an **explicit** allowlisted instance. **Never
   instance=None** — no `instance=None` default, no env-configured profile that
   could resolve to jamaica/lesotho2.
-- `check_autopilot_allowlist` (in the MCP server's
-  `src/mcp_eregistrations_common/auth.py`) must run against the **resolved
-  instance** — resolve the instance first, then check the resolved value, not
-  the raw passed-in string.
+- Resolve the instance **first**, then check the **resolved** value, not the
+  raw passed-in string. A profile name and the instance it resolves to are not
+  the same thing, and only the resolved value is what gets written to.
+- Confirm the resolved target with `instance_list` / `connection_status`
+  before the first write of a session, and state it out loud in the plan file.
 - If resolution is ambiguous or yields anything but an allowlisted target
   (els-dev), **abort**.
 
