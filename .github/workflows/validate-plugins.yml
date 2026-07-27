@@ -1,12 +1,19 @@
 name: Validate Plugin Frontmatter
 
+# The validator itself is in the trigger paths on purpose: without it, a change
+# to validate-frontmatter.ts never re-runs validation, so the tool that gates
+# every plugin is the one thing that ships unchecked.
 on:
   push:
     paths:
       - 'plugins/**/*.md'
+      - '.github/scripts/validate-frontmatter.ts'
+      - '.github/workflows/validate-plugins.yml'
   pull_request:
     paths:
       - 'plugins/**/*.md'
+      - '.github/scripts/validate-frontmatter.ts'
+      - '.github/workflows/validate-plugins.yml'
 
 jobs:
   validate:

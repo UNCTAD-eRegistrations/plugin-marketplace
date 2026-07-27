@@ -18,6 +18,14 @@ import { basename, join, relative, resolve } from "path";
 const YAML_SPECIAL_CHARS = /[{}[\]*&#!|>%@`]/;
 const FRONTMATTER_REGEX = /^---\s*\n([\s\S]*?)---\s*\n?/;
 
+// A block scalar HEADER — `>`, `|`, and their chomping/indentation variants
+// (`>-`, `|+`, `|2-`). These look like special characters but are legitimate
+// YAML that opens a multi-line value on the following indented lines. Quoting
+// one turns `description: >` into `description: ">"` and orphans every
+// continuation line, which the parser then reports as "All mapping items must
+// start at the same column" — pointing at the file instead of at us.
+const YAML_BLOCK_SCALAR_HEADER = /^[|>][0-9]*[+-]?$|^[|>][+-]?[0-9]*$/;
+
 /**
  * Pre-process frontmatter text to quote values containing special YAML
  * characters. This allows glob patterns like **\/*.{ts,tsx} to parse.
@@ -39,6 +47,11 @@ function quoteSpecialValues(text: string): string {
         (value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'"))
       ) {
+        result.push(line);
+        continue;
+      }
+      // Skip block scalar headers — the value is not a value, it opens one.
+      if (YAML_BLOCK_SCALAR_HEADER.test(value.trim())) {
         result.push(line);
         continue;
       }
