@@ -6,8 +6,10 @@ license: UNCTAD-Internal
 compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python and run with no install step.
 allowed-tools: Read, Write, Grep, Glob, Bash(python3 *), Bash(mkdir -p *), Bash(cat *), Bash(date *), mcp__BPA__form_get, mcp__BPA__form_patch, mcp__BPA__componentbehaviour_generate_newkeys, mcp__BPA__instance_list, mcp__BPA__connection_status
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   version-date: "2026-07-27"
+  changelog:
+    - "1.1.0 (2026-07-27): Restored two safety guardrails that fell through the seam when this skill was relocated from the MCP repo (this skill predates MCP_eRegistrations#470, still open, which added them to the pre-move SKILL.md). Added the pinned instance-identifiers table (cuba -> cuba.eregistrations.org is the migration target; vucecuba -> vucecuba.mincex.gob.cu is sovereign production and NEVER a write target; kenya-test, elsalvador-dev, cuba-test also pinned) under the instance-allowlist checklist. Required the first-use canary to print the resolved target instance and intended change BEFORE its write, so a wrong target is caught before the batch, not after."
 ---
 
 # Columns Normalization Migration (scan + plan + gated apply)
@@ -131,6 +133,21 @@ enforced by **you**, not by the platform.
 - If resolution is ambiguous or yields anything but an allowlisted target
   (els-dev), **abort**.
 
+### Instance identifiers (pinned — confirmed by Erick)
+
+Use these exact names/hosts; do not guess or substitute a look-alike:
+
+| `instance=` value | Host | Role |
+|---|---|---|
+| `cuba` | `cuba.eregistrations.org` | **Migration target** (Keycloak realm). NOT `vucecuba`. |
+| `kenya-test` | `test.kenya.eregistrations.org` | Migration target. |
+| `elsalvador-dev` | `dev.els.eregistrations.org` | The "els-dev" canary instance. |
+| `vucecuba` | `vucecuba.mincex.gob.cu` | **Sovereign production (CAS) — NEVER WRITE.** |
+| `cuba-test` | `test.cuba.eregistrations.org` | Out of scope for this migration. |
+
+`cuba` and `vucecuba` are **not the same instance** — do not conflate them.
+`vucecuba` must never receive a write from this skill under any circumstance.
+
 ## PHASE 1 — Scan (read-only, SHIPS NOW)
 
 1. For each target service, read the form with **form_get** (force a fresh
@@ -181,8 +198,9 @@ not deployed.
 The apply half runs **two sub-tracks** — the **under-12 pad sub-track** (below)
 and the **over-12 split sub-track** (further down) — under the **same** gates:
 resolved-allowlisted-instance, deployed-DS-version floor, off-hours window,
-LWW whole-form-hash re-verify, first-use canary, and per-service human-gated
-publish. Neither sub-track weakens any of those controls.
+LWW whole-form-hash re-verify, first-use canary (stating the resolved target
+instance before its write), and per-service human-gated publish. Neither
+sub-track weakens any of those controls.
 
 ### Building the operations — both apply scripts have a CLI
 
@@ -225,9 +243,16 @@ hash. This skill selects the **whole-form hash** scope, not a per-row hash:
 
 ### First-use canary + rollback (LWW-scoped)
 
-The first applied row is a **canary**. After the canary write, record its
-**post-write hash**. The **canary rollback** is itself a **whole-form LWW
-write**, so it is scoped narrowly:
+The first applied row is a **canary**. **Before the canary write**, the
+canary step must **print the resolved target instance** (the exact
+`instance=` value and host it resolved to — see the identifiers table above)
+**and the intended change** (component key, current → target widths) — so a
+wrong target (e.g. `vucecuba` instead of `cuba`) is visible **before the
+write**, and before the rest of the batch, not discovered after. Abort if the
+printed target instance does not match the operator's intended instance.
+
+After the canary write, record its **post-write hash**. The **canary
+rollback** is itself a **whole-form LWW write**, so it is scoped narrowly:
 
 - Only **re-read-then-restore** when the **live form still matches the canary's
   post-write hash** (i.e. nothing else wrote in between). If the live form no

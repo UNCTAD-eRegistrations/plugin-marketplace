@@ -167,6 +167,44 @@ def test_skill_requires_resolved_allowlisted_instance_never_none() -> None:
     )
 
 
+def test_skill_pins_instance_identifiers_cuba_target_vucecuba_never_write() -> None:
+    text = _skill_text()
+    # cuba is the migration target; vucecuba (sovereign CAS production) must
+    # be pinned as never-write and distinguished from cuba.
+    assert "cuba.eregistrations.org" in text, (
+        "skill must pin the cuba target instance to its exact host"
+    )
+    assert "vucecuba.mincex.gob.cu" in text, "skill must pin the vucecuba host"
+    _assert_any(
+        text,
+        ["never write", "never-write", "never  write"],
+        "skill must mark vucecuba as never-write",
+    )
+    # The doc must explicitly distinguish cuba (target) from vucecuba
+    # (forbidden) so the two are not conflated.
+    assert "not `vucecuba`" in text or "not vucecuba" in text, (
+        "skill must explicitly warn cuba is NOT vucecuba"
+    )
+    assert "kenya-test" in text or "test.kenya.eregistrations.org" in text
+    assert "dev.els.eregistrations.org" in text or "elsalvador-dev" in text
+
+
+def test_skill_canary_states_target_instance_before_write() -> None:
+    text = _skill_text()
+    assert "canary" in text, "skill must describe the first-use canary"
+    _assert_any(
+        text,
+        ["resolved target instance", "prints the resolved target instance"],
+        "skill must require the canary to state the resolved target instance",
+    )
+    _assert_any(
+        text,
+        ["before the canary write", "before the write", "before the batch"],
+        "skill must require the target instance be stated BEFORE the write, "
+        "so a wrong target is visible before the batch",
+    )
+
+
 def test_skill_documents_reverify_scope_and_tradeoff() -> None:
     text = _skill_text()
     _assert_any(
