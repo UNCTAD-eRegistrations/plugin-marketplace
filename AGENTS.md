@@ -37,7 +37,8 @@ plugins/_drafts/                  # AI-generated plugins NOT yet verified agains
                                   # instance; excluded from marketplace discovery
 scripts/                          # Maintenance scripts (see below)
 docs/                             # Reference material (e.g. docs/superpowers plans/specs)
-.github/workflows/                # CI: frontmatter validation on plugins/**/*.md
+.github/workflows/                # CI: frontmatter validation on plugins/**/*.md;
+                                  # pytest on bundled plugin test suites
 .github/scripts/                  # bun-based frontmatter validator used by CI
 CLAUDE.md                         # Claude Code–specific guidelines (overlaps this file)
 README.md                         # Human-facing overview, install instructions, plugin list
@@ -80,7 +81,8 @@ Rules enforced by `scripts/validate-plugins.py`:
 
 ## Build, test, and validation commands
 
-There is no build step. Validation is the only automated check:
+There is no build step. The automated checks are static validation plus the Python
+test suites bundled inside some skills:
 
 ```bash
 # Validate all plugin files (plugin.json, kimi manifests, marketplace.json, SKILL.md, commands/*.md)
@@ -96,6 +98,10 @@ python3 scripts/generate-kimi-manifests.py --check  # verify up to date (CI-styl
 
 # CI equivalent (runs on every push/PR touching plugins/**/*.md)
 bun add yaml && bun .github/scripts/validate-frontmatter.ts ./plugins
+
+# Run a skill's bundled Python tests (stdlib-only scripts; pytest is the only dep)
+python3 -m pytest plugins/bpa-mcp/skills/columns-normalization-migration/tests -q
+python3 -m pytest plugins/bpa-mcp/skills/ereg-issue/tests -q
 ```
 
 **Always run `python3 scripts/validate-plugins.py` before committing changes to plugin files.**
@@ -187,12 +193,23 @@ tools; for progress tracking in batch operations, maintain a local list in the m
 
 ## Testing strategy
 
-There is no unit test suite — plugin correctness is verified in two ways:
+Plugin correctness is verified in three ways:
 
 1. **Static validation** (local + CI): `scripts/validate-plugins.py` and
    `.github/scripts/validate-frontmatter.ts` check JSON validity and required frontmatter
-   fields. This is the only CI gate.
-2. **Live verification**: published plugins must have been exercised against a real BPA
+   fields.
+2. **Bundled unit tests** (local + CI): skills that ship executable helper scripts
+   (`skills/<skill>/scripts/*.py`) also ship their own tests in `skills/<skill>/tests/`.
+   `.github/workflows/test-plugin-scripts.yml` discovers every `plugins/**/tests/`
+   directory containing `test_*.py` and runs each as its own `pytest` invocation
+   (separate invocations because each suite's `conftest.py` puts its sibling `scripts/`
+   on `sys.path` under flat module names, which would collide across suites).
+   These scripts are **stdlib-only by design** — pytest is the only dependency CI
+   installs. A bundled script that needs a third-party package is a design problem to
+   fix in the script, not in the workflow. Suites listed in `REQUIRED_SUITES` in that
+   workflow must exist, so a rename or deletion fails the build instead of silently
+   dropping coverage.
+3. **Live verification**: published plugins must have been exercised against a real BPA
    instance. Unverified, AI-generated plugins live in `plugins/_drafts/`. To promote a draft:
    verify it against a live instance, move it from `plugins/_drafts/` to `plugins/`, and add
    it to `.claude-plugin/marketplace.json`.

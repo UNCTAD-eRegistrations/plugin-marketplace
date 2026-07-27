@@ -1,0 +1,6 @@
+# Python artifacts from running the test suites bundled inside skills.
+# These must never be committed: publish-kimi-plugins.yml zips every file under
+# plugins/<name>, so committed byte-code would ship to end users.
+__pycache__/
+*.py[cod]
+.pytest_cache/

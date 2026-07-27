@@ -1,0 +1,20 @@
+{
+  "input": {
+    "components": [
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": 6, "components": []},
+        {"width": 6, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "already_normalized",
+    "components": [
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": 6, "components": []},
+        {"width": 6, "components": []}
+      ]}
+    ]
+  }
+}

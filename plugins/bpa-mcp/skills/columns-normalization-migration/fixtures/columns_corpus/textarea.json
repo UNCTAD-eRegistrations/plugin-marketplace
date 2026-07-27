@@ -1,0 +1,22 @@
+{
+  "input": {
+    "components": [
+      {"key": "notes", "type": "textarea", "rows": 3, "label": "Notes"},
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": 4, "components": []},
+        {"width": 4, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "components": [
+      {"key": "notes", "type": "textarea", "rows": 3, "label": "Notes"},
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": 4, "components": []},
+        {"width": 4, "components": []},
+        {"width": 4, "components": []}
+      ]}
+    ],
+    "note": "textarea rows:3 round-trips byte-identical; only the columns widths are padded to sum 12"
+  }
+}
