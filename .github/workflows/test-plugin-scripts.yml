@@ -51,6 +51,16 @@ jobs:
       - name: Install pytest (bundled scripts are stdlib-only)
         run: python -m pip install --upgrade pytest
 
+      # Only the tested skills get exercised by pytest below, but EVERY
+      # bundled .py is something an operator may be told to run with plain
+      # `python3`. Compiling the whole tree on the oldest supported
+      # interpreter catches syntax-level version breaks in scripts that have
+      # no suite of their own (e.g. leaflets, screens-first-design,
+      # team-bus). API-level breaks -- the `zip(strict=)` class -- still need
+      # the 3.9 pytest leg; this is the cheap net under everything else.
+      - name: Compile every bundled script on this interpreter
+        run: python -m compileall plugins/ -q
+
       - name: Run bundled plugin test suites
         run: |
           set -euo pipefail

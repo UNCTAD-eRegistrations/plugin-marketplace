@@ -1373,7 +1373,7 @@ def test_revert_split_operations_raises_on_length_mismatch() -> None:
     corrupt[0]["written_containers"] = corrupt[0]["written_containers"][:-1]
     assert len(corrupt[0]["container_keys"]) != len(corrupt[0]["written_containers"])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="corrupt"):
         revert_split_operations(corrupt, post_split_live)
 
 
@@ -1392,22 +1392,93 @@ def test_revert_split_operations_raises_on_excess_written_containers() -> None:
     corrupt = deepcopy(applied_rows)
     corrupt[0]["container_keys"] = corrupt[0]["container_keys"][:-1]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="corrupt"):
         revert_split_operations(corrupt, post_split_live)
 
 
-def test_bundled_scripts_are_importable_on_the_supported_python_floor() -> None:
-    """The skill promises operators can run these with plain `python3` and no
-    virtualenv. On stock macOS that is 3.9, so the bundled scripts must not
-    use 3.10+ syntax. Compiling each script surfaces syntax-level breaks on
-    any interpreter; API-level ones (e.g. `zip(strict=)`) are caught by the
-    3.9 leg of the CI matrix, which is why that leg exists."""
-    import py_compile
-    from pathlib import Path
+def test_revert_split_operations_reports_every_corrupt_row_at_once() -> None:
+    """Finding 3 (PR #56 review): the length check is a PRE-PASS, so an
+    operator recovering from a bad apply sees ALL corrupt rows in one error
+    rather than fixing row 1, re-running, and only then discovering row 2.
+    This is the recovery path -- its ergonomics matter most exactly when
+    something has already gone wrong."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
 
-    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
-    script_paths = sorted(scripts_dir.glob("*.py"))
-    assert script_paths, "no bundled scripts found to compile"
+    live = [
+        _columns_component("row1", [4] * 9),
+        _columns_component("row2", [4] * 9),
+    ]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+    applied_rows = applied["applied_rows"]
+    assert len(applied_rows) == 2
 
-    for path in script_paths:
-        py_compile.compile(str(path), doraise=True)
+    corrupt = deepcopy(applied_rows)
+    corrupt[0]["written_containers"] = corrupt[0]["written_containers"][:-1]
+    corrupt[1]["container_keys"] = corrupt[1]["container_keys"][:-1]
+
+    with pytest.raises(ValueError, match="corrupt") as excinfo:
+        revert_split_operations(corrupt, live)
+
+    message = str(excinfo.value)
+    assert "2 applied row(s) corrupt" in message
+    # BOTH rows named -- not just the first one encountered.
+    assert "row1" in message
+    assert "row2" in message
+
+
+def test_revert_split_operations_raises_before_emitting_any_operations() -> None:
+    """The pre-pass must abort before a single operation is built: a partial
+    operations list from a run that then raised would be a trap for a caller
+    that catches ValueError and inspects what it got."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [
+        _columns_component("row1", [4] * 9),
+        _columns_component("row2", [4] * 9),
+    ]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+    post_split_live = deepcopy(live)
+
+    corrupt = deepcopy(applied["applied_rows"])
+    # Corrupt only the SECOND row; the first would otherwise emit operations.
+    corrupt[1]["written_containers"] = corrupt[1]["written_containers"][:-1]
+
+    with pytest.raises(ValueError, match="corrupt"):
+        revert_split_operations(corrupt, post_split_live)
+
+
+def test_revert_split_operations_still_raises_when_first_container_not_pristine() -> (
+    None
+):
+    """Finding 1 (PR #56 review): the old `zip(strict=True)` was an INCOMPLETE
+    guard. The verification loop `break`s on the first non-pristine container,
+    and `strict=` only fires when zip advances past an exhausted iterator -- so
+    a corrupt row whose FIRST container was already non-pristine broke out
+    before `strict` ever ran and was silently downgraded to a
+    `modified_since_apply` skip. The pre-pass catches it as the error it is."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_component("row1", [4] * 9)]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+
+    corrupt = deepcopy(applied["applied_rows"])
+    corrupt[0]["written_containers"] = corrupt[0]["written_containers"][:-1]
+
+    # Live tree where the FIRST container is absent -> first iteration would
+    # have set pristine=False and broken out under the old code.
+    post_split_live: list[dict[str, Any]] = []
+
+    with pytest.raises(ValueError, match="corrupt"):
+        revert_split_operations(corrupt, post_split_live)

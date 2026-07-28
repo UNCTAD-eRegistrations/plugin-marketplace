@@ -813,6 +813,43 @@ def revert_split_operations(
     _require_live_components_list(live_components)
     key_index = _live_columns_by_key(live_components)
 
+    # Length equality is a SAFETY invariant, not a formality: if
+    # written_containers were shorter than container_keys, the verification
+    # loop below would silently check only a prefix, leave `pristine` True,
+    # and emit a blind restore over containers it never verified.
+    #
+    # Validated as a PRE-PASS over every row, before a single operation is
+    # emitted, for two reasons. (1) It reports ALL corrupt rows at once --
+    # an operator recovering from a bad apply should not fix row 2, re-run,
+    # and only then discover row 5; this is the recovery path, so its
+    # ergonomics matter most exactly when things are already going wrong.
+    # (2) It is checked up front rather than via zip(strict=True) inside the
+    # loop, which is BOTH a 3.9-compatibility fix (`strict=` is 3.10+, and
+    # `python3` is still 3.9 on stock macOS -- see SKILL.md) AND a strictly
+    # stronger guard: the loop `break`s on the first non-pristine container,
+    # and zip(strict=True) only raises when it advances past an exhausted
+    # iterator, so a corrupt row whose FIRST container was already
+    # non-pristine used to break out before `strict` ever fired and got
+    # silently downgraded to a `modified_since_apply` skip.
+    corrupt = [
+        (
+            row["original_key"],
+            len(row["container_keys"]),
+            len(row["written_containers"]),
+        )
+        for row in applied_rows
+        if len(row["container_keys"]) != len(row["written_containers"])
+    ]
+    if corrupt:
+        detail = "; ".join(
+            f"{key!r}: container_keys ({n_keys}) != written_containers ({n_written})"
+            for key, n_keys, n_written in corrupt
+        )
+        raise ValueError(
+            f"{len(corrupt)} applied row(s) corrupt -- container_keys and "
+            f"written_containers must have the same length: {detail}"
+        )
+
     operations: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
 
@@ -821,20 +858,6 @@ def revert_split_operations(
         original_key = row["original_key"]
         container_keys = row["container_keys"]
         written_containers = row["written_containers"]
-
-        # Length equality is a SAFETY invariant, not a formality: if
-        # written_containers were shorter than container_keys, a plain zip()
-        # would silently check only a prefix, leave `pristine` True, and emit
-        # a blind restore over containers it never verified. Checked
-        # explicitly rather than via zip(strict=True) so the revert path --
-        # the recovery path -- keeps working on Python 3.9, which is what
-        # `python3` still resolves to on stock macOS (see SKILL.md).
-        if len(container_keys) != len(written_containers):
-            raise ValueError(
-                f"applied row {original_key!r} is corrupt: container_keys "
-                f"({len(container_keys)}) and written_containers "
-                f"({len(written_containers)}) must have the same length"
-            )
 
         pristine = True
         for container_key, expected in zip(container_keys, written_containers):
