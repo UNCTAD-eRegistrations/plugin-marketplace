@@ -86,7 +86,10 @@ def _columns_component(key: str, widths: list[int], **extra: Any) -> dict[str, A
     comp: dict[str, Any] = {
         "key": key,
         "type": "columns",
-        "columns": [_col(w, key=k) for w, k in zip(widths, keys, strict=True)],
+        # `keys` is built from `len(widths)` just above, so the two are equal
+        # by construction; plain zip() keeps this helper runnable on the 3.9
+        # floor the bundled scripts support.
+        "columns": [_col(w, key=k) for w, k in zip(widths, keys)],
     }
     comp.update(extra)
     return comp
@@ -1336,3 +1339,75 @@ def test_revert_split_operations_does_not_mutate_inputs() -> None:
 
     result["operations"][-1]["component"]["columns"][0]["width"] = 999
     assert post_split_live_copy[0] == post_split_live[0]
+
+
+# ---------------------------------------------------------------------------
+# Revert-path corruption guard (regression, TOBE-18009 els-dev canary).
+#
+# `container_keys` and `written_containers` are produced together and must
+# stay the same length. Verifying only a prefix would leave `pristine` True
+# while later containers went unchecked -- i.e. a blind restore over state
+# nobody verified. This was previously enforced by `zip(..., strict=True)`,
+# which is Python 3.10+ ONLY and therefore crashed the whole revert path on
+# stock macOS `python3` (3.9) with "zip() takes no keyword arguments" -- the
+# forward apply worked, but the RECOVERY path did not. The invariant is now
+# an explicit length check; these tests lock the behaviour in, and the CI
+# Python matrix (see .github/workflows/test-plugin-scripts.yml) locks in the
+# version floor that made the original break invisible.
+# ---------------------------------------------------------------------------
+def test_revert_split_operations_raises_on_length_mismatch() -> None:
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_component("row1", [4] * 9)]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+    applied_rows = applied["applied_rows"]
+    post_split_live = _post_split_live(live, applied)
+
+    corrupt = deepcopy(applied_rows)
+    # Drop one written_containers entry: a prefix-only zip would silently
+    # accept this row and emit a restore having checked only 2 of 3.
+    corrupt[0]["written_containers"] = corrupt[0]["written_containers"][:-1]
+    assert len(corrupt[0]["container_keys"]) != len(corrupt[0]["written_containers"])
+
+    with pytest.raises(ValueError):
+        revert_split_operations(corrupt, post_split_live)
+
+
+def test_revert_split_operations_raises_on_excess_written_containers() -> None:
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_component("row1", [4] * 9)]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+    applied_rows = applied["applied_rows"]
+    post_split_live = _post_split_live(live, applied)
+
+    corrupt = deepcopy(applied_rows)
+    corrupt[0]["container_keys"] = corrupt[0]["container_keys"][:-1]
+
+    with pytest.raises(ValueError):
+        revert_split_operations(corrupt, post_split_live)
+
+
+def test_bundled_scripts_are_importable_on_the_supported_python_floor() -> None:
+    """The skill promises operators can run these with plain `python3` and no
+    virtualenv. On stock macOS that is 3.9, so the bundled scripts must not
+    use 3.10+ syntax. Compiling each script surfaces syntax-level breaks on
+    any interpreter; API-level ones (e.g. `zip(strict=)`) are caught by the
+    3.9 leg of the CI matrix, which is why that leg exists."""
+    import py_compile
+    from pathlib import Path
+
+    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+    script_paths = sorted(scripts_dir.glob("*.py"))
+    assert script_paths, "no bundled scripts found to compile"
+
+    for path in script_paths:
+        py_compile.compile(str(path), doraise=True)

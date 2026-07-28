@@ -78,7 +78,10 @@ def _columns_component(
     return {
         "key": key,
         "type": "columns",
-        "columns": [_col(w, key=k) for w, k in zip(widths, keys, strict=True)],
+        # `keys` is built from `len(widths)` just above, so the two are equal
+        # by construction; plain zip() keeps this helper runnable on the 3.9
+        # floor the bundled scripts support.
+        "columns": [_col(w, key=k) for w, k in zip(widths, keys)],
     }
 
 

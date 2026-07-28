@@ -805,7 +805,10 @@ def revert_split_operations(
     are ``{"path", "original_key", "reason": "modified_since_apply"}``.
 
     Raises ``ValueError`` if ``live_components`` is not a list (e.g. a caller
-    passed the whole form dict instead of ``form["components"]``).
+    passed the whole form dict instead of ``form["components"]``), or if an
+    applied row's ``container_keys`` and ``written_containers`` differ in
+    length (a corrupt row: verifying only a prefix could emit a blind
+    restore over containers that were never checked).
     """
     _require_live_components_list(live_components)
     key_index = _live_columns_by_key(live_components)
@@ -819,10 +822,22 @@ def revert_split_operations(
         container_keys = row["container_keys"]
         written_containers = row["written_containers"]
 
+        # Length equality is a SAFETY invariant, not a formality: if
+        # written_containers were shorter than container_keys, a plain zip()
+        # would silently check only a prefix, leave `pristine` True, and emit
+        # a blind restore over containers it never verified. Checked
+        # explicitly rather than via zip(strict=True) so the revert path --
+        # the recovery path -- keeps working on Python 3.9, which is what
+        # `python3` still resolves to on stock macOS (see SKILL.md).
+        if len(container_keys) != len(written_containers):
+            raise ValueError(
+                f"applied row {original_key!r} is corrupt: container_keys "
+                f"({len(container_keys)}) and written_containers "
+                f"({len(written_containers)}) must have the same length"
+            )
+
         pristine = True
-        for container_key, expected in zip(
-            container_keys, written_containers, strict=True
-        ):
+        for container_key, expected in zip(container_keys, written_containers):
             hits = key_index.get(container_key, [])
             if len(hits) != 1 or not _is_structurally_pristine(hits[0], expected):
                 pristine = False
