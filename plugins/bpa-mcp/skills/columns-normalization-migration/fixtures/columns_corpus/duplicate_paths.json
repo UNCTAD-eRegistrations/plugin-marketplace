@@ -1,0 +1,22 @@
+{
+  "input": {
+    "components": [
+      {"key": "panel", "type": "panel", "components": [
+        {"key": "dup", "type": "columns", "columns": [
+          {"width": 4, "components": []},
+          {"width": 4, "components": []}
+        ]},
+        {"key": "dup", "type": "columns", "columns": [
+          {"width": 3, "components": []},
+          {"width": 3, "components": []}
+        ]}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "duplicate_path",
+    "paths": ["panel/dup", "panel/dup"],
+    "note": "duplicated component paths are surfaced together so each row addresses exactly one component; ambiguous paths are skipped and reported"
+  }
+}

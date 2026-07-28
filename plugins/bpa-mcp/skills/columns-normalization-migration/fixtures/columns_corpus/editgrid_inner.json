@@ -1,0 +1,18 @@
+{
+  "input": {
+    "components": [
+      {"key": "grid", "type": "editgrid", "components": [
+        {"key": "innerRow", "type": "columns", "columns": [
+          {"width": 4, "components": []},
+          {"width": 4, "components": []}
+        ]}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "inside_grid",
+    "inside_grid": true,
+    "note": "columns inside an editgrid/datagrid row template are skipped — per-row layout is not normalized"
+  }
+}

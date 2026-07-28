@@ -67,6 +67,19 @@ Live source: `mcp__BPA__instance_list()` — always current, never drifts.
 - Skill versions in `SKILL.md` metadata: same scheme
 - Always add a changelog entry when bumping a skill version
 
+## Bundled skill tests
+
+Skills that ship executable helpers in `skills/<skill>/scripts/*.py` also ship tests in
+`skills/<skill>/tests/`. CI (`.github/workflows/test-plugin-scripts.yml`) finds every
+`plugins/**/tests/` directory holding `test_*.py` and runs each one under `pytest`.
+
+- The scripts are **stdlib-only** — pytest is the only dependency CI installs. Do not add
+  a requirements file; fix the script instead.
+- Each suite needs its own `tests/conftest.py` putting the sibling `scripts/` directory on
+  `sys.path`, so modules import under flat names (`from columns_logic import ...`).
+- Run locally before committing:
+  `python3 -m pytest plugins/<plugin>/skills/<skill>/tests -q`
+
 ## Kimi Code dual format
 
 The repository also ships Kimi Code manifests so the same plugins install in Kimi Code:

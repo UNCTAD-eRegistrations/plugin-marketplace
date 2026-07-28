@@ -1,0 +1,15 @@
+{
+  "input": {
+    "components": [
+      {"key": "", "type": "columns", "columns": [
+        {"width": 4, "components": []},
+        {"width": 4, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "no_key",
+    "note": "a keyless columns component cannot be addressed unambiguously; it is skipped and reported, never applied to a first/arbitrary match"
+  }
+}

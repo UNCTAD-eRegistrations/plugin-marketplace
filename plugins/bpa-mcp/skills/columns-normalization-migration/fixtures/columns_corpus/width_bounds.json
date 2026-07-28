@@ -1,0 +1,17 @@
+{
+  "input": {
+    "components": [
+      {"key": "low", "type": "columns", "columns": [
+        {"width": 1, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "components": [
+      {"key": "low", "type": "columns", "columns": [
+        {"width": 12, "components": []}
+      ]}
+    ],
+    "note": "boundary width 1 (single column) normalizes to 12; every width stays within 1..12"
+  }
+}

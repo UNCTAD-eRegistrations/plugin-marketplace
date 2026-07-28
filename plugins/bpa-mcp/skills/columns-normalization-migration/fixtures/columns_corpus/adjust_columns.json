@@ -1,0 +1,15 @@
+{
+  "input": {
+    "components": [
+      {"key": "row1", "type": "columns", "customClass": "adjust-columns", "columns": [
+        {"width": 4, "components": []},
+        {"width": 4, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "adjust_columns",
+    "note": "the adjust-columns customClass opts a row out of normalization"
+  }
+}

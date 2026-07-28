@@ -1,0 +1,14 @@
+{
+  "input": {
+    "components": [
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": null, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "error": "null_width",
+    "raises": true,
+    "note": "a null (or non-int) width is a malformed/partial tree; the walker must fail loud rather than emit a corrupt plan"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "input": {
+    "components": [
+      {"key": "row1", "type": "columns", "columns": [
+        {"width": 8, "components": []},
+        {"width": 8, "components": []}
+      ]}
+    ]
+  },
+  "expected": {
+    "action": "skip",
+    "reason": "over_12",
+    "base_sum": 16,
+    "note": "a row already summing over 12 is left untouched (not shrunk); it is reported, not rewritten"
+  }
+}
