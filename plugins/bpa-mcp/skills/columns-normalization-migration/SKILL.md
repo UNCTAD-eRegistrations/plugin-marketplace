@@ -3,12 +3,13 @@ name: columns-normalization-migration
 description: Scan-and-plan (read-only) workflow for normalizing Form.io column layouts to sum 12 across a service's forms, plus a gated apply, covering BOTH tracks — the under-12 PAD track (widen a short row's columns) and the over-12 SPLIT track (break a too-wide row into multiple sum-12 containers). The APPLY half (any form_patch write) is ENABLED but gated on per-instance deployment of the platform precondition (TOBE-18004 / DS-Frontend#173, DS >= 2.18.326 on the 2.18 line / >= 2.19.188 on develop) AND the instance allowlist — apply only on an allowlisted instance where the DS empty-column exemption is deployed. Use when preparing a columns normalization migration.
 argument-hint: "[instance] [service_id]"
 license: UNCTAD-Internal
-compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python and run with no install step.
+compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python 3.9+ and run with no install step.
 allowed-tools: Read, Write, Grep, Glob, Bash(python3 *), Bash(mkdir -p *), Bash(cat *), Bash(date *), mcp__BPA__form_get, mcp__BPA__form_patch, mcp__BPA__componentbehaviour_generate_newkeys, mcp__BPA__instance_list, mcp__BPA__connection_status
 metadata:
-  version: "1.1.1"
+  version: "1.1.2"
   version-date: "2026-07-28"
   changelog:
+    - "1.1.2 (2026-07-28): Fixed a Python 3.9 incompatibility that broke the columns split REVERT path, found by the first live els-dev canary (TOBE-18009). `revert_split_operations` used `zip(container_keys, written_containers, strict=True)`, which is Python 3.10+ only, so on stock macOS -- where `python3` is still 3.9 and this skill explicitly promises operators can run the bundled scripts with plain `python3` and no virtualenv -- the entire revert died with `zip() takes no keyword arguments`. The forward apply was unaffected (sole 3.10+ construct, and only in the revert function), so an operator could APPLY but not ROLL BACK: the recovery path was the broken one. Replaced with an explicit length-equality check that raises ValueError, preserving the safety intent the `strict=True` carried -- a prefix-only zip would leave `pristine` True while later containers went unverified, emitting a blind restore over unchecked state. Also de-`strict`ed two test helpers where the lists are equal by construction, and added a 3.9 leg to the CI matrix plus a whole-tree `compileall` (previously a single 3.13 job, which is why this was invisible). Declared the 3.9 floor in `compatibility`. On 3.10+ the guard is STRONGER than the `strict=True` it replaces, not merely equivalent: the verification loop breaks on the first non-pristine container and `strict=` only fires when zip advances past an exhausted iterator, so a corrupt row whose first container was already non-pristine used to break out before `strict` ran and was silently downgraded to a `modified_since_apply` skip. It is now reported as the error it is, as a pre-pass naming every corrupt row at once."
     - "1.1.1 (2026-07-28): Fixed a self-contradiction (TOBE-18009, Erick review 102772): the 'Instance allowlist — the operator's checklist' section still said writes may target only els-dev and aborted on anything else, predating the #54 pinned instance-identifiers table that marks cuba and kenya-test as migration targets — followed literally, the skill would abort on the instances the rollout targets. Reconciled the checklist's permitted-set language and abort rule to name the same pinned set as the table: permit {elsalvador-dev (canary), cuba, kenya-test}, never write {vucecuba, cuba-test, jamaica, lesotho2}. No change to the pinned table, the AUTOPILOT_MODE-is-a-no-op reframe, the vucecuba never-write pin, the canary-states-its-target rule, or any LWW/hash/Envers/publish-gate content."
     - "1.1.0 (2026-07-27): Restored two safety guardrails that fell through the seam when this skill was relocated from the MCP repo (this skill predates MCP_eRegistrations#470, still open, which added them to the pre-move SKILL.md). Added the pinned instance-identifiers table (cuba -> cuba.eregistrations.org is the migration target; vucecuba -> vucecuba.mincex.gob.cu is sovereign production and NEVER a write target; kenya-test, elsalvador-dev, cuba-test also pinned) under the instance-allowlist checklist. Required the first-use canary to print the resolved target instance and intended change BEFORE its write, so a wrong target is caught before the batch, not after."
 ---
@@ -53,7 +54,12 @@ step runs in the four stdlib-only scripts shipped in `<skill-dir>/scripts/`:
 `columns_split_apply.py`. They are **pure and read-only** — they never open a
 socket and never write a form. All network I/O goes through the MCP tools
 named in the phases below. Run the scripts with plain `python3`; they need no
-virtualenv and no dependency install.
+virtualenv and no dependency install. They target **Python 3.9+** — the
+version stock macOS still ships as `python3` — so this promise holds on an
+operator's machine without a toolchain setup. Both the apply **and the
+revert** paths must stay inside that floor: an apply you cannot roll back is
+worse than no apply, and a 3.10-only construct in the revert path is exactly
+the bug the first els-dev canary caught (skill 1.1.2).
 
 ## ⚠ Safety model — read this first
 
