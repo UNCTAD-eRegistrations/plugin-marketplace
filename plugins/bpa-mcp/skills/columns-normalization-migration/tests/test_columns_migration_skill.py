@@ -146,6 +146,17 @@ def test_skill_requires_resolved_allowlisted_instance_never_none() -> None:
     assert "els-dev" in text or "elsalvador-dev" in text, (
         "skill must show an allowlisted target instance"
     )
+    # The permitted set is the pinned set from the identifiers table, not
+    # els-dev alone: cuba and kenya-test are migration targets too (#54), and
+    # the operator checklist must name them as permitted, not just the canary.
+    assert "cuba" in text and "kenya-test" in text, (
+        "skill must name cuba and kenya-test as permitted migration targets, "
+        "not just the els-dev canary"
+    )
+    # Never-write set: vucecuba (sovereign CAS prod) plus jamaica/lesotho2.
+    assert "vucecuba" in text, (
+        "skill must name vucecuba as a never-write target"
+    )
     assert "jamaica" in text and "lesotho2" in text, (
         "skill must name jamaica/lesotho2 as forbidden targets"
     )
@@ -164,6 +175,17 @@ def test_skill_requires_resolved_allowlisted_instance_never_none() -> None:
             "no default",
         ],
         "skill must require an explicit allowlisted instance (never instance=None)",
+    )
+    # The operator checklist's abort rule must name the pinned permitted set
+    # (elsalvador-dev, cuba, kenya-test), not "els-dev" as the sole target —
+    # otherwise the checklist would tell the operator to abort on cuba and
+    # kenya-test, which the pinned table marks as migration targets.
+    _assert_any(
+        text,
+        ["permitted", "permitted set", "pinned permitted set"],
+        "skill's abort rule must name the pinned permitted set (elsalvador-dev, "
+        "cuba, kenya-test), not els-dev alone, so it does not abort on the "
+        "instances the migration actually targets",
     )
 
 

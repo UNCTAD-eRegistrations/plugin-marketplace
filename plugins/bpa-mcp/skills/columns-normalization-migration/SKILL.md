@@ -6,9 +6,10 @@ license: UNCTAD-Internal
 compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python and run with no install step.
 allowed-tools: Read, Write, Grep, Glob, Bash(python3 *), Bash(mkdir -p *), Bash(cat *), Bash(date *), mcp__BPA__form_get, mcp__BPA__form_patch, mcp__BPA__componentbehaviour_generate_newkeys, mcp__BPA__instance_list, mcp__BPA__connection_status
 metadata:
-  version: "1.1.0"
-  version-date: "2026-07-27"
+  version: "1.1.1"
+  version-date: "2026-07-28"
   changelog:
+    - "1.1.1 (2026-07-28): Fixed a self-contradiction (TOBE-18009, Erick review 102772): the 'Instance allowlist — the operator's checklist' section still said writes may target only els-dev and aborted on anything else, predating the #54 pinned instance-identifiers table that marks cuba and kenya-test as migration targets — followed literally, the skill would abort on the instances the rollout targets. Reconciled the checklist's permitted-set language and abort rule to name the same pinned set as the table: permit {elsalvador-dev (canary), cuba, kenya-test}, never write {vucecuba, cuba-test, jamaica, lesotho2}. No change to the pinned table, the AUTOPILOT_MODE-is-a-no-op reframe, the vucecuba never-write pin, the canary-states-its-target rule, or any LWW/hash/Envers/publish-gate content."
     - "1.1.0 (2026-07-27): Restored two safety guardrails that fell through the seam when this skill was relocated from the MCP repo (this skill predates MCP_eRegistrations#470, still open, which added them to the pre-move SKILL.md). Added the pinned instance-identifiers table (cuba -> cuba.eregistrations.org is the migration target; vucecuba -> vucecuba.mincex.gob.cu is sovereign production and NEVER a write target; kenya-test, elsalvador-dev, cuba-test also pinned) under the instance-allowlist checklist. Required the first-use canary to print the resolved target instance and intended change BEFORE its write, so a wrong target is caught before the batch, not after."
 ---
 
@@ -117,21 +118,23 @@ rejected — it will be silently clobbered. This skill and any script it drives
 
 ## Instance allowlist — the operator's checklist
 
-Writes may target only **allowlisted** instances (e.g. **els-dev**) and
-**never jamaica or lesotho2**. Read the scope note above first: `form_patch`
-carries no allowlist check, so on an interactive session these rules are
-enforced by **you**, not by the platform.
+Writes may target only the **pinned permitted set**: **elsalvador-dev**
+("els-dev", the canary / first write), then **cuba** and **kenya-test** —
+see the pinned identifiers table below for exact hosts and roles. **Never**
+write to **vucecuba**, **cuba-test**, **jamaica**, or **lesotho2**. Read the
+scope note above first: `form_patch` carries no allowlist check, so on an
+interactive session these rules are enforced by **you**, not by the platform.
 
 - Every apply step must pass an **explicit** allowlisted instance. **Never
   instance=None** — no `instance=None` default, no env-configured profile that
-  could resolve to jamaica/lesotho2.
+  could resolve to vucecuba/cuba-test/jamaica/lesotho2.
 - Resolve the instance **first**, then check the **resolved** value, not the
   raw passed-in string. A profile name and the instance it resolves to are not
   the same thing, and only the resolved value is what gets written to.
 - Confirm the resolved target with `instance_list` / `connection_status`
   before the first write of a session, and state it out loud in the plan file.
-- If resolution is ambiguous or yields anything but an allowlisted target
-  (els-dev), **abort**.
+- If resolution is ambiguous or yields anything but one of the **permitted**
+  targets (**elsalvador-dev**, **cuba**, **kenya-test**), **abort**.
 
 ### Instance identifiers (pinned — confirmed by Erick)
 
