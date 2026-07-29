@@ -1482,3 +1482,94 @@ def test_revert_split_operations_still_raises_when_first_container_not_pristine(
 
     with pytest.raises(ValueError, match="corrupt"):
         revert_split_operations(corrupt, post_split_live)
+
+
+# ---------------------------------------------------------------------------
+# single-container plans + review rows (marketplace #58)
+# ---------------------------------------------------------------------------
+def _col_maybe_empty(width: int, key: str | None) -> dict[str, Any]:
+    """A source column; ``key=None`` builds an empty spacer column."""
+    return _col(width, key=key)
+
+
+def _columns_with_content_flags(
+    key: str, widths: list[int], flags: str
+) -> dict[str, Any]:
+    """Columns component where ``flags`` marks each column ``1`` (has a field)
+    or ``0`` (empty spacer)."""
+    assert len(widths) == len(flags)
+    return {
+        "key": key,
+        "type": "columns",
+        "columns": [
+            _col_maybe_empty(w, None if flags[i] == "0" else f"{key}_f{i}")
+            for i, w in enumerate(widths)
+        ],
+    }
+
+
+def test_apply_tolerates_a_single_container_plan() -> None:
+    """Erick's case 2 on #58: dropping a content-less group can legitimately
+    leave ONE surviving container, i.e. a 1->1 rewrite. The apply side must
+    emit `remove` + a single `add` rather than assuming N > 1 anywhere."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [6, 6, 6], "110")]
+    plan_rows = _plan_rows(live)
+
+    assert len(plan_rows) == 1
+    assert len(plan_rows[0]["containers"]) == 1
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    ops = result["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add"]
+    assert ops[0]["key"] == "row1"
+    assert ops[1]["component"]["key"] == "row1_split1"
+    assert [c["width"] for c in ops[1]["component"]["columns"]] == [6, 6]
+    assert len(result["applied_rows"]) == 1
+    assert result["applied_rows"][0]["container_keys"] == ["row1_split1"]
+
+
+def test_apply_round_trips_a_single_container_plan() -> None:
+    """The revert path must survive the 1->1 shape too — it is the recovery
+    story for exactly the rows this fix newly makes applicable."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [6, 6, 6], "110")]
+    result = plan_to_split_operations(_plan_rows(live), live)
+
+    written = [op["component"] for op in result["operations"] if op["op"] == "add"]
+    reverted = revert_split_operations(result["applied_rows"], written)
+
+    assert reverted["skipped"] == []
+    assert [op["op"] for op in reverted["operations"]] == ["remove", "add"]
+
+
+def test_apply_skips_an_all_columns_empty_review_row() -> None:
+    """A row whose every group is content-less is surfaced as `review`, never
+    split. The apply side must skip it — emitting nothing for it, and above all
+    never emitting the bare `remove` that would delete the component."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [8, 8], "00")]
+    plan_rows = _plan_rows(live)
+
+    assert len(plan_rows) == 1
+    assert plan_rows[0]["action"] == "review"
+    assert plan_rows[0]["reason"] == "all_columns_empty"
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["operations"] == []
+    assert result["applied_rows"] == []

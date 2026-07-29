@@ -32,6 +32,30 @@ RESOLVED RULES (from Erick + render test; TOBE-18009):
     close the current group and start a new one with that column. Each
     column keeps its own width and its ``components`` (fields). Order is
     preserved.
+  - Content-less groups are DROPPED after grouping (marketplace #58). A group
+    in which no column carries content never becomes a container: padding one
+    to 12 and emitting it added a ``columns`` component holding no fields,
+    which no other gate catches (widths still sum to 12, the >= 2-column guard
+    still passes, the post-apply assertions still pass, the re-scan still
+    converges). This is a POST-filter on the grouping output, NOT a pre-trim
+    of the input: a spacer sharing a group with real content is KEPT, and a
+    row without a wholly-empty group produces byte-identical output to before.
+    The over-12 boundary above is untouched. Two consequences worth knowing:
+    (a) if EVERY group is content-less the row is returned as
+    ``{"action": "review", "reason": "all_columns_empty"}`` and never split —
+    emitting zero containers would be a silent DELETION, since apply is
+    ``remove`` the original + ``add`` N; (b) a dropped group need not be the
+    trailing one, so with content in the 1st and 3rd groups the MIDDLE group
+    goes, the survivors become adjacent and ``_split{n}`` re-closes from 1 —
+    a visible reordering, and the right outcome for a row that renders
+    raggedly as authored. A drop can also leave a SINGLE surviving container
+    (a 1->1 rewrite), which is structurally sound and which the apply side
+    tolerates. NB this is not a general "strip empty columns" rule: a trailing
+    empty column is the sanctioned way to pad an under-12 row back to 12
+    (TOBE-18004 makes those visually free; TOBE-18006 has the builder append
+    them). What makes a spacer disposable HERE is only that the row is being
+    restructured into sum-12 containers anyway, so the pad step takes over
+    its job.
   - Split-then-pad remainder: after grouping, EVERY group whose sum is under
     12 — not just the last one — gets an appended empty filler column of
     width ``12 - sum`` (empty ``components``, ``size`` = the dominant size
@@ -214,6 +238,46 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         }
 
     groups = _group_columns(copy.deepcopy(columns))
+
+    # Drop any group in which no column carries content. The greedy walk can
+    # close a group made entirely of spacer columns — an ordinary shape, since
+    # a trailing empty column is the sanctioned way to pad a row back to 12.
+    # Padding such a group to 12 and emitting it added a `columns` component
+    # holding no fields at all, which no other gate catches: the widths still
+    # sum to 12, the >= 2-column guard still passes, the post-apply assertions
+    # still pass and the re-scan still converges (marketplace #58).
+    #
+    # This is a POST-filter on the grouping output, deliberately not a pre-trim
+    # of the input: a spacer that shares a group with real content is KEPT, and
+    # any row without a wholly-empty group produces byte-identical output to
+    # before. The over-12 boundary above is untouched — it keeps counting raw
+    # widths with spacers included, and keeps diverging from `columns_logic`
+    # on purpose.
+    #
+    # Note this is NOT a general "strip empty columns" rule. What makes a
+    # spacer disposable here is narrow: the row is being restructured into
+    # sum-12 containers anyway, so the pad step below takes over the spacer's
+    # job and re-creates whatever filler each surviving group needs.
+    surviving = [group for group in groups if any(c.get("components") for c in group)]
+    if not surviving:
+        # Every group is content-less. Emitting nothing would be a SILENT
+        # DELETION: apply is `remove` the original + `add` N containers, so an
+        # empty container list removes an authored component and puts nothing
+        # back. An entirely empty over-12 row is either debris or a deliberate
+        # spacer block, and this tool must not decide which — surface it.
+        return {
+            "action": "review",
+            "original_key": key,
+            "base_widths": widths,
+            "reason": "all_columns_empty",
+            "determinant_carry": "all",
+        }
+    # A dropped group is not always the trailing one: with content in the 1st
+    # and 3rd groups the MIDDLE group goes, the survivors become adjacent and
+    # `_split{n}` re-closes from 1. That is a visible reordering, and the right
+    # outcome for a row that renders raggedly as authored.
+    groups = surviving
+
     containers: list[dict[str, Any]] = []
 
     for n, group in enumerate(groups, start=1):
@@ -258,6 +322,18 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
     # defense-in-depth to fail safe against a future regression rather than
     # ever emit an unsafe plan.
     if any(len(c["columns"]) < 2 for c in containers):  # pragma: no cover
+        return None
+
+    # Companion invariant to the one above (marketplace #58): never emit a
+    # container that holds no content-bearing column. UNREACHABLE by
+    # construction — the content-less groups were filtered out before padding,
+    # and the pad step only ever APPENDS an empty filler to a group that
+    # already survived that filter, so it cannot create a content-less
+    # container. Defense-in-depth against a future regression, mirroring the
+    # < 2-columns guard: fail safe rather than emit a junk component.
+    if any(
+        not any(col.get("components") for col in c["columns"]) for c in containers
+    ):  # pragma: no cover
         return None
 
     plan: dict[str, Any] = {

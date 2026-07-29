@@ -37,7 +37,21 @@ _LOCAL_MODULES = {
 }
 
 
-def _col(width: int, *, key: str | None = None, size: str = "md") -> dict[str, Any]:
+def _col(
+    width: int,
+    *,
+    key: str | None = None,
+    size: str = "md",
+    empty: bool = False,
+) -> dict[str, Any]:
+    """A source column. ``empty=True`` builds a spacer column — one carrying no
+    components at all.
+
+    Until the content-less-group fix (marketplace #58) this helper always
+    inserted a textfield, which made every empty-source-column case structurally
+    unreachable from this suite. That is why a row whose grouping produced a
+    wholly-empty group shipped emitting a container holding no fields.
+    """
     col: dict[str, Any] = {
         "size": size,
         "width": width,
@@ -45,10 +59,28 @@ def _col(width: int, *, key: str | None = None, size: str = "md") -> dict[str, A
         "push": 0,
         "pull": 0,
         "components": (
-            [{"key": key or f"f{width}", "type": "textfield", "label": "x"}]
+            []
+            if empty
+            else [{"key": key or f"f{width}", "type": "textfield", "label": "x"}]
         ),
     }
     return col
+
+
+def _columns_with_content_flags(
+    key: str, widths: list[int], flags: str
+) -> dict[str, Any]:
+    """Columns component from ``widths`` where ``flags`` is a same-length string
+    of ``1`` (column carries a field) / ``0`` (empty spacer column)."""
+    assert len(widths) == len(flags), "widths and flags must be the same length"
+    return {
+        "key": key,
+        "type": "columns",
+        "columns": [
+            _col(w, key=f"{key}_f{i}", empty=flags[i] == "0")
+            for i, w in enumerate(widths)
+        ],
+    }
 
 
 def _columns_component(
@@ -70,6 +102,18 @@ def _assert_all_containers_sum_to_twelve(plan: dict[str, Any]) -> None:
     for container in plan["containers"]:
         assert sum(container["widths"]) == 12
         assert sum(c["width"] for c in container["columns"]) == 12
+
+
+def _assert_no_content_less_container(plan: dict[str, Any]) -> None:
+    """Invariant (marketplace #58): every emitted container must hold at least
+    one content-bearing column. A container of nothing but spacers is a junk
+    component added to the form that no other gate catches — widths still sum
+    to 12, every container still has >= 2 columns, the post-apply assertions
+    still pass and the re-scan still converges."""
+    for container in plan["containers"]:
+        assert any(c.get("components") for c in container["columns"]), (
+            f"container {container['key']!r} holds no content-bearing column"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -672,3 +716,159 @@ def test_cli_main_callable_rejects_non_json() -> None:
         main(["--stdin"], stdin_text="not json")
     if isinstance(exc_info.value, SystemExit):
         assert exc_info.value.code not in (0, None)
+
+
+# ---------------------------------------------------------------------------
+# content-less groups (marketplace #58)
+# ---------------------------------------------------------------------------
+class TestContentLessGroupDrop:
+    """A group in which no column carries content must not become a container.
+
+    The greedy 12-boundary walk can close a group made entirely of spacer
+    columns — an ordinary shape, since a trailing spacer is the sanctioned way
+    to pad a row to 12 (TOBE-18004 makes them visually free, TOBE-18006 has the
+    builder append them). Padding it to 12 and emitting it added a `columns`
+    component holding no fields at all, and every existing gate passed on it.
+
+    Route 1 (Erick's decision on #58): filter the groups AFTER grouping. The
+    over-12 boundary keeps counting raw widths, spacers included, and keeps
+    diverging from `columns_logic` on purpose; only the grouping output is
+    filtered. A spacer sharing a group with real content is kept.
+    """
+
+    def test_dosh_shape_drops_the_trailing_spacer_group(self):
+        """Live case: kenya-test DOSH guide form, `guidecolumns2`."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 10, "1111111100")
+
+        plan = plan_split(comp)
+
+        assert plan["action"] == "split"
+        assert len(plan["containers"]) == 3
+        _assert_all_containers_sum_to_twelve(plan)
+        _assert_no_content_less_container(plan)
+        assert [c["key"] for c in plan["containers"]] == [
+            "row1_split1",
+            "row1_split2",
+            "row1_split3",
+        ]
+
+    def test_spacer_sharing_a_group_with_content_is_kept(self):
+        """Route 1 is a post-filter, not a pre-trim: `split3` keeps its spacer."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 10, "1111111100")
+
+        plan = plan_split(comp)
+
+        third = plan["containers"][2]
+        assert third["widths"] == [4, 4, 4]
+        assert [bool(c.get("components")) for c in third["columns"]] == [
+            True,
+            True,
+            False,
+        ]
+
+    def test_erick_six_by_four_half_empty(self):
+        """`6x4` with `111000` — reported on #58, not in the original probe."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 6, "111000")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 1
+        _assert_no_content_less_container(plan)
+
+    def test_a_drop_may_legitimately_leave_a_single_container(self):
+        """Case 2: the survivor set can be one container — a 1->1 rewrite.
+
+        Structurally sound (2 columns, sums to 12) and the apply side must
+        tolerate it, so this is not an error path.
+        """
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6], "110")
+
+        plan = plan_split(comp)
+
+        assert plan["action"] == "split"
+        assert len(plan["containers"]) == 1
+        assert plan["containers"][0]["widths"] == [6, 6]
+        _assert_no_content_less_container(plan)
+
+    def test_all_groups_content_less_is_surfaced_not_emitted(self):
+        """Case 1, the correctness requirement: never reduce a row to zero
+        containers. Apply is REMOVE original + ADD N, so an empty container
+        list would silently DELETE an authored component."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [8, 8], "00")
+
+        plan = plan_split(comp)
+
+        assert plan is not None
+        assert plan["action"] == "review"
+        assert plan["reason"] == "all_columns_empty"
+        assert not plan.get("containers")
+
+    def test_dropped_group_may_be_in_the_middle_and_survivors_renumber(self):
+        """Case 3: the dropped group is not always trailing. The two content
+        columns become adjacent and `_split{n}` re-closes from 1."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [8, 8, 8], "101")
+
+        plan = plan_split(comp)
+
+        assert [c["key"] for c in plan["containers"]] == ["row1_split1", "row1_split2"]
+        assert [c["widths"] for c in plan["containers"]] == [[8, 4], [8, 4]]
+        _assert_no_content_less_container(plan)
+
+    def test_leading_spacer_changes_nothing(self):
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4, 4, 4, 4], "0111")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 2
+        _assert_all_containers_sum_to_twelve(plan)
+        _assert_no_content_less_container(plan)
+
+    def test_interleaved_spacers_change_nothing(self):
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6, 6], "1010")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 2
+        _assert_all_containers_sum_to_twelve(plan)
+        _assert_no_content_less_container(plan)
+
+    def test_all_content_row_is_byte_identical_to_today(self):
+        """Control: a row with no wholly-empty group must be untouched by the
+        filter — this is what keeps the existing corpus and 39 tests green."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 9, "111111111")
+
+        plan = plan_split(comp)
+
+        assert [c["widths"] for c in plan["containers"]] == [[4, 4, 4]] * 3
+        _assert_no_content_less_container(plan)
+
+    def test_over_12_boundary_still_counts_spacer_widths(self):
+        """The boundary must NOT move: [6,6,{6 empty}] is raw-sum 18, so it is
+        still an over-12 row that splits — it does not become a 12 that skips."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6], "110")
+
+        plan = plan_split(comp)
+
+        assert plan is not None
+        assert plan["base_widths"] == [6, 6, 6]
+        assert plan["action"] == "split"
