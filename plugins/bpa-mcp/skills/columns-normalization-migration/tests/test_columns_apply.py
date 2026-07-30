@@ -694,15 +694,13 @@ def test_plan_to_operations_folds_invalid_width_into_skipped_not_raise() -> None
 # ---------------------------------------------------------------------------
 # in-grid apply freeze (TOBE-18037 acceptance 4 — scan half only)
 # ---------------------------------------------------------------------------
-def test_plan_to_operations_refuses_a_pad_for_a_live_in_grid_row() -> None:
-    """Effect-level freeze: even a plan row that CLAIMS an actionable pad for
-    a row that is live inside an editgrid must be refused by the live
-    re-verification. Pad-applying in-grid rows waits for TOBE-18041's canary;
-    the scan-half classification change must not open a write path here.
-
-    The plan row is forged deliberately (a stale plan from a pre-move form,
-    or a hand-edited file — plan files are per-operator and non-authoritative)
-    so this cannot rot into 'build_plan never emits it' vacuity."""
+def test_plan_to_operations_refuses_a_pad_for_a_live_direct_child_row() -> None:
+    """TOBE-18041 narrows the freeze to the class that must stay frozen: a
+    plan row claiming an actionable pad for a row that is live a DIRECT child
+    of an editgrid must still be refused by the live re-verification — the DS
+    grid rule owns those rows. Forged deliberately (plan files are
+    per-operator and non-authoritative) so this cannot rot into
+    'build_plan never emits it' vacuity."""
     from columns_apply import plan_to_operations
 
     target = _columns_component("row1", [3, 3])
@@ -710,13 +708,13 @@ def test_plan_to_operations_refuses_a_pad_for_a_live_in_grid_row() -> None:
         {
             "key": "grid",
             "type": "editgrid",
-            "components": [{"key": "p", "type": "panel", "components": [target]}],
+            "components": [target],
         }
     ]
     forged_plan_row = {
-        "path": "grid/p/row1",
+        "path": "grid/row1",
         "key": "row1",
-        "inside_grid": False,  # lies — the live row is inside the grid
+        "inside_grid": False,  # lies — the live row is the grid's direct child
         "action": "append",
         "reason": "under_12",
         "base_sum": 6,
@@ -728,4 +726,33 @@ def test_plan_to_operations_refuses_a_pad_for_a_live_in_grid_row() -> None:
     assert result["operations"] == []
     assert result["applied_rows"] == []
     assert len(result["skipped"]) == 1
-    assert result["skipped"][0]["path"] == "grid/p/row1"
+    assert result["skipped"][0]["reason"] == "grid_direct_child"
+
+
+def test_plan_to_operations_pads_a_live_nested_in_grid_row() -> None:
+    """TOBE-18041: a nested under-12 row is an ordinary pad target. The live
+    re-verification analyzes it for real and emits the SET op."""
+    from columns_apply import plan_to_operations
+
+    from columns_logic import build_plan
+
+    target = _columns_component("row1", [3, 3])
+    live = [
+        {
+            "key": "grid",
+            "type": "editgrid",
+            "components": [{"key": "p", "type": "panel", "components": [target]}],
+        }
+    ]
+    plan = build_plan(_form(live))["plan"]
+    actionable = [r for r in plan if r["action"] != "skip"]
+    assert [r["key"] for r in actionable] == ["row1"]
+
+    result = plan_to_operations(actionable, live)
+
+    assert result["skipped"] == []
+    assert len(result["operations"]) == 1
+    op = result["operations"][0]
+    assert op["op"] == "set"
+    assert op["key"] == "row1"
+    assert [c["width"] for c in op["properties"]["columns"]] == [3, 3, 6]

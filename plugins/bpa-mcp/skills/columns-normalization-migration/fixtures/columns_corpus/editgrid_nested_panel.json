@@ -1,5 +1,5 @@
 {
-    "_comment": "TOBE-18037 two-class rule, the NESTED class - the kenya-test DOSH 'Workplace physical location' shape: editgrid > panel > panel > 9 x width-4. The DS grid rule's direct-child combinator cannot reach it, so it renders via the fluid flex model, all 9 on one line. The scan reports it; the apply is deferred to TOBE-18041.",
+    "_comment": "TOBE-18037/18041 two-class rule, the NESTED class - the kenya-test DOSH 'Workplace physical location' shape: editgrid > panel > panel > 9 x width-4. The DS grid rule's direct-child combinator cannot reach it, so it renders via the fluid flex model, all 9 on one line. Since TOBE-18041 nested rows are ORDINARY rows on both tracks: the pad track reports it over_12 (the split track's subject), the split track emits a RUNNABLE plan, both tagged grid_context nested. The apply addresses the PANEL parent inside the grid; only a DIRECT child of the grid is refused.",
     "input": {
         "components": [
             {
@@ -112,26 +112,45 @@
     "expected": {
         "pad_track": {
             "action": "skip",
-            "reason": "in_grid_nested",
+            "reason": "over_12",
             "grid_context": "nested",
             "base_sum": 36
         },
         "split_track": {
-            "action": "review",
-            "reason": "in_grid_nested",
+            "action": "split",
             "grid_context": "nested",
-            "base_widths": [
-                4,
-                4,
-                4,
-                4,
-                4,
-                4,
-                4,
-                4,
-                4
+            "containers": [
+                {
+                    "widths": [
+                        4,
+                        4,
+                        4
+                    ]
+                },
+                {
+                    "widths": [
+                        4,
+                        4,
+                        4
+                    ]
+                },
+                {
+                    "widths": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
             ],
-            "note": "no containers - flag-not-transform until TOBE-18041 proves grid-subtree insertion + editgrid data survival"
+            "apply": {
+                "parent_key": "inner",
+                "positions": [
+                    0,
+                    1,
+                    2
+                ],
+                "note": "remove + 3 adds address the innermost panel; grid ancestry no longer poisons the subtree"
+            }
         }
     }
 }

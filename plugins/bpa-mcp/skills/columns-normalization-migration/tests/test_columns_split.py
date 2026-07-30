@@ -897,7 +897,10 @@ class TestInGridTwoClassScan:
     def _panel(key: str, children: list[dict]) -> dict:
         return {"key": key, "type": "panel", "components": children}
 
-    def test_nested_over_12_row_surfaces_as_review(self):
+    def test_nested_over_12_row_is_a_runnable_split(self):
+        """TOBE-18041: the 18037 freeze is lifted — a nested over-12 row gets
+        a full split plan (containers and all), annotated with its grid
+        context so the runbook's in-grid canary gate can see it."""
         from columns_split import scan_form_for_splits
 
         form = {
@@ -911,15 +914,11 @@ class TestInGridTwoClassScan:
 
         assert len(rows) == 1
         row = rows[0]
-        assert row["action"] == "review"
-        assert row["reason"] == "in_grid_nested"
+        assert row["action"] == "split"
         assert row["original_key"] == "row1"
         assert row["base_widths"] == [4] * 9
         assert row["grid_context"] == "nested"
-        assert not row.get("containers"), (
-            "no runnable split plan before TOBE-18041 — containers must not "
-            "be emitted for an in-grid row"
-        )
+        assert [c["widths"] for c in row["containers"]] == [[4, 4, 4]] * 3
 
     def test_dosh_workplace_physical_location_shape(self):
         """The live case: editgrid > panel > panel > [4]x9."""
@@ -938,8 +937,8 @@ class TestInGridTwoClassScan:
             ]
         }
         rows = scan_form_for_splits(form)
-        assert [(r["action"], r["reason"]) for r in rows] == [
-            ("review", "in_grid_nested")
+        assert [(r["action"], r.get("grid_context")) for r in rows] == [
+            ("split", "nested")
         ]
 
     def test_direct_child_over_12_row_is_still_never_emitted(self):

@@ -6,9 +6,10 @@ license: UNCTAD-Internal
 compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python 3.9+ and run with no install step.
 allowed-tools: Read, Write, Grep, Glob, Bash(python3 *), Bash(mkdir -p *), Bash(cat *), Bash(date *), mcp__BPA__form_get, mcp__BPA__form_patch, mcp__BPA__componentbehaviour_generate_newkeys, mcp__BPA__instance_list, mcp__BPA__connection_status
 metadata:
-  version: "1.2.2"
+  version: "1.3.0"
   version-date: "2026-07-30"
   changelog:
+    - "1.3.0 (2026-07-30): TOBE-18041 — the APPLY half for editgrid-nested rows; the 18037 freeze is lifted. Nested rows (panel-in-grid etc.) are now ORDINARY rows on both tracks: the pad scan emits real append/resize plans and the split scan emits full runnable split plans, each tagged `grid_context: nested` (the `in_grid_nested` reason is retired -- nested rows report ordinary reasons; the reverse lockstep guard caught its orphaned vocabulary row, which is exactly the drift it exists to catch). The split apply's ancestry guard is narrowed: a datagrid/editgrid ancestor no longer poisons its whole subtree -- a panel inside the grid resolves as an ordinary container parent -- but a DIRECT child of the grid stays refused (defense-in-depth; the DS grid rule lays those out correctly and a forged plan row must not degrade one), and tabs/table/unknown ancestors keep their blanket rule including inside grids. The pad apply's live re-verification now passes `grid_context` (the legacy `inside_grid` boolean path remains for API stability but has no caller in these scripts), so a live direct child refuses with `grid_direct_child` while a live nested row pads normally. Malformed-width handling is refined: a NESTED row fails loud exactly like a top-level row (it is actionable, and silently skipping it is the corrupt-plan path the raise exists to prevent); only a malformed DIRECT child keeps the swallow + `base_sum: null`. PHASE 3 gains the in-grid canary rule: the first grid-nested apply ever must run on els-dev and verify grid-subtree placement, saved-entry survival (entry data is keyed by field keys, which the split preserves -- verified, not assumed), and the revert round-trip. Tests cover in-grid position arithmetic across rows sharing a panel, the forged-direct-child refusal, tabs-inside-grid staying unsupported, and the grid-nested revert."
     - "1.2.2 (2026-07-30): Two follow-ups from the #61 review. (1) `base_sum` for an in-grid skip is now None when any width is malformed (null / bool / non-int / outside 1..12): the 1.2.0 raw sum filtered to valid ints, so a nested `[4, null, 4]` row reported a confident-looking 8 and would have passed for an ordinary sub-12 row in the very inventory TOBE-18037 exists to produce, quietly never entering TOBE-18041's scope. The swallowing itself is unchanged and deliberate -- in-grid rows return before the fail-loud width checks so a malformed row inside a grid never aborts a whole-form scan; only the number stopped lying. (2) The pad track's `inside_grid_nested` is renamed `in_grid_nested`, matching the split track: one concept, one spelling in one inventory. The direction is deliberate -- `inside_grid` / `inside_grid_nested` differ only by suffix, the exact substring hazard the 1.2.1 token-bounded check defused, while `in_grid_nested` shares no token boundary with the legacy reason. Vocabulary is one day old and in no report yet, so no migration concern."
     - "1.2.1 (2026-07-30): Closed the scan-reason lockstep gap found reviewing #61. The 1.1.3 contract test only read `columns_split.py` and only matched `\"reason\": \"...\"` dict literals, so it could not see the pad track at all: `columns_logic.py` emits 14 reasons, 11 of which were undocumented in PHASE 1, and TOBE-18037's two new ones arrive as `reason = (\"grid_direct_child\" if ... else \"inside_grid_nested\")` -- a form the regex never matched. Redacting both from PHASE 1 left all 203 tests green, i.e. the guard built to stop this drift class could not stop it on the other track. Three fixes: (a) the guard reads BOTH scan modules -- and deliberately NOT the apply modules, whose skip reasons (`row_not_found`, `modified_since_apply`, ...) are PHASE 3 vocabulary and would be wrong to demand in PHASE 1; (b) reasons are collected by parsing the module with `ast` instead of grepping, covering dict literal / `reason=` keyword / plain and conditional assignment, and no longer matching reason names quoted inside docstrings -- the IfExp handling reads only the branches, since walking the whole subtree also harvests `\"direct_child\"` out of the CONDITION and invents a reason that is really a comparison operand; (c) the documented-check is token-bounded, because the old bare substring test let `inside_grid` count as documented purely because `inside_grid_nested` appears, so the shorter reason could vanish from the runbook without failing anything. PHASE 1 gains a full scan-reason vocabulary table for all 17 reasons -- no curated exclusion set, since a second list is itself a drift vector -- including the two fail-loud ones (`null_width`, `invalid_width`) and the note that an in-grid row returns BEFORE those checks, so a malformed row inside a grid surfaces as a grid skip carrying a sum over only its valid widths. Controls: redacting a pad reason fails; removing the `inside_grid` row while keeping `inside_grid_nested` fails; a new reason added via conditional assignment fails; renaming the PHASE 1 heading raises rather than passing vacuously; and a new APPLY-only reason correctly does NOT fail."
     - "1.2.0 (2026-07-30): Two-class in-grid scan (TOBE-18037, scan half only). The old sticky `inside_grid` boolean skipped every columns row anywhere under an editgrid/datagrid, on the premise that grid rows keep their own CSS grid — true only for DIRECT children of the editing entry (the DS rule uses a `>` combinator plus per-width `grid-column: span N`, so 9 x col-md-4 wraps into the authored 3x3 by construction; render-confirmed live on test.kenya, TOBE-18037 comment 103432). Rows nested deeper (panel-in-editgrid, the kenya-test DOSH 'Workplace physical location' case) fall through to the #171 fluid flex model and render all-on-one-line exactly like top-level over-12 rows — invisible to every scan until now. The walker now classifies `grid_context` as none/direct_child/nested: direct children skip permanently (pad reason `grid_direct_child`; split scan never emits them — splitting one would degrade a working row); nested rows enter the scan but the APPLY STAYS FROZEN for both classes until TOBE-18041 (grid-subtree insertion and editgrid submission-data survival unproven) — the pad scan reports them skip `inside_grid_nested`, the split scan surfaces would-be splits as review `in_grid_nested` with base_widths and NO containers (flag-not-transform). Both in-grid pad skips now carry a RAW width sum (spacers included, matching the split boundary semantics) where the old single skip reported base_sum None, so the all-form-type inventory can size them. Effect-level freeze pinned by test: a forged plan row claiming an actionable pad for a live in-grid row is refused by the pad apply's live re-verification, which still runs the unchanged legacy `inside_grid` path — zero apply-side changes. Top-level rows keep their exact prior output shape; nested rows that #58/TOBE-18030 already classify (all_columns_empty / mixed width-12) keep those more specific reasons, annotated `grid_context: nested`."
@@ -240,8 +241,7 @@ so the table cannot drift out of step with the code.
 | `no_key` | The component has no key, so it cannot be addressed unambiguously — skipped and reported, never applied to an arbitrary match. |
 | `excluded_key` | The key is in the module's `EXCLUDED_KEYS` pin. |
 | `adjust_columns` | The row carries the `adjust-columns` customClass — the author's explicit opt-out. |
-| `grid_direct_child` | Direct child of an editgrid/datagrid: the DS grid rule owns its layout, so it is skipped **permanently** (TOBE-18037). |
-| `in_grid_nested` | Nested deeper inside a grid — an ordinary flex row, so the raggedness is real, but the apply is **DEFERRED to TOBE-18041**. Same reason string as the split track's review row: one concept, one spelling. Carries a raw width sum for the inventory — or `base_sum: null` when any width is malformed, so "unknown" never reads as a confident figure. |
+| `grid_direct_child` | Direct child of an editgrid/datagrid: the DS grid rule owns its layout, so it is skipped **permanently** (TOBE-18037). Carries a raw width sum for the inventory — or `base_sum: null` when any width is malformed. Rows nested DEEPER inside a grid do not appear here: since TOBE-18041 they are ordinary rows reporting ordinary reasons, tagged `grid_context: "nested"`. |
 | `inside_grid` | Legacy pre-TOBE-18037 classification, reached only through the pad apply's live re-verify path (which still calls the boolean API). `build_plan` never emits it. |
 | `null_width` | A width is not an integer (null, float, bool). **`build_plan` raises** — a malformed layout is never silently skipped. |
 | `invalid_width` | An integer width outside 1–12. **`build_plan` raises**, as above. |
@@ -252,14 +252,15 @@ Two things that trip people reading a plan:
   stripped; the split track counts **raw** widths including spacers. The same
   row legitimately reports two different sums — see the divergence note in the
   `columns_split.py` module docstring.
-- `null_width` / `invalid_width` only fail loud for a row that reaches the
-  width checks. An in-grid row returns before them, so a malformed row inside a
-  grid surfaces as a grid skip — with `base_sum: null`, since a sum computed
-  over only its valid widths would read as an ordinary healthy row.
+- `null_width` / `invalid_width` fail loud for every row the scan could act
+  on — top-level AND grid-nested alike (TOBE-18041). Only a malformed DIRECT
+  child of a grid is swallowed (skip `grid_direct_child` with
+  `base_sum: null`): the scan will never act on that row, so it must not
+  abort a whole-form scan, and the null keeps "unknown" from reading as a
+  confident healthy sum.
 
-**Split track (`columns_split.py`)** — `mixed_width12_remainder_over12`,
-`all_columns_empty` and `in_grid_nested`, all `action:"review"`, each described
-under step 2 above.
+**Split track (`columns_split.py`)** — `mixed_width12_remainder_over12` and
+`all_columns_empty`, both `action:"review"`, described under step 2 above.
 
 ## PHASE 2 — Analyst plan review (procedural)
 
@@ -334,6 +335,16 @@ canary step must **print the resolved target instance** (the exact
 wrong target (e.g. `vucecuba` instead of `cuba`) is visible **before the
 write**, and before the rest of the batch, not discovered after. Abort if the
 printed target instance does not match the operator's intended instance.
+
+**In-grid canary (TOBE-18041):** the first GRID-NESTED row a session applies
+(`grid_context: "nested"` on the plan row) is a canary of its own class, and
+the first one EVER must run on **els-dev** before any real instance: verify
+the split lands inside the grid subtree (containers under the same panel
+parent, correct positions), that an editgrid holding SAVED ENTRIES still
+loads and renders its entries afterwards (entry data is keyed by FIELD keys,
+which the split preserves — verify it, do not assume it), and that
+`revert_split_operations` round-trips. A DIRECT child of a grid must never
+be applied — the scan does not emit them and the apply refuses them.
 
 After the canary write, record its **post-write hash**. The **canary
 rollback** is itself a **whole-form LWW write**, so it is scoped narrowly:
