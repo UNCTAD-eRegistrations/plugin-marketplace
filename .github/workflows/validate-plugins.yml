@@ -1,17 +1,30 @@
-name: Validate Plugin Frontmatter
+name: Validate Plugins
 
 # The validator itself is in the trigger paths on purpose: without it, a change
 # to validate-frontmatter.ts never re-runs validation, so the tool that gates
 # every plugin is the one thing that ships unchecked.
+#
+# The filter is `plugins/**`, NOT `plugins/**/*.md`. The Kimi manifest check
+# below is driven by .claude-plugin/plugin.json, .mcp.json and the skills/ +
+# commands/ trees — none of which are .md. Under the old .md-only filter a
+# `chore: bump plugins to vX.Y.Z` commit, which touches plugin.json and nothing
+# else, matched no path and ran no validation at all. That is precisely how the
+# generated Kimi manifests drifted three minor versions behind.
 on:
   push:
     paths:
-      - 'plugins/**/*.md'
+      - 'plugins/**'
+      - 'kimi-marketplace.json'
+      - 'kimi-marketplace.local.json'
+      - 'scripts/generate-kimi-manifests.py'
       - '.github/scripts/validate-frontmatter.ts'
       - '.github/workflows/validate-plugins.yml'
   pull_request:
     paths:
-      - 'plugins/**/*.md'
+      - 'plugins/**'
+      - 'kimi-marketplace.json'
+      - 'kimi-marketplace.local.json'
+      - 'scripts/generate-kimi-manifests.py'
       - '.github/scripts/validate-frontmatter.ts'
       - '.github/workflows/validate-plugins.yml'
 
@@ -23,3 +36,23 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun add yaml
       - run: bun .github/scripts/validate-frontmatter.ts ./plugins
+
+  kimi-manifests:
+    # .kimi-plugin/plugin.json and the two kimi-marketplace catalogs are
+    # GENERATED (CLAUDE.md: "never edit them by hand"). Nothing enforced that,
+    # and the generator has shipped a --check mode "for CI" since it was
+    # written, never wired up — so on main every MCP plugin's Kimi manifest
+    # claimed 1.58.8 while its Claude manifest said 1.61.0.
+    #
+    # This does not self-heal downstream: publish-kimi-plugins.yml zips the
+    # COMMITTED .kimi-plugin/plugin.json as-is rather than regenerating, so the
+    # stale manifests shipped to Kimi Code users via the rolling kimi-latest
+    # release. Hence a gate rather than a nightly fixup.
+    #
+    # No setup-python step: the generator is stdlib-only (argparse, json, sys,
+    # pathlib) and the runner's system python3 is enough.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Kimi manifests match the Claude manifests
+        run: python3 scripts/generate-kimi-manifests.py --check
