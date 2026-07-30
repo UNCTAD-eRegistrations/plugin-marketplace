@@ -36,8 +36,28 @@ APPLY_PATH = SCRIPTS_DIR / "columns_apply.py"
 SPLIT_APPLY_PATH = SCRIPTS_DIR / "columns_split_apply.py"
 SPLIT_SCAN_PATH = SCRIPTS_DIR / "columns_split.py"
 
-# An over-12 row (8 + 8 = 16) — the split track's subject.
+# An over-12 row (8 + 8 = 16) whose columns carry FIELDS. Until marketplace #58 this
+# fixture was `[8,8]` with both columns empty — which, once content-less groups
+# are dropped, is no longer a splittable row at all but an `all_columns_empty`
+# review row. It only ever "worked" here because the scan used to emit two
+# containers holding no fields, i.e. the fixture encoded the defect. The pipe
+# contract this test exists for needs a row that genuinely splits.
 _OVER_12_FORM = {
+    "components": [
+        {
+            "key": "row1",
+            "type": "columns",
+            "columns": [
+                {"width": 8, "components": [{"key": "f0", "type": "textfield"}]},
+                {"width": 8, "components": [{"key": "f1", "type": "textfield"}]},
+            ],
+        }
+    ]
+}
+
+# The same shape with no content anywhere: every group is content-less, so the
+# scan surfaces it as a review row instead of splitting it (marketplace #58).
+_ALL_EMPTY_OVER_12_FORM = {
     "components": [
         {
             "key": "row1",
@@ -231,3 +251,34 @@ def test_split_apply_main_callable_revert_rejects_missing_applied_rows() -> None
         main(["--revert"], stdin_text=json.dumps({"live_components": []}))
     if isinstance(exc_info.value, SystemExit):
         assert exc_info.value.code not in (0, None)
+
+
+def test_all_empty_over_12_row_pipes_through_as_review_without_operations() -> None:
+    """The companion to the pipe contract above (marketplace #58).
+
+    A row whose every group is content-less must survive the same pipe: the
+    scan surfaces it as `review`, and the apply must consume that row shape
+    without error and emit NOTHING. Emitting the bare `remove` would delete an
+    authored component and put nothing back.
+    """
+    scan = _run(SPLIT_SCAN_PATH, json.dumps(_ALL_EMPTY_OVER_12_FORM))
+    assert scan.returncode == 0, f"scan failed: {scan.stderr}"
+    plan_rows = json.loads(scan.stdout)
+
+    assert len(plan_rows) == 1
+    assert plan_rows[0]["action"] == "review"
+    assert plan_rows[0]["reason"] == "all_columns_empty"
+
+    apply_proc = _run(
+        SPLIT_APPLY_PATH,
+        json.dumps(
+            {
+                "plan_rows": plan_rows,
+                "live_components": _ALL_EMPTY_OVER_12_FORM["components"],
+            }
+        ),
+    )
+    assert apply_proc.returncode == 0, f"apply failed: {apply_proc.stderr}"
+    result = json.loads(apply_proc.stdout)
+    assert result["operations"] == []
+    assert result["applied_rows"] == []

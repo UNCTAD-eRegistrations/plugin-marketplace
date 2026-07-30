@@ -47,6 +47,7 @@ _REQUIRED_SCENARIOS = [
     "adjust",  # adjust-columns customClass
     "over",  # over-12
     "malformed",  # missing-key / null-width fail-loud
+    "spacer",  # split track: over-12 row ending in empty spacer columns
 ]
 
 
