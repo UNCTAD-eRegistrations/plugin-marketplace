@@ -227,7 +227,7 @@ def analyze_columns_component(
     ``grid_context`` (TOBE-18037) takes precedence over the legacy
     ``inside_grid`` boolean when provided: ``"direct_child"`` rows skip as
     ``grid_direct_child`` (the DS grid rule owns their layout), ``"nested"``
-    rows skip as ``inside_grid_nested`` (deferred to the TOBE-18041 apply
+    rows skip as ``in_grid_nested`` (deferred to the TOBE-18041 apply
     half and its canary — the scan half must not open a write path). Both
     carry a RAW width sum (spacers included, matching the split module's
     boundary semantics) so the inventory can size them; the old single
@@ -239,13 +239,21 @@ def analyze_columns_component(
     widths = [c.get("width") for c in columns]
 
     if grid_context in ("direct_child", "nested"):
-        raw_sum = sum(
-            w for w in widths if isinstance(w, int) and not isinstance(w, bool)
+        # Raw sum (spacers included) — but ONLY when every width is a valid
+        # 1..12 int. A sum filtered to the valid widths reads as a confident,
+        # healthy-looking figure ([4, null, 4] -> 8) and a malformed row would
+        # pass for an ordinary sub-12 row in the inventory (#61 review,
+        # finding 2). base_sum None keeps "unknown" distinguishable. The
+        # swallowing itself is deliberate and pre-existing: in-grid rows
+        # return before the fail-loud width checks so a malformed row inside
+        # a grid never aborts a whole-form scan.
+        malformed = not widths or any(
+            not isinstance(w, int) or isinstance(w, bool) or not (1 <= w <= 12)
+            for w in widths
         )
+        raw_sum = None if malformed else sum(widths)
         reason = (
-            "grid_direct_child"
-            if grid_context == "direct_child"
-            else "inside_grid_nested"
+            "grid_direct_child" if grid_context == "direct_child" else "in_grid_nested"
         )
         return Verdict(action="skip", reason=reason, base_sum=raw_sum, widths=widths)
     if inside_grid:
