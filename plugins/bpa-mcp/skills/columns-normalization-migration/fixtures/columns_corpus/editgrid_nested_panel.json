@@ -1,0 +1,137 @@
+{
+    "_comment": "TOBE-18037 two-class rule, the NESTED class - the kenya-test DOSH 'Workplace physical location' shape: editgrid > panel > panel > 9 x width-4. The DS grid rule's direct-child combinator cannot reach it, so it renders via the fluid flex model, all 9 on one line. The scan reports it; the apply is deferred to TOBE-18041.",
+    "input": {
+        "components": [
+            {
+                "key": "grid",
+                "type": "editgrid",
+                "components": [
+                    {
+                        "key": "outer",
+                        "type": "panel",
+                        "components": [
+                            {
+                                "key": "inner",
+                                "type": "panel",
+                                "components": [
+                                    {
+                                        "key": "nestedRow",
+                                        "type": "columns",
+                                        "columns": [
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f0",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f1",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f2",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f3",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f4",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f5",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f6",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f7",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "width": 4,
+                                                "components": [
+                                                    {
+                                                        "key": "f8",
+                                                        "type": "textfield"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "expected": {
+        "pad_track": {
+            "action": "skip",
+            "reason": "inside_grid_nested",
+            "grid_context": "nested",
+            "base_sum": 36
+        },
+        "split_track": {
+            "action": "review",
+            "reason": "in_grid_nested",
+            "grid_context": "nested",
+            "base_widths": [
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4
+            ],
+            "note": "no containers - flag-not-transform until TOBE-18041 proves grid-subtree insertion + editgrid data survival"
+        }
+    }
+}

@@ -872,3 +872,145 @@ class TestContentLessGroupDrop:
         assert plan is not None
         assert plan["base_widths"] == [6, 6, 6]
         assert plan["action"] == "split"
+
+
+# ---------------------------------------------------------------------------
+# two-class in-grid rule (TOBE-18037 — scan half only)
+# ---------------------------------------------------------------------------
+class TestInGridTwoClassScan:
+    """Panel-nested in-grid rows enter the scan; direct children never do.
+
+    Direct children of an editgrid/datagrid are laid out by the DS grid rule
+    (12 tracks + `span N` per col-md-N) and wrap correctly by construction —
+    splitting one would degrade a working row. Panel-nested rows fall through
+    to the #171 fluid flex model and suffer the ordinary over-12 raggedness
+    (task zero, TOBE-18037 comment 103432). The APPLY stays frozen for both
+    classes until TOBE-18041, so a nested over-12 row surfaces as a REVIEW
+    row, not a runnable split plan.
+    """
+
+    @staticmethod
+    def _editgrid(children: list[dict]) -> dict:
+        return {"key": "grid", "type": "editgrid", "components": children}
+
+    @staticmethod
+    def _panel(key: str, children: list[dict]) -> dict:
+        return {"key": key, "type": "panel", "components": children}
+
+    def test_nested_over_12_row_surfaces_as_review(self):
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [4] * 9)])]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["action"] == "review"
+        assert row["reason"] == "in_grid_nested"
+        assert row["original_key"] == "row1"
+        assert row["base_widths"] == [4] * 9
+        assert row["grid_context"] == "nested"
+        assert not row.get("containers"), (
+            "no runnable split plan before TOBE-18041 — containers must not "
+            "be emitted for an in-grid row"
+        )
+
+    def test_dosh_workplace_physical_location_shape(self):
+        """The live case: editgrid > panel > panel > [4]x9."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [
+                        self._panel(
+                            "outer",
+                            [self._panel("inner", [_columns_component("row1", [4] * 9)])],
+                        )
+                    ]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["action"], r["reason"]) for r in rows] == [
+            ("review", "in_grid_nested")
+        ]
+
+    def test_direct_child_over_12_row_is_still_never_emitted(self):
+        """The CSS grid rule owns direct children — splitting one would
+        degrade a row that renders correctly today."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [self._editgrid([_columns_component("row1", [4] * 9)])]
+        }
+        assert scan_form_for_splits(form) == []
+
+    def test_nested_css_handled_width12_row_is_not_emitted(self):
+        """[12,6] nested: the TOBE-18019 col-md-12 rule is global and matches
+        nested rows too, so plan_split's None (CSS-handled) verdict holds."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [12, 6])])]
+                )
+            ]
+        }
+        assert scan_form_for_splits(form) == []
+
+    def test_nested_mixed_width12_row_keeps_its_mixed_reason(self):
+        """[12,8,8] nested is still the TOBE-18030 problem first — the mixed
+        reason wins, annotated with its grid context."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [12, 8, 8])])]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["reason"], r.get("grid_context")) for r in rows] == [
+            ("mixed_width12_remainder_over12", "nested")
+        ]
+
+    def test_nested_all_empty_row_keeps_all_columns_empty_reason(self):
+        """#58's content classification is orthogonal to grid context and
+        more specific — it wins, annotated."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [
+                        self._panel(
+                            "p", [_columns_with_content_flags("row1", [8, 8], "00")]
+                        )
+                    ]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["reason"], r.get("grid_context")) for r in rows] == [
+            ("all_columns_empty", "nested")
+        ]
+
+    def test_top_level_rows_keep_their_exact_output_shape(self):
+        """Control: rows outside any grid must be byte-identical to before —
+        in particular NO grid_context key appears on them."""
+        from columns_split import scan_form_for_splits
+
+        form = {"components": [_columns_component("row1", [4] * 9)]}
+        rows = scan_form_for_splits(form)
+        assert len(rows) == 1
+        assert rows[0]["action"] == "split"
+        assert "grid_context" not in rows[0]

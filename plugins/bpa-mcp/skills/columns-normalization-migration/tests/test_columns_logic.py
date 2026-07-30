@@ -270,3 +270,159 @@ def test_target_sum_constant_is_twelve() -> None:
     from columns_logic import TARGET_SUM
 
     assert TARGET_SUM == 12
+
+
+# ---------------------------------------------------------------------------
+# two-class in-grid rule (TOBE-18037)
+# ---------------------------------------------------------------------------
+# The DS editgrid grid rule (`:where(.editing-entry, .new-entry) >
+# .formio-component-columns.row { display: grid; ... }`) uses a DIRECT-CHILD
+# combinator, and the per-width `grid-column: span N` loop makes a
+# direct-child row wrap into implicit rows by construction — those rows are
+# already correct and must never be padded or split. A row nested one or more
+# panels DEEPER never matches and falls through to the ordinary #171 fluid
+# flex model like any top-level row. Confirmed at effect level on live
+# test.kenya (Chrome display badges; TOBE-18037 task zero, comment 103432).
+# The old sticky `inside_grid` boolean conflated the two classes.
+
+
+def _panel(key: str, children: list[dict]) -> dict:
+    return {"key": key, "type": "panel", "components": children}
+
+
+def _editgrid(key: str, children: list[dict]) -> dict:
+    return {"key": key, "type": "editgrid", "components": children}
+
+
+def test_walker_classifies_direct_child_of_editgrid() -> None:
+    from columns_logic import iter_columns_components
+
+    form = [_editgrid("grid", [_columns("directRow", [4, 4])])]
+    hits = list(iter_columns_components(form))
+    assert len(hits) == 1
+    assert hits[0].grid_context == "direct_child"
+    assert hits[0].inside_grid is True  # compat: bool stays derivable
+
+
+def test_walker_classifies_panel_nested_inside_editgrid() -> None:
+    """The DOSH shape: editgrid > panel > panel > columns."""
+    from columns_logic import iter_columns_components
+
+    form = [
+        _editgrid(
+            "grid",
+            [_panel("outer", [_panel("inner", [_columns("nestedRow", [4] * 9)])])],
+        )
+    ]
+    hits = list(iter_columns_components(form))
+    assert len(hits) == 1
+    assert hits[0].grid_context == "nested"
+    assert hits[0].inside_grid is True
+
+
+def test_walker_classifies_top_level_as_none() -> None:
+    from columns_logic import iter_columns_components
+
+    hits = list(iter_columns_components([_columns("row1", [6, 6])]))
+    assert hits[0].grid_context == "none"
+    assert hits[0].inside_grid is False
+
+
+def test_walker_classifies_datagrid_like_editgrid() -> None:
+    from columns_logic import iter_columns_components
+
+    form = [
+        {
+            "key": "dg",
+            "type": "datagrid",
+            "components": [
+                _columns("directRow", [6, 6]),
+                _panel("p", [_columns("nestedRow", [6, 6])]),
+            ],
+        }
+    ]
+    by_key = {
+        h.component["key"]: h.grid_context
+        for h in iter_columns_components(form)
+    }
+    assert by_key == {"directRow": "direct_child", "nestedRow": "nested"}
+
+
+def test_walker_columns_inside_a_direct_child_columns_row_are_nested() -> None:
+    """A columns row inside a COLUMN of a direct-child columns row renders
+    inside a col-md div — the grid rule's `>` cannot reach it, so it is
+    `nested`, not `direct_child`."""
+    from columns_logic import iter_columns_components
+
+    inner = _columns("innerRow", [6, 6])
+    outer = {
+        "key": "outerRow",
+        "type": "columns",
+        "columns": [{"width": 12, "components": [inner]}],
+    }
+    form = [_editgrid("grid", [outer])]
+    by_key = {
+        h.component["key"]: h.grid_context
+        for h in iter_columns_components(form)
+    }
+    assert by_key == {"outerRow": "direct_child", "innerRow": "nested"}
+
+
+def test_build_plan_reports_both_grid_classes_with_sums() -> None:
+    """Inventory-readiness: both in-grid skip classes must carry a base_sum
+    (the old single `inside_grid` skip reported base_sum None, which forced
+    the DOSH inventory to re-derive sums from the raw schema by hand)."""
+    from columns_logic import build_plan
+
+    form = {
+        "components": [
+            _editgrid(
+                "grid",
+                [
+                    _columns("directRow", [4, 4]),
+                    _panel("p", [_columns("nestedRow", [4] * 9)]),
+                ],
+            )
+        ]
+    }
+    rows = {r["key"]: r for r in build_plan(form)["plan"]}
+
+    direct = rows["directRow"]
+    assert direct["action"] == "skip"
+    assert direct["reason"] == "grid_direct_child"
+    assert direct["grid_context"] == "direct_child"
+    assert direct["base_sum"] == 8
+
+    nested = rows["nestedRow"]
+    assert nested["action"] == "skip"
+    assert nested["reason"] == "inside_grid_nested"
+    assert nested["grid_context"] == "nested"
+    assert nested["base_sum"] == 36
+
+
+def test_build_plan_never_pads_any_in_grid_row_yet() -> None:
+    """SCAN-half freeze (TOBE-18037 acceptance 4): even a plainly under-12
+    nested row stays `skip` — pad-applying an in-grid row waits for the
+    apply half (TOBE-18041) and its canary."""
+    from columns_logic import build_plan
+
+    form = {
+        "components": [
+            _editgrid("grid", [_panel("p", [_columns("under12", [4, 4])])])
+        ]
+    }
+    (row,) = build_plan(form)["plan"]
+    assert row["action"] == "skip"
+    assert row["reason"] == "inside_grid_nested"
+    assert row["new_columns"] is None
+
+
+def test_analyze_legacy_inside_grid_kwarg_unchanged() -> None:
+    """The pad APPLY re-verifies live rows via `analyze(inside_grid=...)`.
+    That legacy path must keep returning the historic reason so the apply
+    module needs no change in this ticket."""
+    from columns_logic import analyze_columns_component
+
+    verdict = analyze_columns_component(_columns("row1", [4, 4]), inside_grid=True)
+    assert verdict.action == "skip"
+    assert verdict.reason == "inside_grid"
