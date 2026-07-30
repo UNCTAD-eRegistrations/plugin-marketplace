@@ -540,3 +540,31 @@ def test_skill_documents_every_scan_reason_the_scanners_can_emit() -> None:
         "SKILL.md PHASE 1 must document every reason the scanners can emit "
         f"(as a whole token); missing from the PHASE 1 section: {undocumented}"
     )
+
+    # Reverse direction (#64 review, Erick). The forward assertion alone
+    # enforces emitted -> documented only; a vocabulary row describing a
+    # reason nothing emits fails nothing (`totally_bogus_orphan` passed all
+    # 205 tests). So a rename or removal in code could strand its doc row in
+    # PHASE 1 forever, and operators would look for a reason that can never
+    # appear in a plan. Every reason-shaped token documented as a
+    # first-column code span in a PHASE 1 table must be in the emitted set.
+    #
+    # The header row (| `reason` | Meaning |) is excluded structurally — the
+    # line after it is the |---| separator — rather than via a hardcoded
+    # token list, which would itself be a small drift vector.
+    emitted_all: set[str] = set().union(*by_script.values())
+    lines = phase1.splitlines()
+    claimed: set[str] = set()
+    for i, line in enumerate(lines):
+        m = re.match(r"^\|\s*`([a-z0-9_]+)`\s*\|", line)
+        if not m:
+            continue
+        if i + 1 < len(lines) and re.match(r"^\|\s*-", lines[i + 1]):
+            continue  # header row
+        claimed.add(m.group(1))
+    assert claimed, "expected the PHASE 1 vocabulary table to have rows"
+    orphaned = sorted(claimed - emitted_all)
+    assert not orphaned, (
+        "PHASE 1 documents reasons no scan module emits (orphaned vocabulary "
+        f"rows — rename or remove them): {orphaned}"
+    )
