@@ -42,6 +42,8 @@ locator fails with a clear assertion (not a bare FileNotFoundError).
 
 from __future__ import annotations
 
+import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -414,32 +416,127 @@ def test_skill_handles_stale_cache_and_network_partition() -> None:
     )
 
 
-def test_skill_documents_every_review_reason_the_scanner_can_emit() -> None:
-    """Lockstep guard (marketplace #59 review): the PHASE 1 runbook is the only
-    place a flagged row becomes visible to a human — the apply side skips any
-    non-"split" row silently. Every `action:"review"` reason the scanner can
-    emit must therefore be documented in SKILL.md, or rows sit unnormalized
-    with nobody aware a decision is pending. This is the same drift class #55
-    paid down for the allowlist checklist.
+# The two SCAN modules, whose reasons are PHASE 1 vocabulary. The apply modules
+# are deliberately NOT here: they emit their own skip reasons (row_not_found,
+# modified_since_apply, ...) which belong to PHASE 3, and requiring those in
+# PHASE 1 would be wrong, not merely stricter.
+_SCAN_SCRIPTS = ("columns_logic.py", "columns_split.py")
 
-    The reason list is read from columns_split.py itself, so adding a new
-    review reason without documenting it fails HERE, not in a later review.
+
+def _literal_choices(node: ast.AST) -> set[str]:
+    """The str literals a value expression can evaluate TO.
+
+    Deliberately NOT ``ast.walk``: walking the whole subtree of
+
+        reason = ("grid_direct_child"
+                  if grid_context == "direct_child"
+                  else "inside_grid_nested")
+
+    also harvests ``"direct_child"`` out of the CONDITION, which is a
+    comparison operand and not a reason the module can emit. Only the branches
+    of a conditional are values.
+
+    Anything non-literal (a Name, Attribute, Call) yields nothing, which is
+    correct: ``{"reason": verdict.reason}`` is a passthrough whose value is
+    already covered where the literal was assigned.
     """
-    import re
+    if isinstance(node, ast.Constant):
+        return {node.value} if isinstance(node.value, str) else set()
+    if isinstance(node, ast.IfExp):
+        return _literal_choices(node.body) | _literal_choices(node.orelse)
+    if isinstance(node, ast.BoolOp):  # e.g. `reason or "fallback"`
+        return set().union(*(_literal_choices(v) for v in node.values))
+    return set()
 
-    script = (SKILL_DIR / "scripts" / "columns_split.py").read_text(encoding="utf-8")
-    reasons = set(re.findall(r'"reason":\s*"([a-z0-9_]+)"', script))
-    assert reasons, "expected columns_split.py to emit at least one review reason"
 
-    # Scope to the PHASE 1 section: a mention in the changelog does NOT count
-    # as operator-facing documentation — that false positive is exactly the
-    # gap the #59 review found (the changelog had the reason; PHASE 1 didn't).
+def _emitted_scan_reasons() -> dict[str, set[str]]:
+    """Collect every literal ``reason`` the two scan modules can emit.
+
+    Parsed with ``ast``, NOT grepped. The regex predecessor matched only
+    ``"reason": "..."`` dict literals, so when TOBE-18037 added the pad track's
+    ``reason = ("grid_direct_child" if ... else "inside_grid_nested")`` the
+    guard could not see it at all (marketplace #61 review). An AST walk covers
+    every form this codebase uses -- dict literal, ``reason=`` keyword, and
+    plain or conditional assignment -- and as a bonus stops matching reason
+    names that merely appear quoted inside a docstring.
+
+    Known limitation, recorded rather than silently accepted: a reason passed
+    POSITIONALLY (``Verdict("skip", "x")``) would still be missed. Every call
+    site here uses keywords, and `Verdict` has 7 fields, so positional use is
+    not a realistic style for this module.
+    """
+    collected: dict[str, set[str]] = {}
+    for name in _SCAN_SCRIPTS:
+        source = (SKILL_DIR / "scripts" / name).read_text(encoding="utf-8")
+        found: set[str] = set()
+        for node in ast.walk(ast.parse(source, filename=name)):
+            # Verdict(action="skip", reason="no_key")
+            if isinstance(node, ast.Call):
+                for kw in node.keywords:
+                    if kw.arg == "reason":
+                        found |= _literal_choices(kw.value)
+            # {"action": "review", "reason": "all_columns_empty"}
+            elif isinstance(node, ast.Dict):
+                # NB: a `{**spread}` entry has key None, hence the isinstance.
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == "reason":
+                        found |= _literal_choices(value)
+            # reason = "complete" if base_sum == TARGET_SUM else "over_12"
+            elif isinstance(node, ast.Assign):
+                if any(
+                    isinstance(t, ast.Name) and t.id == "reason" for t in node.targets
+                ):
+                    found |= _literal_choices(node.value)
+        collected[name] = found
+    return collected
+
+
+def _documents(phase1: str, reason: str) -> bool:
+    """Is ``reason`` present in ``phase1`` as a whole token?
+
+    A bare substring test is not enough: it let `inside_grid` count as
+    documented purely because `inside_grid_nested` appears, so the shorter
+    reason could vanish from the runbook without failing anything.
+    """
+    return (
+        re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", phase1) is not None
+    )
+
+
+def test_skill_documents_every_scan_reason_the_scanners_can_emit() -> None:
+    """Lockstep guard (marketplace #59, widened per the #61 review).
+
+    The PHASE 1 runbook is the only place a scanned row becomes visible to a
+    human: the apply side skips any row it does not own, silently. So every
+    reason either scanner can emit must be documented there, or rows sit
+    unnormalized with nobody aware a decision is pending. Third occurrence of
+    the drift class #55 paid down for the allowlist checklist -- which is why
+    this is a test and not a review checklist item.
+
+    Both scan modules are read, and the reason names come out of the source, so
+    adding one without documenting it fails HERE rather than in a later review.
+    """
     text = _skill_text()  # NB: _skill_text() lowercases the file
+    # A missing anchor must raise, not silently yield an empty slice that makes
+    # every assertion below vacuously true.
     start = text.index("## phase 1")
     end = text.index("## phase 2")
     phase1 = text[start:end]
-    undocumented = [r for r in sorted(reasons) if r not in phase1]
+
+    # Scoping to the section is load-bearing: a mention in the changelog is not
+    # operator-facing documentation, and satisfying the guard from the changelog
+    # is exactly the false positive the #59 review caught.
+    assert "## phase 3" not in phase1, "PHASE 1 slice must stop before PHASE 3"
+
+    by_script = _emitted_scan_reasons()
+    undocumented: dict[str, list[str]] = {}
+    for script, reasons in sorted(by_script.items()):
+        assert reasons, f"expected {script} to emit at least one reason"
+        missing = sorted(r for r in reasons if not _documents(phase1, r))
+        if missing:
+            undocumented[script] = missing
+
     assert not undocumented, (
-        "SKILL.md PHASE 1 must document every review reason the split scanner "
-        f"can emit; missing from the PHASE 1 section: {undocumented}"
+        "SKILL.md PHASE 1 must document every reason the scanners can emit "
+        f"(as a whole token); missing from the PHASE 1 section: {undocumented}"
     )
