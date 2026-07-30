@@ -412,3 +412,34 @@ def test_skill_handles_stale_cache_and_network_partition() -> None:
         ],
         "skill must define ambiguous-state detection instead of blind retry",
     )
+
+
+def test_skill_documents_every_review_reason_the_scanner_can_emit() -> None:
+    """Lockstep guard (marketplace #59 review): the PHASE 1 runbook is the only
+    place a flagged row becomes visible to a human — the apply side skips any
+    non-"split" row silently. Every `action:"review"` reason the scanner can
+    emit must therefore be documented in SKILL.md, or rows sit unnormalized
+    with nobody aware a decision is pending. This is the same drift class #55
+    paid down for the allowlist checklist.
+
+    The reason list is read from columns_split.py itself, so adding a new
+    review reason without documenting it fails HERE, not in a later review.
+    """
+    import re
+
+    script = (SKILL_DIR / "scripts" / "columns_split.py").read_text(encoding="utf-8")
+    reasons = set(re.findall(r'"reason":\s*"([a-z0-9_]+)"', script))
+    assert reasons, "expected columns_split.py to emit at least one review reason"
+
+    # Scope to the PHASE 1 section: a mention in the changelog does NOT count
+    # as operator-facing documentation — that false positive is exactly the
+    # gap the #59 review found (the changelog had the reason; PHASE 1 didn't).
+    text = _skill_text()  # NB: _skill_text() lowercases the file
+    start = text.index("## phase 1")
+    end = text.index("## phase 2")
+    phase1 = text[start:end]
+    undocumented = [r for r in sorted(reasons) if r not in phase1]
+    assert not undocumented, (
+        "SKILL.md PHASE 1 must document every review reason the split scanner "
+        f"can emit; missing from the PHASE 1 section: {undocumented}"
+    )
