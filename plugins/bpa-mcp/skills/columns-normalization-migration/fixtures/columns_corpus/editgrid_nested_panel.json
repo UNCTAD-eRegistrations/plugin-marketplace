@@ -112,7 +112,7 @@
     "expected": {
         "pad_track": {
             "action": "skip",
-            "reason": "inside_grid_nested",
+            "reason": "in_grid_nested",
             "grid_context": "nested",
             "base_sum": 36
         },

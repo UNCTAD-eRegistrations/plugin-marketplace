@@ -395,7 +395,7 @@ def test_build_plan_reports_both_grid_classes_with_sums() -> None:
 
     nested = rows["nestedRow"]
     assert nested["action"] == "skip"
-    assert nested["reason"] == "inside_grid_nested"
+    assert nested["reason"] == "in_grid_nested"
     assert nested["grid_context"] == "nested"
     assert nested["base_sum"] == 36
 
@@ -413,7 +413,7 @@ def test_build_plan_never_pads_any_in_grid_row_yet() -> None:
     }
     (row,) = build_plan(form)["plan"]
     assert row["action"] == "skip"
-    assert row["reason"] == "inside_grid_nested"
+    assert row["reason"] == "in_grid_nested"
     assert row["new_columns"] is None
 
 
@@ -426,3 +426,67 @@ def test_analyze_legacy_inside_grid_kwarg_unchanged() -> None:
     verdict = analyze_columns_component(_columns("row1", [4, 4]), inside_grid=True)
     assert verdict.action == "skip"
     assert verdict.reason == "inside_grid"
+
+
+def test_in_grid_base_sum_is_none_for_a_malformed_row() -> None:
+    """#61 review finding 2: the raw sum filtered to valid ints, so a nested
+    row carrying a null width reported a plausible, healthy-looking total
+    ([4, null, 4] -> base_sum 8) instead of signalling it is malformed — it
+    would read as an ordinary sub-12 row in the inventory and quietly never
+    enter TOBE-18041's scope. "Unknown" must stay distinguishable from a
+    confident figure: any invalid width makes base_sum None. (The swallowing
+    itself is pre-existing and deliberate — an in-grid row returns before the
+    fail-loud width checks so a malformed row inside a grid never aborts a
+    whole-form scan.)"""
+    from columns_logic import build_plan
+
+    bad = {
+        "key": "badrow",
+        "type": "columns",
+        "columns": [
+            {"width": 4, "components": []},
+            {"width": None, "components": []},
+            {"width": 4, "components": []},
+        ],
+    }
+    form = {
+        "components": [
+            {
+                "key": "grid",
+                "type": "editgrid",
+                "components": [
+                    bad,
+                    {"key": "p", "type": "panel", "components": [
+                        {
+                            "key": "badnested",
+                            "type": "columns",
+                            "columns": [
+                                {"width": 4, "components": []},
+                                {"width": 40, "components": []},
+                            ],
+                        }
+                    ]},
+                ],
+            }
+        ]
+    }
+    rows = {r["key"]: r for r in build_plan(form)["plan"]}
+    assert rows["badrow"]["reason"] == "grid_direct_child"
+    assert rows["badrow"]["base_sum"] is None
+    assert rows["badnested"]["reason"] == "in_grid_nested"
+    assert rows["badnested"]["base_sum"] is None
+
+
+def test_in_grid_base_sum_stays_populated_for_well_formed_rows() -> None:
+    """Regression pin for the fix above: honesty about malformed rows must not
+    cost the inventory its sums on healthy ones."""
+    from columns_logic import build_plan
+
+    form = {
+        "components": [
+            _editgrid("grid", [_panel("p", [_columns("ok", [4, 4, 4])])])
+        ]
+    }
+    (row,) = build_plan(form)["plan"]
+    assert row["reason"] == "in_grid_nested"
+    assert row["base_sum"] == 12
