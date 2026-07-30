@@ -36,34 +36,70 @@ EXCLUDED_CUSTOM_CLASS = "adjust-columns"
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class ColumnsHit:
-    """One columns component found in a form tree."""
+    """One columns component found in a form tree.
+
+    ``grid_context`` is the two-class in-grid rule (TOBE-18037):
+
+    - ``"direct_child"`` — the schema parent IS an editgrid/datagrid. The DS
+      grid rule (`:where(.editing-entry, .new-entry) > .formio-component-
+      columns.row` + per-width `grid-column: span N`) lays these out on 12
+      tracks and wraps them correctly by construction — they must never be
+      padded or split. Confirmed at effect level on live test.kenya
+      (task zero, TOBE-18037 comment 103432).
+    - ``"nested"`` — an editgrid/datagrid is a FARTHER ancestor (the row sits
+      inside a panel/columns/etc. within the grid). The `>` combinator cannot
+      reach it, so it falls through to the ordinary #171 fluid flex model
+      like any top-level row.
+    - ``"none"`` — no grid ancestor at all.
+
+    ``inside_grid`` is kept as the derived boolean (``grid_context != "none"``)
+    for existing consumers; the sticky boolean alone conflated the two
+    in-grid classes, which is what TOBE-18037 corrects.
+    """
 
     component: dict[str, Any]
     path: str
     inside_grid: bool
+    grid_context: str = "none"
 
 
 def _iter_node(
-    node: dict[str, Any], prefix: str, inside_grid: bool
+    node: dict[str, Any], prefix: str, parent_is_grid: bool, ancestor_grid: bool
 ) -> Iterator[ColumnsHit]:
     key = node.get("key") or ""
     path = f"{prefix}/{key}" if prefix and key else (key or prefix)
     if node.get("type") == "columns":
-        yield ColumnsHit(component=node, path=path, inside_grid=inside_grid)
-    child_grid = inside_grid or node.get("type") in GRID_TYPES
+        if parent_is_grid:
+            grid_context = "direct_child"
+        elif ancestor_grid:
+            grid_context = "nested"
+        else:
+            grid_context = "none"
+        yield ColumnsHit(
+            component=node,
+            path=path,
+            inside_grid=grid_context != "none",
+            grid_context=grid_context,
+        )
+    # Only a grid's OWN `components` children are its direct children. The
+    # columns/rows/tabs branches below never apply to a grid node (editgrid/
+    # datagrid hold children via `components[]` only), so passing
+    # `node_is_grid` uniformly is exact, not an approximation.
+    node_is_grid = node.get("type") in GRID_TYPES
+    child_grid = ancestor_grid or node_is_grid
 
     children = node.get("components")
     if isinstance(children, list):
         for child in children:
             if isinstance(child, dict):
-                yield from _iter_node(child, path, child_grid)
+                yield from _iter_node(child, path, node_is_grid, child_grid)
     columns = node.get("columns")
     if isinstance(columns, list):
         for column in columns:
             if isinstance(column, dict):
                 for child in column.get("components") or []:
                     if isinstance(child, dict):
-                        yield from _iter_node(child, path, child_grid)
+                        yield from _iter_node(child, path, False, child_grid)
     rows = node.get("rows")
     # NOTE: only a list-valued `rows` is a table layout to descend into. A
     # scalar `rows` (e.g. a textarea's rows:3) is NOT a layout field and must
@@ -75,14 +111,14 @@ def _iter_node(
                     if isinstance(cell, dict):
                         for child in cell.get("components") or []:
                             if isinstance(child, dict):
-                                yield from _iter_node(child, path, child_grid)
+                                yield from _iter_node(child, path, False, child_grid)
     tabs = node.get("tabs")
     if isinstance(tabs, list):
         for pane in tabs:
             if isinstance(pane, dict):
                 for child in pane.get("components") or []:
                     if isinstance(child, dict):
-                        yield from _iter_node(child, path, child_grid)
+                        yield from _iter_node(child, path, False, child_grid)
 
 
 def iter_columns_components(
@@ -91,14 +127,16 @@ def iter_columns_components(
     """Depth-first over a Form.io tree, yielding every columns component.
 
     Recurses through ``components``, ``columns[].components``, table ``rows``
-    (list-valued only), and tabs. ``inside_grid`` is True when any ancestor is
-    editgrid/datagrid. Duplicated component paths are BOTH yielded (they share
+    (list-valued only), and tabs. ``grid_context`` distinguishes a DIRECT child of an
+    editgrid/datagrid (CSS-owned, never normalized) from a row nested
+    deeper inside one (ordinary flex row); ``inside_grid`` is the derived
+    boolean. Duplicated component paths are BOTH yielded (they share
     a path) so downstream can resolve unambiguously or skip — never silently
     pick a first/arbitrary match.
     """
     for node in components:
         if isinstance(node, dict):
-            yield from _iter_node(node, "", False)
+            yield from _iter_node(node, "", False, False)
 
 
 # ---------------------------------------------------------------------------
@@ -176,16 +214,40 @@ def _dominant_size(columns: list[dict[str, Any]]) -> str:
 
 
 def analyze_columns_component(
-    component: dict[str, Any], *, inside_grid: bool = False
+    component: dict[str, Any],
+    *,
+    inside_grid: bool = False,
+    grid_context: str | None = None,
 ) -> Verdict:
     """Apply the TOBE-18003 padding rule to one columns component.
 
     Never mutates the input; ``new_columns`` is a deep copy. Only width fields
     are ever written — no ``rows`` (or other non-width) prop is introduced.
+
+    ``grid_context`` (TOBE-18037) takes precedence over the legacy
+    ``inside_grid`` boolean when provided: ``"direct_child"`` rows skip as
+    ``grid_direct_child`` (the DS grid rule owns their layout), ``"nested"``
+    rows skip as ``inside_grid_nested`` (deferred to the TOBE-18041 apply
+    half and its canary — the scan half must not open a write path). Both
+    carry a RAW width sum (spacers included, matching the split module's
+    boundary semantics) so the inventory can size them; the old single
+    ``inside_grid`` skip reported ``base_sum`` None. The legacy boolean path
+    is byte-identical to before — the pad APPLY re-verifies live rows through
+    it and needs no change.
     """
     columns = component.get("columns") or []
     widths = [c.get("width") for c in columns]
 
+    if grid_context in ("direct_child", "nested"):
+        raw_sum = sum(
+            w for w in widths if isinstance(w, int) and not isinstance(w, bool)
+        )
+        reason = (
+            "grid_direct_child"
+            if grid_context == "direct_child"
+            else "inside_grid_nested"
+        )
+        return Verdict(action="skip", reason=reason, base_sum=raw_sum, widths=widths)
     if inside_grid:
         return Verdict(action="skip", reason="inside_grid", widths=widths)
     if not component.get("key"):
@@ -282,7 +344,9 @@ def build_plan(form: Any) -> dict[str, Any]:
 
     rows: list[dict[str, Any]] = []
     for hit in iter_columns_components(components):
-        verdict = analyze_columns_component(hit.component, inside_grid=hit.inside_grid)
+        verdict = analyze_columns_component(
+            hit.component, grid_context=hit.grid_context
+        )
         if verdict.reason in ("null_width", "invalid_width"):
             raise ValueError(
                 f"malformed columns component at {hit.path!r}: {verdict.reason}"
@@ -292,6 +356,7 @@ def build_plan(form: Any) -> dict[str, Any]:
                 "path": hit.path,
                 "key": hit.component.get("key") or "",
                 "inside_grid": hit.inside_grid,
+                "grid_context": hit.grid_context,
                 "action": verdict.action,
                 "reason": verdict.reason,
                 "base_sum": verdict.base_sum,

@@ -689,3 +689,43 @@ def test_plan_to_operations_folds_invalid_width_into_skipped_not_raise() -> None
 
     assert result["operations"] == []
     assert result["skipped"] == [{"path": "row1", "reason": "invalid_width"}]
+
+
+# ---------------------------------------------------------------------------
+# in-grid apply freeze (TOBE-18037 acceptance 4 — scan half only)
+# ---------------------------------------------------------------------------
+def test_plan_to_operations_refuses_a_pad_for_a_live_in_grid_row() -> None:
+    """Effect-level freeze: even a plan row that CLAIMS an actionable pad for
+    a row that is live inside an editgrid must be refused by the live
+    re-verification. Pad-applying in-grid rows waits for TOBE-18041's canary;
+    the scan-half classification change must not open a write path here.
+
+    The plan row is forged deliberately (a stale plan from a pre-move form,
+    or a hand-edited file — plan files are per-operator and non-authoritative)
+    so this cannot rot into 'build_plan never emits it' vacuity."""
+    from columns_apply import plan_to_operations
+
+    target = _columns_component("row1", [3, 3])
+    live = [
+        {
+            "key": "grid",
+            "type": "editgrid",
+            "components": [{"key": "p", "type": "panel", "components": [target]}],
+        }
+    ]
+    forged_plan_row = {
+        "path": "grid/p/row1",
+        "key": "row1",
+        "inside_grid": False,  # lies — the live row is inside the grid
+        "action": "append",
+        "reason": "under_12",
+        "base_sum": 6,
+        "new_columns": None,
+    }
+
+    result = plan_to_operations([forged_plan_row], live)
+
+    assert result["operations"] == []
+    assert result["applied_rows"] == []
+    assert len(result["skipped"]) == 1
+    assert result["skipped"][0]["path"] == "grid/p/row1"

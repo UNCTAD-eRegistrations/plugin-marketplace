@@ -383,9 +383,24 @@ def _extract_components(form: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
-    """Walk a form and return the split plan for every over-12, NOT
-    inside_grid columns component found. Rows inside an editgrid/datagrid
-    are skipped (read-only detection only; no in-grid support here)."""
+    """Walk a form and return the split plan for every over-12 columns
+    component found, under the two-class in-grid rule (TOBE-18037):
+
+    - DIRECT children of an editgrid/datagrid are never emitted. The DS grid
+      rule (12 tracks + per-width ``grid-column: span N``) wraps them
+      correctly by construction — splitting one would degrade a working row.
+    - Rows NESTED deeper inside a grid (panel-in-editgrid etc.) fall through
+      to the ordinary #171 fluid flex model and suffer the same over-12
+      raggedness as top-level rows. They ARE scanned — but the apply half is
+      frozen until TOBE-18041 (grid-subtree insertion unproven, editgrid
+      submission-data survival unproven), so a would-be split surfaces as
+      ``{"action": "review", "reason": "in_grid_nested"}`` with its
+      ``base_widths`` and NO containers: flag-not-transform, exactly like the
+      other review reasons. A nested row that plan_split already classifies
+      as review (mixed width-12 / all-columns-empty) keeps that more specific
+      reason; nested rows get a ``grid_context: "nested"`` annotation either
+      way. Top-level rows keep their exact pre-18037 output shape.
+    """
     if not isinstance(form, dict):
         raise ValueError(
             "form must be a JSON object with a 'components' array or 'formSchema'"
@@ -394,11 +409,22 @@ def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
 
     results: list[dict[str, Any]] = []
     for hit in iter_columns_components(components):
-        if hit.inside_grid:
+        if hit.grid_context == "direct_child":
             continue
         plan = plan_split(hit.component)
-        if plan is not None:
-            results.append({"path": hit.path, **plan})
+        if plan is None:
+            continue
+        if hit.grid_context == "nested":
+            if plan["action"] == "split":
+                plan = {
+                    "action": "review",
+                    "original_key": plan["original_key"],
+                    "base_widths": plan["base_widths"],
+                    "reason": "in_grid_nested",
+                    "determinant_carry": plan.get("determinant_carry", "all"),
+                }
+            plan = {**plan, "grid_context": "nested"}
+        results.append({"path": hit.path, **plan})
     return results
 
 
