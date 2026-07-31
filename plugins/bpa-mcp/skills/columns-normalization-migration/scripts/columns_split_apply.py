@@ -334,12 +334,14 @@ def _search_descendants(
     KINDS are ever returned as supported: "container" (plain panel/well/
     container/fieldset) and "columns" (nested inside another columns
     component's column) — matched at whichever level DIRECTLY holds
-    ``target``. Anything reachable only through a tabs pane, table cell,
-    datagrid/editgrid, or an unrecognised container type is "unsupported",
-    even when ``target`` sits several levels deeper inside a supported
-    container that is itself nested under one of those — being ANYWHERE
-    beneath such an ancestor is disqualifying, not just being its direct
-    child.
+    ``target``. Anything reachable only through a tabs pane, table cell, or
+    an unrecognised container type is "unsupported", even when ``target``
+    sits several levels deeper inside a supported container that is itself
+    nested under one of those — being ANYWHERE beneath such an ancestor is
+    disqualifying. A datagrid/editgrid (TOBE-18041) is the exception: only a
+    DIRECT child of the grid is unsupported (the DS grid rule already lays
+    it out correctly); anything deeper resolves normally, so a panel inside
+    the grid is an ordinary "container" parent.
 
     A DIRECT parent (container or columns) whose own ``key`` is missing/
     empty is ALSO "unsupported": it is a non-root, unaddressable container

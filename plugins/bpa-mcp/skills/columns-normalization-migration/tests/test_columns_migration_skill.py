@@ -497,6 +497,16 @@ def _documents(phase1: str, reason: str) -> bool:
     A bare substring test is not enough: it let `inside_grid` count as
     documented purely because `inside_grid_nested` appears, so the shorter
     reason could vanish from the runbook without failing anything.
+
+    Known limitation, recorded rather than silently accepted (#66 review): the
+    REVERSE assertion scrapes markdown TABLE ROWS only, so a retired reason
+    orphaned in PHASE 1 *prose* (a bullet, a paragraph) passes green — that is
+    exactly how the `in_grid_nested` bullet survived its retirement until a
+    human review caught it. Not closed with a curated retired-reasons list,
+    which would itself be a drift vector; prose-scraping every backticked
+    token would false-positive on non-reason identifiers (`base_sum`,
+    `form_get`, `grid_context`, ...). Retiring a reason therefore still
+    requires a human sweep of PHASE 1 prose.
     """
     return (
         re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", phase1) is not None

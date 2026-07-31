@@ -64,7 +64,7 @@ def _require_live_components_list(live_components: Any) -> None:
 
 def _build_live_index(
     live_components: list[dict[str, Any]],
-) -> dict[str, list[tuple[dict[str, Any], bool]]]:
+) -> dict[str, list[tuple[dict[str, Any], str]]]:
     """Index every live columns hit by walker path, built ONCE per call.
 
     Walker paths are not guaranteed unique (e.g. two sibling panels sharing
@@ -73,14 +73,14 @@ def _build_live_index(
     grid_context)`` hits. Callers must treat more than one hit for a path as
     ambiguous and skip it (``duplicate_path``) rather than guessing.
     """
-    index: dict[str, list[tuple[dict[str, Any], bool]]] = {}
+    index: dict[str, list[tuple[dict[str, Any], str]]] = {}
     for hit in iter_columns_components(live_components):
         index.setdefault(hit.path, []).append((hit.component, hit.grid_context))
     return index
 
 
 def _live_key_counts(
-    live_index: dict[str, list[tuple[dict[str, Any], bool]]],
+    live_index: dict[str, list[tuple[dict[str, Any], str]]],
 ) -> dict[str, int]:
     """Count how many live columns components carry each non-empty ``key``.
 
