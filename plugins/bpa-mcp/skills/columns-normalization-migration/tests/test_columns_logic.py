@@ -294,6 +294,26 @@ def _editgrid(key: str, children: list[dict]) -> dict:
     return {"key": key, "type": "editgrid", "components": children}
 
 
+def _columns_with_fields(key: str, widths: list[int]) -> dict:
+    """A columns row whose every column carries a field. The plain `_columns`
+    helper builds all-empty columns — fine for walker/classification tests,
+    but under REAL analysis an all-empty row is `all_empty`, which the 18037
+    freeze used to mask. Pad-actionable cases need content."""
+    return {
+        "key": key,
+        "type": "columns",
+        "columns": [
+            {
+                "width": w,
+                "components": [
+                    {"key": f"{key}_f{i}", "type": "textfield", "label": "x"}
+                ],
+            }
+            for i, w in enumerate(widths)
+        ],
+    }
+
+
 def test_walker_classifies_direct_child_of_editgrid() -> None:
     from columns_logic import iter_columns_components
 
@@ -380,7 +400,7 @@ def test_build_plan_reports_both_grid_classes_with_sums() -> None:
                 "grid",
                 [
                     _columns("directRow", [4, 4]),
-                    _panel("p", [_columns("nestedRow", [4] * 9)]),
+                    _panel("p", [_columns_with_fields("nestedRow", [4] * 9)]),
                 ],
             )
         ]
@@ -395,26 +415,42 @@ def test_build_plan_reports_both_grid_classes_with_sums() -> None:
 
     nested = rows["nestedRow"]
     assert nested["action"] == "skip"
-    assert nested["reason"] == "in_grid_nested"
+    assert nested["reason"] == "over_12"  # ordinary row now: split track's subject
     assert nested["grid_context"] == "nested"
     assert nested["base_sum"] == 36
 
 
-def test_build_plan_never_pads_any_in_grid_row_yet() -> None:
-    """SCAN-half freeze (TOBE-18037 acceptance 4): even a plainly under-12
-    nested row stays `skip` — pad-applying an in-grid row waits for the
-    apply half (TOBE-18041) and its canary."""
+def test_build_plan_pads_a_nested_under_12_row_but_never_a_direct_child() -> None:
+    """TOBE-18041: nested rows are ORDINARY rows — a nested under-12 row gets
+    a real pad plan (annotated with its grid context, so the runbook's
+    in-grid canary gate can see it). A DIRECT child of the grid stays
+    permanently skipped: the DS grid rule owns its layout, and padding it
+    would add a spacer the grid model does not need."""
     from columns_logic import build_plan
 
     form = {
         "components": [
-            _editgrid("grid", [_panel("p", [_columns("under12", [4, 4])])])
+            _editgrid(
+                "grid",
+                [
+                    _columns("directUnder12", [4, 4]),
+                    _panel("p", [_columns_with_fields("under12", [4, 4])]),
+                ],
+            )
         ]
     }
-    (row,) = build_plan(form)["plan"]
-    assert row["action"] == "skip"
-    assert row["reason"] == "in_grid_nested"
-    assert row["new_columns"] is None
+    rows = {r["key"]: r for r in build_plan(form)["plan"]}
+
+    nested = rows["under12"]
+    assert nested["action"] == "append"
+    assert nested["grid_context"] == "nested"
+    assert nested["base_sum"] == 8
+    assert [c.get("width") for c in nested["new_columns"]] == [4, 4, 4]
+
+    direct = rows["directUnder12"]
+    assert direct["action"] == "skip"
+    assert direct["reason"] == "grid_direct_child"
+    assert direct["new_columns"] is None
 
 
 def test_analyze_legacy_inside_grid_kwarg_unchanged() -> None:
@@ -428,53 +464,63 @@ def test_analyze_legacy_inside_grid_kwarg_unchanged() -> None:
     assert verdict.reason == "inside_grid"
 
 
-def test_in_grid_base_sum_is_none_for_a_malformed_row() -> None:
-    """#61 review finding 2: the raw sum filtered to valid ints, so a nested
-    row carrying a null width reported a plausible, healthy-looking total
-    ([4, null, 4] -> base_sum 8) instead of signalling it is malformed — it
-    would read as an ordinary sub-12 row in the inventory and quietly never
-    enter TOBE-18041's scope. "Unknown" must stay distinguishable from a
-    confident figure: any invalid width makes base_sum None. (The swallowing
-    itself is pre-existing and deliberate — an in-grid row returns before the
-    fail-loud width checks so a malformed row inside a grid never aborts a
-    whole-form scan.)"""
+def test_malformed_direct_child_swallows_but_malformed_nested_fails_loud() -> None:
+    """TOBE-18041 refines the 1.2.2 rule. A DIRECT child is a row the scan
+    will never act on, so its malformed widths keep the deliberate swallow
+    (skip + base_sum None — the whole-form scan survives). A NESTED row is
+    now an ORDINARY actionable row, so a malformed one must fail loud exactly
+    like a malformed top-level row: silently skipping a row the scan would
+    otherwise act on is the corrupt-plan path build_plan's raise exists to
+    prevent."""
+    import pytest as _pytest
+
     from columns_logic import build_plan
 
-    bad = {
-        "key": "badrow",
-        "type": "columns",
-        "columns": [
-            {"width": 4, "components": []},
-            {"width": None, "components": []},
-            {"width": 4, "components": []},
-        ],
-    }
-    form = {
+    direct_only = {
         "components": [
-            {
-                "key": "grid",
-                "type": "editgrid",
-                "components": [
-                    bad,
-                    {"key": "p", "type": "panel", "components": [
-                        {
-                            "key": "badnested",
-                            "type": "columns",
-                            "columns": [
-                                {"width": 4, "components": []},
-                                {"width": 40, "components": []},
-                            ],
-                        }
-                    ]},
+            _editgrid(
+                "grid",
+                [
+                    {
+                        "key": "baddirect",
+                        "type": "columns",
+                        "columns": [
+                            {"width": 4, "components": []},
+                            {"width": None, "components": []},
+                        ],
+                    }
                 ],
-            }
+            )
         ]
     }
-    rows = {r["key"]: r for r in build_plan(form)["plan"]}
-    assert rows["badrow"]["reason"] == "grid_direct_child"
-    assert rows["badrow"]["base_sum"] is None
-    assert rows["badnested"]["reason"] == "in_grid_nested"
-    assert rows["badnested"]["base_sum"] is None
+    (row,) = build_plan(direct_only)["plan"]
+    assert row["reason"] == "grid_direct_child"
+    assert row["base_sum"] is None
+
+    nested_bad = {
+        "components": [
+            _editgrid(
+                "grid",
+                [
+                    _panel(
+                        "p",
+                        [
+                            {
+                                "key": "badnested",
+                                "type": "columns",
+                                "columns": [
+                                    {"width": 4, "components": []},
+                                    {"width": 40, "components": []},
+                                ],
+                            }
+                        ],
+                    )
+                ],
+            )
+        ]
+    }
+    with _pytest.raises(ValueError, match="badnested"):
+        build_plan(nested_bad)
 
 
 def test_in_grid_base_sum_stays_populated_for_well_formed_rows() -> None:
@@ -484,9 +530,10 @@ def test_in_grid_base_sum_stays_populated_for_well_formed_rows() -> None:
 
     form = {
         "components": [
-            _editgrid("grid", [_panel("p", [_columns("ok", [4, 4, 4])])])
+            _editgrid("grid", [_panel("p", [_columns_with_fields("ok", [4, 4, 4])])])
         ]
     }
     (row,) = build_plan(form)["plan"]
-    assert row["reason"] == "in_grid_nested"
+    assert row["grid_context"] == "nested"
+    assert row["reason"] == "complete"  # ordinary row now
     assert row["base_sum"] == 12

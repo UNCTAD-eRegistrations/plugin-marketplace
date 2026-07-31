@@ -122,9 +122,12 @@ PARENT-CONTEXT RESOLUTION (conservative; a pure-Python read-only walk):
   three contexts are supported: form root, a plain container parent
   (``panel``/``well``/``container``/``fieldset`` holding children directly in
   its own ``components`` list), and a columns parent (nested inside another
-  columns component's column). Anything else — tabs, table, datagrid/
-  editgrid, or any component found ANYWHERE beneath such an ancestor (not
-  just as its direct child) — is skipped ``unsupported_parent_context``. A
+  columns component's column). Tabs, table, and unknown container types are
+  unsupported ancestry-wide — anything found ANYWHERE beneath one is skipped
+  ``unsupported_parent_context``. A datagrid/editgrid (TOBE-18041) is NOT
+  ancestry-poisoning: a row nested deeper inside one (panel-in-grid etc.)
+  resolves its parent normally; only a DIRECT child of the grid itself is
+  unsupported, because the DS grid rule already lays it out correctly. A
   wrong structural op is far worse than a skip.
 
   A keyless (``key`` missing/empty) intermediate container or columns
@@ -331,12 +334,14 @@ def _search_descendants(
     KINDS are ever returned as supported: "container" (plain panel/well/
     container/fieldset) and "columns" (nested inside another columns
     component's column) — matched at whichever level DIRECTLY holds
-    ``target``. Anything reachable only through a tabs pane, table cell,
-    datagrid/editgrid, or an unrecognised container type is "unsupported",
-    even when ``target`` sits several levels deeper inside a supported
-    container that is itself nested under one of those — being ANYWHERE
-    beneath such an ancestor is disqualifying, not just being its direct
-    child.
+    ``target``. Anything reachable only through a tabs pane, table cell, or
+    an unrecognised container type is "unsupported", even when ``target``
+    sits several levels deeper inside a supported container that is itself
+    nested under one of those — being ANYWHERE beneath such an ancestor is
+    disqualifying. A datagrid/editgrid (TOBE-18041) is the exception: only a
+    DIRECT child of the grid is unsupported (the DS grid rule already lays
+    it out correctly); anything deeper resolves normally, so a panel inside
+    the grid is an ordinary "container" parent.
 
     A DIRECT parent (container or columns) whose own ``key`` is missing/
     empty is ALSO "unsupported": it is a non-root, unaddressable container
@@ -409,9 +414,22 @@ def _search_descendants(
                             return {"kind": "unsupported"}
 
         elif node_type in GRID_TYPES:
+            # TOBE-18041: a grid ancestor no longer poisons its whole
+            # subtree. A DIRECT child of the grid stays unsupported —
+            # defense-in-depth for acceptance 6 (the scan never emits one,
+            # but a forged plan row must not split a row the DS grid rule
+            # renders correctly). Anything deeper resolves normally, so a
+            # panel inside the editgrid is an ordinary "container" parent.
+            # Tabs/table/unknown ancestors keep their blanket rule, including
+            # inside grids — their branches above do not descend.
             children = node.get("components")
-            if isinstance(children, list) and _contains(children, target):
-                return {"kind": "unsupported"}
+            if isinstance(children, list):
+                for child in children:
+                    if child is target:
+                        return {"kind": "unsupported"}
+                found = _search_descendants(children, target)
+                if found is not None:
+                    return found
 
         else:
             # Unrecognised container-ish type: still may nest components; be

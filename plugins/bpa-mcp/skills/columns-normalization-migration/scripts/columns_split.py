@@ -391,15 +391,12 @@ def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
       correctly by construction — splitting one would degrade a working row.
     - Rows NESTED deeper inside a grid (panel-in-editgrid etc.) fall through
       to the ordinary #171 fluid flex model and suffer the same over-12
-      raggedness as top-level rows. They ARE scanned — but the apply half is
-      frozen until TOBE-18041 (grid-subtree insertion unproven, editgrid
-      submission-data survival unproven), so a would-be split surfaces as
-      ``{"action": "review", "reason": "in_grid_nested"}`` with its
-      ``base_widths`` and NO containers: flag-not-transform, exactly like the
-      other review reasons. A nested row that plan_split already classifies
-      as review (mixed width-12 / all-columns-empty) keeps that more specific
-      reason; nested rows get a ``grid_context: "nested"`` annotation either
-      way. Top-level rows keep their exact pre-18037 output shape.
+      raggedness as top-level rows. They are ORDINARY split rows
+      (TOBE-18041): full runnable plans, annotated ``grid_context: "nested"``
+      so the runbook's in-grid canary gate and the inventory can see the
+      class. A nested row that plan_split classifies as review (mixed
+      width-12 / all-columns-empty) keeps that more specific reason, same
+      annotation. Top-level rows keep their exact pre-18037 output shape.
     """
     if not isinstance(form, dict):
         raise ValueError(
@@ -415,14 +412,11 @@ def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
         if plan is None:
             continue
         if hit.grid_context == "nested":
-            if plan["action"] == "split":
-                plan = {
-                    "action": "review",
-                    "original_key": plan["original_key"],
-                    "base_widths": plan["base_widths"],
-                    "reason": "in_grid_nested",
-                    "determinant_carry": plan.get("determinant_carry", "all"),
-                }
+            # TOBE-18041: nested rows are ordinary rows — the split plan is
+            # RUNNABLE (containers and all). The annotation stays so the
+            # runbook's in-grid canary gate and the inventory can see the
+            # class; review rows (#58 all_columns_empty, TOBE-18030 mixed)
+            # keep their more specific reasons.
             plan = {**plan, "grid_context": "nested"}
         results.append({"path": hit.path, **plan})
     return results

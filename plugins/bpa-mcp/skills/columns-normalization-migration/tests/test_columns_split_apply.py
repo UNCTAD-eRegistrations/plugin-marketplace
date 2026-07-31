@@ -1573,3 +1573,130 @@ def test_apply_skips_an_all_columns_empty_review_row() -> None:
 
     assert result["operations"] == []
     assert result["applied_rows"] == []
+
+
+# ---------------------------------------------------------------------------
+# grid-nested apply (TOBE-18041)
+# ---------------------------------------------------------------------------
+def _editgrid(key: str, children: "list[dict[str, Any]]") -> "dict[str, Any]":
+    return {"key": key, "type": "editgrid", "components": children}
+
+
+def _panel(key: str, children: "list[dict[str, Any]]") -> "dict[str, Any]":
+    return {"key": key, "type": "panel", "components": children}
+
+
+def test_split_applies_inside_a_grid_nested_panel() -> None:
+    """TOBE-18041 acceptance 1: add + remove resolve inside a grid subtree.
+    The panel parent sits inside an editgrid; the ops must address the PANEL
+    (parent_key=p), never the grid, and never re-root."""
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [_panel("p", [target])])]
+    plan_rows = _plan_rows(live)
+
+    assert [r["action"] for r in plan_rows] == ["split"]
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    ops = result["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add", "add", "add"]
+    for n, op in enumerate(ops[1:]):
+        assert op["parent_key"] == "p", "must address the panel inside the grid"
+        assert "column_index" not in op
+        assert op["position"] == n
+    assert result["applied_rows"][0]["container_keys"] == [
+        "row1_split1",
+        "row1_split2",
+        "row1_split3",
+    ]
+
+
+def test_two_split_rows_sharing_a_panel_inside_a_grid_keep_position_arithmetic() -> None:
+    """TOBE-18041 acceptance 1, the position-drift case: two rows in the SAME
+    panel inside a grid — the second row's adds must be offset by the net
+    growth from the first (each split is -1 original +N containers)."""
+    from columns_split_apply import plan_to_split_operations
+
+    row_a = _columns_component("rowA", [4] * 9)   # -> 3 containers (net +2)
+    row_b = _columns_component("rowB", [6] * 3)   # -> 2 containers
+    live = [_editgrid("grid", [_panel("p", [row_a, row_b])])]
+    plan_rows = _plan_rows(live)
+    assert [r["original_key"] for r in plan_rows] == ["rowA", "rowB"]
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    adds = [op for op in result["operations"] if op["op"] == "add"]
+    by_key = {op["component"]["key"]: op["position"] for op in adds}
+    assert by_key == {
+        "rowA_split1": 0,
+        "rowA_split2": 1,
+        "rowA_split3": 2,
+        # rowB sat at base position 1; rowA grew the panel by +2 -> 3
+        "rowB_split1": 3,
+        "rowB_split2": 4,
+    }
+
+
+def test_direct_child_of_grid_is_still_refused_by_the_apply() -> None:
+    """TOBE-18041 acceptance 6, defense-in-depth: the scan never emits a
+    direct child, but a FORGED plan row targeting one must still be skipped —
+    the DS grid rule owns that row and a split would degrade it."""
+    from columns_split import plan_split
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [target])]
+    forged = dict(plan_split(target) or {})
+    forged["path"] = "grid/row1"
+
+    result = plan_to_split_operations([forged], live)
+
+    assert result["operations"] == []
+    assert result["applied_rows"] == []
+    assert [sk["reason"] for sk in result["skipped"]] == ["unsupported_parent_context"]
+
+
+def test_tabs_inside_a_grid_are_still_unsupported() -> None:
+    """Narrowing the grid guard must not weaken the tabs/table rule: a row
+    inside a tabs pane inside a grid stays unsupported."""
+    from columns_split import plan_split
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    tabs = {
+        "key": "tabs1",
+        "type": "tabs",
+        "tabs": [{"key": "pane1", "components": [target]}],
+    }
+    live = [_editgrid("grid", [tabs])]
+    forged = dict(plan_split(target) or {})
+    forged["path"] = "grid/tabs1/row1"
+
+    result = plan_to_split_operations([forged], live)
+
+    assert result["operations"] == []
+    assert [sk["reason"] for sk in result["skipped"]] == ["unsupported_parent_context"]
+
+
+def test_grid_nested_split_reverts_cleanly() -> None:
+    """TOBE-18041 acceptance 3: the revert path works for a grid-nested row —
+    remove the containers, re-add the original into the panel inside the
+    grid, pristine check passing."""
+    from columns_split_apply import plan_to_split_operations, revert_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [_panel("p", [target])])]
+    result = plan_to_split_operations(_plan_rows(live), live)
+    assert result["skipped"] == []
+
+    written = [op["component"] for op in result["operations"] if op["op"] == "add"]
+    reverted = revert_split_operations(result["applied_rows"], written)
+
+    assert reverted["skipped"] == []
+    ops = reverted["operations"]
+    assert [op["op"] for op in ops] == ["remove", "remove", "remove", "add"]
+    assert ops[-1]["component"]["key"] == "row1"
+    assert ops[-1].get("parent_key") == "p"

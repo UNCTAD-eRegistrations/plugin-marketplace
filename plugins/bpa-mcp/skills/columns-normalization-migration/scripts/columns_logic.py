@@ -224,38 +224,41 @@ def analyze_columns_component(
     Never mutates the input; ``new_columns`` is a deep copy. Only width fields
     are ever written — no ``rows`` (or other non-width) prop is introduced.
 
-    ``grid_context`` (TOBE-18037) takes precedence over the legacy
+    ``grid_context`` (TOBE-18037/18041) takes precedence over the legacy
     ``inside_grid`` boolean when provided: ``"direct_child"`` rows skip as
-    ``grid_direct_child`` (the DS grid rule owns their layout), ``"nested"``
-    rows skip as ``in_grid_nested`` (deferred to the TOBE-18041 apply
-    half and its canary — the scan half must not open a write path). Both
-    carry a RAW width sum (spacers included, matching the split module's
-    boundary semantics) so the inventory can size them; the old single
-    ``inside_grid`` skip reported ``base_sum`` None. The legacy boolean path
-    is byte-identical to before — the pad APPLY re-verifies live rows through
-    it and needs no change.
+    ``grid_direct_child`` (the DS grid rule owns their layout, permanently),
+    while ``"nested"`` rows are ORDINARY rows — analyzed for real, padded
+    when under 12 (TOBE-18041 lifted the 18037 freeze; the runbook gates the
+    first in-grid apply behind an els-dev canary). Direct-child skips carry a
+    RAW width sum (spacers included, matching the split module's boundary
+    semantics), or ``base_sum`` None when any width is malformed. The legacy
+    boolean path is unchanged for API stability (returns the historic
+    ``inside_grid`` skip); the skill's own scripts no longer call it.
     """
     columns = component.get("columns") or []
     widths = [c.get("width") for c in columns]
 
-    if grid_context in ("direct_child", "nested"):
-        # Raw sum (spacers included) — but ONLY when every width is a valid
-        # 1..12 int. A sum filtered to the valid widths reads as a confident,
-        # healthy-looking figure ([4, null, 4] -> 8) and a malformed row would
-        # pass for an ordinary sub-12 row in the inventory (#61 review,
-        # finding 2). base_sum None keeps "unknown" distinguishable. The
-        # swallowing itself is deliberate and pre-existing: in-grid rows
-        # return before the fail-loud width checks so a malformed row inside
-        # a grid never aborts a whole-form scan.
+    if grid_context == "direct_child":
+        # Permanently out of scope: the DS grid rule (12 tracks + per-width
+        # `grid-column: span N`) lays a DIRECT child out correctly by
+        # construction — padding it would add a spacer the grid model does
+        # not need. Raw sum (spacers included) for the inventory, but ONLY
+        # when every width is a valid 1..12 int: a sum filtered to the valid
+        # widths reads as a confident, healthy-looking figure ([4, null, 4]
+        # -> 8), and base_sum None keeps "unknown" distinguishable (#61
+        # review, finding 2). The malformed-width swallow is deliberate and
+        # applies to THIS class only — a direct child is a row the scan will
+        # never act on, so a malformed one must not abort a whole-form scan.
+        # A NESTED row falls through to ordinary analysis (TOBE-18041), so a
+        # malformed nested row fails loud exactly like a top-level one.
         malformed = not widths or any(
             not isinstance(w, int) or isinstance(w, bool) or not (1 <= w <= 12)
             for w in widths
         )
         raw_sum = None if malformed else sum(widths)
-        reason = (
-            "grid_direct_child" if grid_context == "direct_child" else "in_grid_nested"
+        return Verdict(
+            action="skip", reason="grid_direct_child", base_sum=raw_sum, widths=widths
         )
-        return Verdict(action="skip", reason=reason, base_sum=raw_sum, widths=widths)
     if inside_grid:
         return Verdict(action="skip", reason="inside_grid", widths=widths)
     if not component.get("key"):

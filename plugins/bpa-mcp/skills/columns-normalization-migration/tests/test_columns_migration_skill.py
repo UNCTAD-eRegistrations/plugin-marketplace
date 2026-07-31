@@ -497,6 +497,19 @@ def _documents(phase1: str, reason: str) -> bool:
     A bare substring test is not enough: it let `inside_grid` count as
     documented purely because `inside_grid_nested` appears, so the shorter
     reason could vanish from the runbook without failing anything.
+
+    The REVERSE assertion covers two structural shapes (#66 review, round 2):
+    markdown TABLE ROWS (first-column code span) and DEFINITION BULLETS — a
+    bullet whose leading element is a bold code span (`- **\`reason\`**`),
+    the prose analogue of a table row. The bullet shape is what caught the
+    `in_grid_nested` retirement gap: the reason's bullet survived in PHASE 1
+    prose after the scripts stopped emitting it, and table-row scraping alone
+    passed green. Scraping every backticked token instead would
+    false-positive on non-reason identifiers (`base_sum`, `grid_context`,
+    ...) — the two structural shapes carry definition intent; running prose
+    does not. Residual, recorded: a retired reason mentioned in FREE prose
+    (neither shape) is still uncaught, so retiring a reason keeps a human
+    sweep of PHASE 1 prose in its checklist.
     """
     return (
         re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", phase1) is not None
@@ -563,6 +576,13 @@ def test_skill_documents_every_scan_reason_the_scanners_can_emit() -> None:
             continue  # header row
         claimed.add(m.group(1))
     assert claimed, "expected the PHASE 1 vocabulary table to have rows"
+
+    # Definition bullets: `- **\`reason\`**` — the prose shape PHASE 1 uses
+    # to define a reason outside the table. `[a-z0-9_]+` must span the WHOLE
+    # code span, so `action:"review"` bullets are not grabbed; identifiers in
+    # running prose (`base_sum`, `grid_context`) are inline code spans, never
+    # bullet-leading bold definitions.
+    claimed |= set(re.findall(r"^\s*-\s*\*\*`([a-z0-9_]+)`\*\*", phase1, re.M))
     orphaned = sorted(claimed - emitted_all)
     assert not orphaned, (
         "PHASE 1 documents reasons no scan module emits (orphaned vocabulary "
