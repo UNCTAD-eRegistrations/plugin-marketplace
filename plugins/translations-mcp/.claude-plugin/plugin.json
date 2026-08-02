@@ -1,7 +1,7 @@
 {
   "name": "translations-mcp",
   "description": "Translations MCP server for eRegistrations — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids), plus one-command recovery from missing translation bootstrap via translation_global_status / translation_global_reload. Requires bpa-mcp plugin for authentication. Includes direct GTS catalogue tools (gts_translations / gts_update_batch) and the /translations-mcp:gts command for checking and upserting keys that the instance-side sync cannot fix.",
-  "version": "1.61.11",
+  "version": "1.61.12",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   }
