@@ -73,18 +73,22 @@ RESOLVED RULES (from Erick + render test; TOBE-18009):
     cleanly beneath it; ``plan_split`` returns ``None``, no plan needed.
     (3) has a width-12 column AND the sum of its non-12 columns is ITSELF
     over 12 (e.g. ``[12,8,8]``: the 12 breaks to its own line via CSS, but
-    the remaining ``[8,8]`` = 16 still overflows) — the CSS rule alone does
-    NOT fix this, and it cannot be auto-split without either wrapping a lone
-    width-12 (the ``defaultsDeep`` 2x width-6 back-fill trap, see below) or
-    unwrapping it (determinant-carry for unwrapped pieces is an OPEN design
-    question on TOBE-18009). ``plan_split`` returns a ``"action": "review"``
-    entry (reason ``"mixed_width12_remainder_over12"``) instead of silently
-    dropping the row or emitting an unsafe plan — surfaced for human
-    review rather than transformed. This also sidesteps a real editor bug:
-    a lone ``[12]`` container is silently back-filled by the BPA editor to
-    ``[12,6]`` (lodash ``defaultsDeep`` against ``ColumnsComponent.schema()``
-    's hardcoded 2x width-6 default, sum 18 — over 12 again), so a row
-    containing a 12 must never reach the grouping step in the first place.
+    the remaining ``[8,8]`` = 16 still overflows) — SPLIT, with the
+    width-12 pairing rule (TOBE-18030 option C, render-tested against the
+    deployed 2.18.329 CSS): every width-12 column closes into its OWN group,
+    preserving column order, and a lone-12 group is padded with an EMPTY
+    width-12 filler so the container ships as the ``[12, empty-12]``
+    CSS-complete pair — never as a lone ``[12]``, which the BPA editor
+    silently back-fills to ``[12,6]`` (lodash ``defaultsDeep`` against
+    ``ColumnsComponent.schema()``'s hardcoded 2x width-6 default, sum 18 —
+    over 12 again). The pair does NOT sum to 12 by design: under the
+    TOBE-18019 rule the content column takes its own full row, the empty
+    filler is ``col-empty`` (width floor exempt, hidden when stacked), and a
+    re-scan of the pair yields ``None`` (non-12 remainder 0 — CSS-handled),
+    so the output is stable. The non-12 remainder splits and pads exactly
+    like case (1). Every piece stays a ``columns`` container, so determinant
+    carry remains the settled copy-to-all-N rule. The former
+    ``"mixed_width12_remainder_over12"`` review reason is RETIRED.
   - Never-emit-under-2-columns guard: as a defensive invariant (belt and
     suspenders against future regressions, not expected to ever trigger for
     valid input given the two rules above), ``plan_split`` returns ``None``
@@ -146,12 +150,25 @@ def _dominant_size(columns: list[dict[str, Any]]) -> str:
 def _group_columns(columns: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     """Greedy 12-boundary grouping (see module docstring). ``columns`` must
     already be a deep copy owned by the caller — this function does not
-    copy."""
+    copy.
+
+    A width-12 column always closes into its OWN group (the TOBE-18030
+    pairing rule): merging the columns before and after it into one group
+    would visibly reorder fields around the full-width one, so column order
+    is preserved by never grouping across a 12. Rows without a width-12
+    column group byte-identically to before."""
     groups: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
     current_sum = 0
     for col in columns:
         width = col["width"]
+        if width == TARGET_SUM:
+            if current:
+                groups.append(current)
+                current = []
+                current_sum = 0
+            groups.append([col])
+            continue
         if current and current_sum + width > TARGET_SUM:
             groups.append(current)
             current = []
@@ -177,13 +194,14 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         computed plan would emit a container with fewer than 2 columns
         (defensive invariant)); OR a row with a width-12 column whose non-12
         remainder is <= 12 — fully handled by the TOBE-18019 CSS rule.
-      - ``{"action": "review", ...}`` (no ``containers``): a row with a
-        width-12 column whose non-12 remainder itself sums > 12 (e.g.
-        ``[12,8,8]``) — the CSS rule alone does not fix it, and it is
-        surfaced rather than auto-split or dropped (reason
-        ``"mixed_width12_remainder_over12"``).
-      - ``{"action": "split", "containers": [...], ...}``: a normal
-        splittable over-12 row with no width-12 column.
+      - ``{"action": "review", ...}`` (no ``containers``): a row whose every
+        group is content-less (reason ``"all_columns_empty"``) — surfaced,
+        never silently deleted.
+      - ``{"action": "split", "containers": [...], ...}``: a splittable
+        over-12 row — including mixed width-12 rows whose remainder itself
+        overflows (TOBE-18030): each width-12 column ships as its own
+        ``[12, empty-12]`` CSS-complete pair, the remainder splits and pads
+        normally.
     """
     columns = component.get("columns")
     if not isinstance(columns, list) or not columns:
@@ -213,29 +231,17 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
     if base_sum <= TARGET_SUM:
         return None
 
-    # Rows containing a width-12 column: narrow the skip to only the rows
-    # the TOBE-18019 CSS rule actually handles (the 12 breaks to its own
-    # line, and the remainder — if it itself already fits in 12 — wraps
-    # cleanly beneath it). A remainder that itself overflows 12 (e.g.
-    # [12,8,8]: [8,8]=16) is NOT fixed by that CSS rule and must not be
-    # silently dropped. Splitting it here would risk emitting a lone [12]
-    # container, which the BPA editor silently back-fills to [12,6] (lodash
-    # defaultsDeep against ColumnsComponent.schema()'s hardcoded 2x width-6
-    # default, sum 18 — over 12 again) — or would require unwrapping the 12,
-    # whose determinant-carry semantics are an open design question
-    # (TOBE-18009). So it is surfaced as a review entry instead.
+    # Rows containing a width-12 column: skip only the rows the TOBE-18019
+    # CSS rule fully handles (the 12 breaks to its own line, and the
+    # remainder — if it itself already fits in 12 — wraps cleanly beneath
+    # it). A remainder that itself overflows 12 (e.g. [12,8,8]: [8,8]=16) is
+    # NOT fixed by that CSS rule and falls through to the split below, where
+    # the width-12 pairing rule keeps every lone 12 out of the defaultsDeep
+    # back-fill trap (TOBE-18030 option C).
     has_12 = any(w == TARGET_SUM for w in widths)
     non12_sum = sum(w for w in widths if w != TARGET_SUM)
-    if has_12:
-        if non12_sum <= TARGET_SUM:
-            return None  # fully handled by the TOBE-18019 CSS rule
-        return {
-            "action": "review",
-            "original_key": key,
-            "base_widths": widths,
-            "reason": "mixed_width12_remainder_over12",
-            "determinant_carry": "all",
-        }
+    if has_12 and non12_sum <= TARGET_SUM:
+        return None  # fully handled by the TOBE-18019 CSS rule
 
     groups = _group_columns(copy.deepcopy(columns))
 
@@ -286,8 +292,22 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         group_columns: list[dict[str, Any]] = list(group)
         padded = False
 
+        filler_width: int | None = None
         if group_sum < TARGET_SUM:
             filler_width = TARGET_SUM - group_sum
+        elif group_widths == [TARGET_SUM]:
+            # The width-12 pairing rule (TOBE-18030 option C): a lone
+            # width-12 group cannot ship as a single-column container (the
+            # defaultsDeep back-fill trap) and the ordinary rule computes
+            # 12 - 12 = 0, i.e. no filler. Pair it with an EMPTY width-12
+            # filler instead: under the TOBE-18019 CSS rule the content
+            # column takes its own full row, the filler renders as
+            # `col-empty` (width floor exempt, hidden when stacked), and the
+            # [12, empty-12] pair re-scans as CSS-handled (stable output).
+            # Deliberately sums to 24, not 12 — this container is complete
+            # by the CSS rule, not by the 12-sum rule.
+            filler_width = TARGET_SUM
+        if filler_width is not None:
             filler: dict[str, Any] = {
                 "size": _dominant_size(group),
                 "width": filler_width,
@@ -313,14 +333,12 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         )
 
     # Defensive invariant: never emit a container with fewer than 2 columns
-    # (the defaultsDeep back-fill trap guard). Reaching this point means
-    # `has_12` was False (any width-12 row returns above, either None or a
-    # review entry, before grouping ever runs) — so, by construction, every
-    # under-12 group gets a filler (>= 2 columns) and every full group of
-    # non-12 columns already has >= 2 columns. This branch is therefore
-    # UNREACHABLE for the normal (no-12) path; it exists purely as
-    # defense-in-depth to fail safe against a future regression rather than
-    # ever emit an unsafe plan.
+    # (the defaultsDeep back-fill trap guard). By construction every group
+    # reaches 2+ columns: an under-12 group gets a filler, a full group of
+    # non-12 columns already has >= 2 columns, and a lone width-12 group gets
+    # the empty width-12 pair filler (TOBE-18030). This branch is therefore
+    # UNREACHABLE; it exists purely as defense-in-depth to fail safe against
+    # a future regression rather than ever emit an unsafe plan.
     if any(len(c["columns"]) < 2 for c in containers):  # pragma: no cover
         return None
 
