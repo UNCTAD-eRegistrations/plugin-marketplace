@@ -509,10 +509,29 @@ def _documents(phase1: str, reason: str) -> bool:
     ...) — the two structural shapes carry definition intent; running prose
     does not. Residual, recorded: a retired reason mentioned in FREE prose
     (neither shape) is still uncaught, so retiring a reason keeps a human
-    sweep of PHASE 1 prose in its checklist.
+    sweep of PHASE 1 prose AND of the scan modules' own docstrings in its
+    checklist (#68 review round 3 found two stale docstring spots the PHASE 1
+    sweep missed).
+
+    FORWARD-direction hole closed (#68 review round 3): a retirement note in
+    PHASE 1 ("`reason` was retired in ...") used to satisfy this documented-
+    check for the very reason it declares dead — so re-emitting a retired
+    reason kept the guard green because a sentence said it no longer exists.
+    Lines carrying the word "retired" are now excluded from the search, and
+    the convention (enforced by that exclusion) is that a retirement note
+    keeps the token and the word "retired" on the same line. Positive
+    control: reverting columns_split.py to the pre-TOBE-18030 emitter now
+    fails this guard, not just the behaviour tests.
     """
+    lines = [
+        line
+        for line in phase1.splitlines()
+        if not re.search(r"(?<![a-z0-9_])retired(?![a-z0-9_])", line)
+    ]
+    haystack = "\n".join(lines)
     return (
-        re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", phase1) is not None
+        re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", haystack)
+        is not None
     )
 
 

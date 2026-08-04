@@ -487,6 +487,63 @@ def test_emitted_pair_reads_complete_on_the_pad_track() -> None:
     assert verdict.base_sum == 12  # body sum after the trailing-empty strip
 
 
+def test_plan_split_leading_spacer_run_collapses_and_shifts_content() -> None:
+    """"001" — [e12, e8, 8c]: the empty 12 and the empty 8 both fall to the
+    #58 content-less-group filter, leaving a single [8c, empty-4] container.
+    The field moves from the right of its authored line to the left — a
+    POSITION change, documented #58 drop semantics newly reachable through
+    mixed rows (#68 review, observation 8)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "001")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[8, 4]]
+    _assert_no_content_less_container(plan)
+
+
+def test_corpus_mixed_width12_fixture_matches_real_scanner_output() -> None:
+    """The corpus fixture is a cross-language contract for the TOBE-18006/
+    18007 ports, but its expected block is documentation-shaped (no
+    type:"columns" nodes), so the corpus width guard cannot execute it.
+    This test does: the fixture's input run through the real scanner must
+    produce exactly the containers the fixture promises (#68 review)."""
+    from columns_split import scan_form_for_splits
+
+    fixture_path = (
+        Path(__file__).resolve().parent.parent
+        / "fixtures"
+        / "columns_corpus"
+        / "split_mixed_width12_pair.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    rows = scan_form_for_splits(fixture["input"])
+    assert len(rows) == 1
+    row = rows[0]
+    expected = fixture["expected"]
+    assert row["action"] == expected["action"]
+    assert row["original_key"] == expected["original_key"]
+    assert row["base_widths"] == expected["base_widths"]
+    got = [
+        {
+            "key": c["key"],
+            "widths": c["widths"],
+            "padded": c["padded"],
+            "field_keys": [
+                f["key"] for col in c["columns"] for f in (col.get("components") or [])
+            ],
+        }
+        for c in row["containers"]
+    ]
+    want = [
+        {k: c[k] for k in ("key", "widths", "padded", "field_keys")}
+        for c in expected["containers"]
+    ]
+    assert got == want
+
+
 def test_plan_split_all_empty_mixed_row_is_all_columns_empty_review() -> None:
     """A mixed row with NO content anywhere is the #58 case first: every group
     is content-less, so it surfaces as review/all_columns_empty (deleting an

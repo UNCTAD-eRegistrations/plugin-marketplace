@@ -250,18 +250,24 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         # (#68 review, Erick): empty columns render `col-empty` (flex-basis 0,
         # min-width 0), so their hypothetical size is 0 and they collapse to
         # zero width on the content column's line — [12, empty-8, empty-8]
-        # already renders identically to the [12, empty-12] pair. Splitting it
-        # would spend a form_patch, a behaviour re-key and a publish for zero
-        # visual change, and delete authored spacer columns on the way. Only
-        # applies when SOMETHING in the row carries content: a row with no
-        # content anywhere falls through to the all_columns_empty review
-        # (the #58 stance — debris or deliberate, a human decides).
-        # Accepted asymmetry (#68 review): [empty-12, 8c, 8c] IS split, and
-        # the #58 filter drops the authored full-width spacer — the same
-        # deletion cost that keeps [12c, e8, e8] unsplit. Defensible: a
-        # componentless 12 is col-empty (basis 0, min-width 0, excluded from
-        # the full-row rule) and renders NOTHING today, so dropping it is
-        # visually inert while the remainder's split is a real improvement.
+        # already renders identically to the [12, empty-12] pair. The
+        # justification is CHURN, alone: splitting would spend a form_patch,
+        # a behaviour re-key and a publish for zero visual change. (Spacer
+        # PRESERVATION is deliberately not part of the argument — empty
+        # columns are visually inert, which is also why the asymmetry below
+        # is coherent.) Only applies when SOMETHING in the row carries
+        # content: a row with no content anywhere falls through to the
+        # all_columns_empty review (the #58 stance — debris or deliberate,
+        # a human decides).
+        # Asymmetries this rule accepts, both riding empty-column inertness
+        # (#68 review rounds 2-3): [empty-12, 8c, 8c] IS split and the #58
+        # filter drops the authored full-width spacer (visually inert — a
+        # componentless 12 is col-empty, excluded from the full-row rule —
+        # while the remainder's split is a real improvement); and a LEADING
+        # spacer run moves content horizontally: [e12, e8, 8c] collapses to
+        # a single [8c, e4] container, shifting the field from the right of
+        # its line to the left — documented #58 drop semantics, newly
+        # reachable through mixed rows.
         # NB these CSS-handled verdicts assume the TOBE-18004/18019 rules
         # are deployed (>= 2.18.326) — see the PHASE 1 note in SKILL.md.
         non12_has_content = any(
@@ -447,8 +453,9 @@ def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
       raggedness as top-level rows. They are ORDINARY split rows
       (TOBE-18041): full runnable plans, annotated ``grid_context: "nested"``
       so the runbook's in-grid canary gate and the inventory can see the
-      class. A nested row that plan_split classifies as review (mixed
-      width-12 / all-columns-empty) keeps that more specific reason, same
+      class. A nested row that plan_split classifies as review
+      (``all_columns_empty`` — the only review reason since the TOBE-18030
+      mixed-row retirement) keeps that more specific reason, same
       annotation. Top-level rows keep their exact pre-18037 output shape.
     """
     if not isinstance(form, dict):
@@ -468,8 +475,9 @@ def scan_form_for_splits(form: dict[str, Any]) -> list[dict[str, Any]]:
             # TOBE-18041: nested rows are ordinary rows — the split plan is
             # RUNNABLE (containers and all). The annotation stays so the
             # runbook's in-grid canary gate and the inventory can see the
-            # class; review rows (#58 all_columns_empty, TOBE-18030 mixed)
-            # keep their more specific reasons.
+            # class; review rows (#58 all_columns_empty, the only review
+            # reason since the TOBE-18030 mixed-row retirement) keep their
+            # more specific reason.
             plan = {**plan, "grid_context": "nested"}
         results.append({"path": hit.path, **plan})
     return results
