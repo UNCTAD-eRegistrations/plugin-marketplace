@@ -55,27 +55,46 @@
     "expected": {
         "action": "split",
         "original_key": "row1",
-        "base_widths": [12, 8, 8],
+        "base_widths": [
+            12,
+            8,
+            8
+        ],
         "base_sum": 28,
         "containers": [
             {
                 "key": "row1_split1",
-                "widths": [12, 12],
+                "widths": [
+                    12,
+                    12
+                ],
                 "padded": true,
-                "field_keys": ["f0"],
-                "note": "the [12, empty-12] CSS-complete pair: sums to 24 by design - the content column takes its own full row under the TOBE-18019 rule and the empty width-12 filler exists only to keep the container at >= 2 columns (defaultsDeep trap); it renders col-empty (width-floor exempt, hidden when stacked)"
+                "field_keys": [
+                    "f0"
+                ],
+                "note": "the [12, empty-12] CSS-complete pair: sums to 24 by design - the content column takes its own full row under the TOBE-18019 rule and the empty width-12 filler exists only to keep the container at >= 2 columns (defaultsDeep trap); it renders col-empty (width-floor exempt; collapses to zero width on the content column's line - the stacked-hide path never applies to a pair, readColumnBoxes skips col-empty so a one-box row never stamps cols-stacked)"
             },
             {
                 "key": "row1_split2",
-                "widths": [8, 4],
+                "widths": [
+                    8,
+                    4
+                ],
                 "padded": true,
-                "field_keys": ["f1"]
+                "field_keys": [
+                    "f1"
+                ]
             },
             {
                 "key": "row1_split3",
-                "widths": [8, 4],
+                "widths": [
+                    8,
+                    4
+                ],
                 "padded": true,
-                "field_keys": ["f2"]
+                "field_keys": [
+                    "f2"
+                ]
             }
         ],
         "invariants": {

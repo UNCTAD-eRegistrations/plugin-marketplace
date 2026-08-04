@@ -394,6 +394,36 @@ def test_plan_split_mixed_row_with_empty_twelve_drops_the_spacer_group() -> None
     _assert_no_content_less_container(plan)
 
 
+def test_plan_split_mixed_row_with_all_spacer_remainder_stays_css_handled() -> None:
+    """"100" — only the 12 carries content, the overflowing remainder is
+    entirely spacers ([12, empty-8, empty-8]): the empty columns render
+    `col-empty` (flex-basis 0, min-width 0) and collapse to zero width on the
+    content column's line, so the row ALREADY renders identically to the
+    [12, empty-12] pair. Splitting it would be pure churn (a form_patch, a
+    behaviour re-key and a publish for zero visual change) that deletes
+    authored spacer columns — it must stay CSS-handled (#68 review)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "100")
+    assert plan_split(comp) is None
+
+
+def test_plan_split_mixed_row_with_partly_empty_remainder_still_splits() -> None:
+    """"110" — the contrast case to "100": one remainder column carries
+    content, so the split IS a real improvement (the content 8 currently
+    shares its line 50/50 with the empty 8's flex-grow; after the split it
+    gets its authored 2/3 next to a width-4 filler)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "110")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[12, 12], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][0])
+    _assert_no_content_less_container(plan)
+
+
 def test_plan_split_all_empty_mixed_row_is_all_columns_empty_review() -> None:
     """A mixed row with NO content anywhere is the #58 case first: every group
     is content-less, so it surfaces as review/all_columns_empty (deleting an

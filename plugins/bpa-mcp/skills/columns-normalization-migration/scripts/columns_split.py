@@ -83,7 +83,10 @@ RESOLVED RULES (from Erick + render test; TOBE-18009):
     ``ColumnsComponent.schema()``'s hardcoded 2x width-6 default, sum 18 —
     over 12 again). The pair does NOT sum to 12 by design: under the
     TOBE-18019 rule the content column takes its own full row, the empty
-    filler is ``col-empty`` (width floor exempt, hidden when stacked), and a
+    filler is ``col-empty`` (width-floor exempt; it collapses to zero width
+    on the content column's line — the stacked-hide path never applies to a
+    pair, since readColumnBoxes skips col-empty and a one-box row never
+    stamps cols-stacked), and a
     re-scan of the pair yields ``None`` (non-12 remainder 0 — CSS-handled),
     so the output is stable. The non-12 remainder splits and pads exactly
     like case (1). Every piece stays a ``columns`` container, so determinant
@@ -240,8 +243,30 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
     # back-fill trap (TOBE-18030 option C).
     has_12 = any(w == TARGET_SUM for w in widths)
     non12_sum = sum(w for w in widths if w != TARGET_SUM)
-    if has_12 and non12_sum <= TARGET_SUM:
-        return None  # fully handled by the TOBE-18019 CSS rule
+    if has_12:
+        if non12_sum <= TARGET_SUM:
+            return None  # fully handled by the TOBE-18019 CSS rule
+        # A remainder that overflows only BY SPACER WIDTH is CSS-handled too
+        # (#68 review, Erick): empty columns render `col-empty` (flex-basis 0,
+        # min-width 0), so their hypothetical size is 0 and they collapse to
+        # zero width on the content column's line — [12, empty-8, empty-8]
+        # already renders identically to the [12, empty-12] pair. Splitting it
+        # would spend a form_patch, a behaviour re-key and a publish for zero
+        # visual change, and delete authored spacer columns on the way. Only
+        # applies when SOMETHING in the row carries content: a row with no
+        # content anywhere falls through to the all_columns_empty review
+        # (the #58 stance — debris or deliberate, a human decides).
+        non12_has_content = any(
+            isinstance(col, dict)
+            and col.get("width") != TARGET_SUM
+            and col.get("components")
+            for col in columns
+        )
+        any_content = any(
+            isinstance(col, dict) and col.get("components") for col in columns
+        )
+        if not non12_has_content and any_content:
+            return None  # remainder is entirely spacers — CSS-handled
 
     groups = _group_columns(copy.deepcopy(columns))
 
@@ -302,7 +327,9 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
             # 12 - 12 = 0, i.e. no filler. Pair it with an EMPTY width-12
             # filler instead: under the TOBE-18019 CSS rule the content
             # column takes its own full row, the filler renders as
-            # `col-empty` (width floor exempt, hidden when stacked), and the
+            # `col-empty` (width-floor exempt; collapses to zero width on the
+            # content column's line — the stacked-hide path never applies to
+            # a pair, readColumnBoxes skips col-empty), and the
             # [12, empty-12] pair re-scans as CSS-handled (stable output).
             # Deliberately sums to 24, not 12 — this container is complete
             # by the CSS rule, not by the 12-sum rule.
