@@ -1700,3 +1700,55 @@ def test_grid_nested_split_reverts_cleanly() -> None:
     assert [op["op"] for op in ops] == ["remove", "remove", "remove", "add"]
     assert ops[-1]["component"]["key"] == "row1"
     assert ops[-1].get("parent_key") == "p"
+
+
+# ---------------------------------------------------------------------------
+# TOBE-18030: mixed width-12 rows flow through the apply pipeline
+# ---------------------------------------------------------------------------
+def test_plan_to_split_operations_mixed_row_emits_pair_and_remainder() -> None:
+    """[12,8,8] (TOBE-18030 option C): the apply consumes the mixed split plan
+    like any other — 1 remove + 3 adds, where the first added container is the
+    [12, empty-12] CSS-complete pair (>= 2 columns, content in the first)."""
+    from columns_split_apply import plan_to_split_operations
+
+    live = [_columns_component("row1", [12, 8, 8])]
+    plan_rows = _plan_rows(live)
+    assert plan_rows and plan_rows[0]["action"] == "split"
+
+    applied = plan_to_split_operations(plan_rows, live)
+    assert applied["skipped"] == []
+    ops = applied["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add", "add", "add"]
+
+    pair = ops[1]["component"]
+    pair_widths = [c["width"] for c in pair["columns"]]
+    assert pair_widths == [12, 12]
+    assert pair["columns"][0]["components"], "pair content column must keep its field"
+    assert not pair["columns"][1]["components"], "pair filler must be empty"
+
+    for add_op in ops[2:]:
+        widths = [c["width"] for c in add_op["component"]["columns"]]
+        assert sum(widths) == 12 and widths[0] == 8
+
+
+def test_plan_to_split_operations_mixed_row_reverts_cleanly() -> None:
+    """The mixed split's applied entry round-trips through the structural
+    revert: 3 removes + 1 add restoring the original [12,8,8] component."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_component("row1", [12, 8, 8])]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+
+    post_split_live = _post_split_live(live, applied)
+    revert = revert_split_operations(applied["applied_rows"], post_split_live)
+
+    assert revert["skipped"] == []
+    ops = revert["operations"]
+    assert [op["op"] for op in ops] == ["remove", "remove", "remove", "add"]
+    restored = ops[-1]["component"]
+    assert restored["key"] == "row1"
+    assert [c["width"] for c in restored["columns"]] == [12, 8, 8]
