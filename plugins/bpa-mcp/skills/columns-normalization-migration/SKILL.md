@@ -302,11 +302,14 @@ Two things that trip people reading a plan:
 
 **Split track (`columns_split.py`)** — `all_columns_empty`, `action:"review"`,
 described under step 2 above.
+
 (`mixed_width12_remainder_over12` was **retired** in 1.4.0 — TOBE-18030:
 mixed width-12 rows are split with the `[12, empty-12]` pairing rule.
-Retirement notes like this one keep the word "retired" on the same line as
-the reason token — the lockstep guard ignores such lines, so a retired
-reason's mention can never vacuously satisfy the documented-check.)
+Retirement notes like this one live in their own paragraph and carry the
+word "retired" — the lockstep guard excludes whole retired-marked
+paragraphs from its documented-check, so a retired reason's mention can
+never vacuously satisfy it, and a reflow inside the paragraph cannot
+separate the token from the marker.)
 
 ## PHASE 2 — Analyst plan review (procedural)
 

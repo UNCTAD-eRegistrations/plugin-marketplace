@@ -513,22 +513,29 @@ def _documents(phase1: str, reason: str) -> bool:
     checklist (#68 review round 3 found two stale docstring spots the PHASE 1
     sweep missed).
 
-    FORWARD-direction hole closed (#68 review round 3): a retirement note in
-    PHASE 1 ("`reason` was retired in ...") used to satisfy this documented-
-    check for the very reason it declares dead — so re-emitting a retired
-    reason kept the guard green because a sentence said it no longer exists.
-    Lines carrying the word "retired" are now excluded from the search, and
-    the convention (enforced by that exclusion) is that a retirement note
-    keeps the token and the word "retired" on the same line. Positive
-    control: reverting columns_split.py to the pre-TOBE-18030 emitter now
-    fails this guard, not just the behaviour tests.
+    FORWARD-direction hole closed (#68 review rounds 3-4): a retirement note
+    in PHASE 1 ("`reason` was retired in ...") used to satisfy this
+    documented-check for the very reason it declares dead — so re-emitting a
+    retired reason kept the guard green because a sentence said it no longer
+    exists. The exclusion is PARAGRAPH-based (split on blank lines), not
+    line-based: round 4 demonstrated that a line filter silently re-opens
+    the hole under a mere reflow of the hard-wrapped note (token and marker
+    drifting onto different lines — an editor or formatter away). The
+    convention is therefore "a retirement note is its own paragraph", and a
+    reflow inside that paragraph cannot separate the token from the marker.
+    NB the exclusion does not *detect* a broken convention — it fails safe
+    instead: a reason mentioned only inside a retired-marked paragraph is
+    treated as undocumented, which is the failing (loud) direction.
+    Positive controls: reverting columns_split.py to the pre-TOBE-18030
+    emitter fails this guard, and still fails it after reflowing the
+    retirement note.
     """
-    lines = [
-        line
-        for line in phase1.splitlines()
-        if not re.search(r"(?<![a-z0-9_])retired(?![a-z0-9_])", line)
+    blocks = [
+        block
+        for block in re.split(r"\n\s*\n", phase1)
+        if not re.search(r"(?<![a-z0-9_])retired(?![a-z0-9_])", block)
     ]
-    haystack = "\n".join(lines)
+    haystack = "\n\n".join(blocks)
     return (
         re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", haystack)
         is not None
