@@ -256,6 +256,14 @@ def plan_split(component: dict[str, Any]) -> dict[str, Any] | None:
         # applies when SOMETHING in the row carries content: a row with no
         # content anywhere falls through to the all_columns_empty review
         # (the #58 stance — debris or deliberate, a human decides).
+        # Accepted asymmetry (#68 review): [empty-12, 8c, 8c] IS split, and
+        # the #58 filter drops the authored full-width spacer — the same
+        # deletion cost that keeps [12c, e8, e8] unsplit. Defensible: a
+        # componentless 12 is col-empty (basis 0, min-width 0, excluded from
+        # the full-row rule) and renders NOTHING today, so dropping it is
+        # visually inert while the remainder's split is a real improvement.
+        # NB these CSS-handled verdicts assume the TOBE-18004/18019 rules
+        # are deployed (>= 2.18.326) — see the PHASE 1 note in SKILL.md.
         non12_has_content = any(
             isinstance(col, dict)
             and col.get("width") != TARGET_SUM

@@ -424,6 +424,69 @@ def test_plan_split_mixed_row_with_partly_empty_remainder_still_splits() -> None
     _assert_no_content_less_container(plan)
 
 
+def test_plan_split_mixed_row_with_spacer_inside_remainder_drops_it() -> None:
+    """"101" — a spacer INSIDE a content-bearing remainder: [12c, e8, 8c].
+    The remainder overflows with content present, so the row splits; the e8
+    closes its own greedy group ([e8] then [8c]), which is content-less and
+    dropped by the #58 filter — same class as the pinned "011" case."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "101")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[12, 12], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][0])
+    _assert_no_content_less_container(plan)
+
+
+def test_plan_split_two_content_twelves_with_all_spacer_remainder_none() -> None:
+    """[12c, 12c, e8, e8] — the all-spacer-remainder guard with TWO
+    content-bearing 12s: still CSS-handled (each 12 takes its own full row,
+    the empties collapse), no plan."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 12, 8, 8], "1100")
+    assert plan_split(comp) is None
+
+
+def test_pair_filler_carries_the_full_filler_contract() -> None:
+    """The pair's empty width-12 filler is a filler like any other: empty
+    components, offset/push/pull 0, and never hideIfEmpty (a hidden filler
+    would resurrect the TOBE-18004 stacking artefact)."""
+    from columns_split import plan_split
+
+    plan = plan_split(_columns_component("row", [12, 8, 8]))
+    assert plan is not None
+    filler = plan["containers"][0]["columns"][1]
+    assert filler["width"] == 12
+    assert filler["components"] == []
+    assert filler["offset"] == 0
+    assert filler["push"] == 0
+    assert filler["pull"] == 0
+    assert "hideIfEmpty" not in filler
+
+
+def test_emitted_pair_reads_complete_on_the_pad_track() -> None:
+    """Cross-module invariant that keeps the two tracks from oscillating:
+    the pad track must read the emitted [12, empty-12] pair as
+    skip/complete (body sum 12 after its trailing-empty strip), never as
+    actionable — otherwise the split's output would become the pad apply's
+    input and the migration would churn forever."""
+    from columns_logic import analyze_columns_component
+    from columns_split import plan_split
+
+    plan = plan_split(_columns_component("row", [12, 8, 8]))
+    assert plan is not None
+    pair = plan["containers"][0]
+    verdict = analyze_columns_component(
+        {"key": pair["key"], "type": "columns", "columns": pair["columns"]}
+    )
+    assert verdict.action == "skip"
+    assert verdict.reason == "complete"
+    assert verdict.base_sum == 12  # body sum after the trailing-empty strip
+
+
 def test_plan_split_all_empty_mixed_row_is_all_columns_empty_review() -> None:
     """A mixed row with NO content anywhere is the #58 case first: every group
     is content-less, so it surfaces as review/all_columns_empty (deleting an

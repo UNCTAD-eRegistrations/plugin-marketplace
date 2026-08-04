@@ -198,7 +198,22 @@ Use these exact names/hosts; do not guess or substitute a look-alike:
        remainder is **entirely spacers** (e.g. `[12, empty-8, empty-8]`) is
        NOT split: the empty columns collapse to zero width on the content
        line already, so a split would be pure churn deleting authored
-       spacers — the row stays CSS-handled (no plan).
+       spacers — the row stays CSS-handled (no plan). **The scan's
+       CSS-handled verdicts are DS-version-dependent**: they assume the
+       TOBE-18004 empty-column exemption and the TOBE-18019 full-row rule
+       are deployed (2.18 line ≥ 2.18.326, which carries both halves).
+       On an OLDER instance such a row genuinely renders ragged — the empty
+       columns still carry the `--columns-fluid-min` floor — and the scan
+       will no longer report it. The apply is version-gated (PHASE 3);
+       broad read-only inventory runs (TOBE-18037) on undeployed instances
+       must account for this blind spot. One accepted asymmetry, for the
+       record: a mixed row whose width-12 column is itself an empty spacer
+       (`[empty-12, 8, 8]`) IS split, and the split deletes that authored
+       full-width spacer — the same cost that kept `[12, empty-8, empty-8]`
+       unsplit. Defensible because a componentless 12 is `col-empty`
+       (basis 0, min-width 0, excluded from the full-row rule) and renders
+       nothing today, so dropping it changes nothing visually while the
+       remainder's split is a real improvement.
      - **`action:"review"`** — a row the scan flags but never transforms
        (flag-not-transform): record it in the plan for a human, and do **not**
        feed it to the split apply. One reason:

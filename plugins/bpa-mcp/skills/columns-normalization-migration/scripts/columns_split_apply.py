@@ -1,8 +1,10 @@
 """Pure logic for over-12 columns "split-APPLY" OPERATIONS: transform a
 ``columns_split.scan_form_for_splits`` split PLAN plus a freshly-fetched live
 form's component list into the ``form_patch`` remove+add operations a skill
-session would send to replace an over-12 columns component with N 12-sum
-containers in its exact slot. Spec: TOBE-18009 (split-detection), apply phase.
+session would send to replace an over-12 columns component with N containers
+in its exact slot — each sum-12, or a ``[12, empty-12]`` CSS-complete pair
+(TOBE-18030, the one sanctioned non-12 sum). Spec: TOBE-18009
+(split-detection), apply phase.
 
 IMPORTANT — placement / invariants:
   - This is a SEPARATE, ADDITIVE module. It must NEVER change the behaviour
