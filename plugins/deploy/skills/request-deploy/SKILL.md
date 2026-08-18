@@ -7,7 +7,7 @@ description: >
   defaults, asks only what's needed, posts via `gh`.
 license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
-allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
+allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
 metadata:
   version: "1.10.0"
   version-date: "2026-08-18"
@@ -323,7 +323,7 @@ Gates 1–2 run on the **user's laptop**, whose Node is usually newer than the d
 
 **Incident that motivated this (2026-08-18, designstudio):** Coolify's nixpacks (helper ≤ 1.0.15, nixpacks 1.41) builds with **Node 22.11.0** from its pinned nixpkgs snapshot. The repo used vite 8, which is rolldown-based and declares `engines: node ^20.19.0 || >=22.12.0`. On Node < 22.12, npm **silently skips optional dependencies whose engines aren't satisfied** ([npm/cli#4828](https://github.com/npm/cli/issues/4828)) — `npm ci` exited 0 but never installed `@rolldown/binding-linux-x64-gnu`, and `vite build` died with `Cannot find native binding`. Gates 1–2 passed locally (laptop Node 22.22); the lockfile was correct; `--force` and upgrading npm don't help. Only the runner's Node version matters.
 
-**Detection** (run after Gate 1, while `node_modules` is populated). Fast-path signal: `vite` major ≥ 8 or `rolldown` present in `node_modules`. Generic check — scan installed packages' `engines.node` for minimums above the runner's Node:
+**Detection** (run after Gate 1, while `node_modules` is populated). Heads-up signal: if `vite` major ≥ 8 or `rolldown` is present in `node_modules`, expect the gate to fire. Generic check — scan installed packages' `engines.node` for minimums above the runner's Node (assumes an npm-installed `node_modules`; pnpm symlink stores aren't scanned):
 
 ```bash
 node -e '
