@@ -61,6 +61,15 @@
    "category": "documentation"
   },
   {
+   "name": "change-document",
+   "description": "Write a change document for an eRegistrations service the house way: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance and phases that carry their own tests. Bundles the method, the BPA drawing kit, the screen-truth extractor that stops a drawing showing what the screen does not, and the three checkers that gate delivery.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/change-document",
+   "category": "documentation"
+  },
+  {
    "name": "keycloak-mcp",
    "description": "Keycloak Admin MCP server for eRegistrations IAM management — manage users, roles, realms, themes, tokens, and diagnostics across all eRegistrations Keycloak instances. Requires bpa-mcp plugin for authentication.",
    "author": {
