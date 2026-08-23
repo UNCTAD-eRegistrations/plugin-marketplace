@@ -1,27 +1,16 @@
 {
-  "name": "keycloak-mcp",
-  "version": "1.65.3",
-  "description": "Install the Keycloak Admin MCP server for eRegistrations IAM management. Manage users, roles, realms, themes, and token operations across all eRegistrations Keycloak instances.",
+  "name": "change-document",
+  "version": "1.0.0",
+  "description": "Write a change document for an eRegistrations service the way the house does it: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance. Bundles the method, the BPA drawing kit, the screen-truth extractor and the three checkers.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   },
   "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
   "skills": "./skills/",
-  "commands": "./commands/",
-  "mcpServers": {
-    "Keycloak": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "mcp-eregistrations@latest",
-        "mcp-eregistrations-keycloak"
-      ]
-    }
-  },
   "skillInstructions": "Kimi Code tool mapping for UNCTAD eRegistrations plugins:\n\n- MCP tools: skills write them as `mcp__BPA__*`, `mcp__DS__*`, `mcp__GDB__*`, `mcp__Keycloak__*`, `mcp__Graylog__*`, or `mcp__Translations__*`. Kimi Code namespaces plugin-declared MCP servers, so the exposed names are `mcp__plugin-<plugin-id>_<Server>__<tool>` — e.g. `mcp__BPA__instance_list` becomes `mcp__plugin-bpa-mcp_BPA__instance_list`. The server segment (BPA, DS, GDB, Keycloak, Graylog, Translations), the tool names, and all parameters (including `instance=`) are unchanged — call the exposed equivalent.\n- Slash commands keep their `<plugin>:<command>` names (e.g. `/bpa-mcp:install`, `/bpa-mcp:login`).\n- When a skill or command says to \"restart Claude\" (e.g. after installing an MCP server), run `/reload` or start a new session instead.\n- When a skill uses the Task tool (`subagent_type: \"general-purpose\"`) to delegate data fetching or other work, use Kimi Code's `Agent` tool: `subagent_type: \"coder\"` for fetching/implementation work, `subagent_type: \"explore\"` for read-only exploration, `subagent_type: \"plan\"` for read-only planning. Do not pass `general-purpose` as `subagent_type`.\n- When a skill refers to `TodoWrite`, use Kimi Code's `TodoList` tool.\n- When a skill refers to the `Skill` tool, use Kimi Code's native `Skill` tool.\n- When a skill asks the user a multiple-choice question, use Kimi Code's `AskUserQuestion` tool unless the session is in auto permission mode.\n- `allowed-tools` frontmatter is Claude Code-specific and ignored by Kimi Code; Kimi enforces permissions through its own approval system. Proceed with the tools available to you.",
   "interface": {
-    "displayName": "Keycloak MCP",
-    "shortDescription": "Install the Keycloak Admin MCP server for eRegistrations IAM management.",
+    "displayName": "Change Document",
+    "shortDescription": "Write a change document for an eRegistrations service the way the house does it: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance.",
     "developerName": "UNCTAD Trade Facilitation Section",
     "websiteURL": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace"
   }
