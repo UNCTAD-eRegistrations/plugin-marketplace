@@ -20,8 +20,8 @@ compatibility: >
   HTTPS from the operator workstation.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(find *), Bash(stat *), Bash(git *), Bash(cp *), Bash(mkdir *), Bash(chmod *), Bash(test *), Bash(bash *), Bash(./run.sh *), Bash(./backfill.sh *), Bash(./fetch-dumps.sh *), Bash(docker *), Bash(xzcat *), Bash(grep *), Bash(awk *), Bash(wc *), Bash(python3 *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.2.0"
-  version-date: "2026-05-22"
+  version: "1.3.0"
+  version-date: "2026-08-24"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "fetch|seed|backfill [country]"
   jira: "TOBE-17751"
@@ -88,6 +88,7 @@ dump-keycloak-local/
 │   └── backfill.js
 ├── migrator-src/          # vendored cas-to-keycloak Node tool
 │   ├── migrate.js
+│   ├── migrate-lomas.js   # eRegistrations v2 (mano) source variant — LOM-21
 │   ├── package.json
 │   └── package-lock.json
 ├── TOOLING_VERSION        # authoritative version of this tooling (tracks skill metadata.version)
@@ -247,6 +248,18 @@ Dry-run via `DRY_RUN=1`.
 5. Report the script's summary block: roles created, users matched, assignments added vs already-present, failures.
 
 `NODE_TLS_REJECT_UNAUTHORIZED=0` is set inside `backfill.sh` by default — eRegistrations internal Keycloak certs drift expired. If the operator wants strict TLS, accept `NODE_TLS_REJECT_UNAUTHORIZED=1` as an override and pass it through.
+
+## Variant: eRegistrations v2 (mano) source — no CAS (LOM-21)
+
+Some legacy instances run the pre-CAS eRegistrations **v2 / mano** stack (dbjs storage, `mano-auth` login) — e.g. Lomas de Zamora (`elomas.gob.ar`). Fetch/seed do not apply: there is no CAS/PARTC Postgres, and the stored hash `bcrypt(sha256(email + password))` cannot be verified by Keycloak, so **credentials are not migrated** — users set a new password via "Forgot password" at first login (`resetPasswordAllowed` + SMTP must be on in the realm). Use `migrator-src/migrate-lomas.js` instead of `migrate.js`:
+
+1. **Export on the old server** (in the v2 app folder). The stock `npm run generate-users-list` only lists role `user` holders — officials are missing — so prefer the migration export shipped with the v2 repo (`bin/generate-users-migration-export` → `tmp/users-migration-export.json`: all `mano-auth` roles, v2 `userId`, role-derived institution). Passwords are never exported.
+2. **Stage** this tooling into `<repo>/sql/dump-keycloak-local/` (gitignored) and `npm install` inside `migrator-src/`.
+3. **Credentials** go in `migrator-src/.env.lomas` (gitignored — never the tracked `.env`): `AUTH_URL`, `AUTH_REALM_NAME`, `AUTH_ADMIN_CLIENT`, `AUTH_ADMIN_SECRET`. With `AUTH_ADMIN_SECRET` set the script uses `client_credentials` against the **instance realm** — a confidential client whose service account holds `realm-management` → `realm-admin`; without it, the classic username/password flow. No `migrate-wrapper.js` realm swap is needed.
+4. **Validate → pilot → import**: `npm run migrate-lomas -- --csv lomas-users.csv [--json lomas-users.json] --dry-run`, then import a handful of team-owned rows and walk forgot-password → login end-to-end, then the full run. Existing realm users count as `skipped-existing` (409), so re-running with a fresher export right before cutover is safe; the script re-authenticates every 4 minutes.
+5. **Reports** in `out/`: `results-<timestamp>.csv` (per-email audit trail) and `officials-mapping-sheet.csv` (Part B accounts needing manual role/institution assignment — in v2 the role → institution mapping lives in the model's `Role.meta`, not in per-user data).
+
+Durable keys are stamped as attributes (`legacy_user_id`, `legacy_created_at`, `legacy_submitted_count`, `migrated_from=elomas-v2`, plus `identification_number` / `phone` when the export has them) so a later data migration can link back to accounts — never key data on the IdP subject id (see VUCE-43). The realm must accept them: `unmanagedAttributePolicy` ≠ `DISABLED`, or declare them in the user profile.
 
 ## Reasoning principles
 
