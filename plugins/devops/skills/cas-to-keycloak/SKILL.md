@@ -20,8 +20,8 @@ compatibility: >
   HTTPS from the operator workstation.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(ls *), Bash(find *), Bash(stat *), Bash(git *), Bash(cp *), Bash(mkdir *), Bash(chmod *), Bash(test *), Bash(bash *), Bash(./run.sh *), Bash(./backfill.sh *), Bash(./fetch-dumps.sh *), Bash(docker *), Bash(xzcat *), Bash(grep *), Bash(awk *), Bash(wc *), Bash(python3 *), AskUserQuestion, TodoWrite
 metadata:
-  version: "1.3.0"
-  version-date: "2026-08-24"
+  version: "1.3.1"
+  version-date: "2026-08-25"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "fetch|seed|backfill [country]"
   jira: "TOBE-17751"
@@ -255,7 +255,7 @@ Some legacy instances run the pre-CAS eRegistrations **v2 / mano** stack (dbjs s
 
 1. **Export on the old server** (in the v2 app folder). The stock `npm run generate-users-list` only lists role `user` holders — officials are missing — so prefer the migration export shipped with the v2 repo (`bin/generate-users-migration-export` → `tmp/users-migration-export.json`: all `mano-auth` roles, v2 `userId`, role-derived institution). Passwords are never exported.
 2. **Stage** this tooling into `<repo>/sql/dump-keycloak-local/` (gitignored) and `npm install` inside `migrator-src/`.
-3. **Credentials** go in `migrator-src/.env.lomas` (gitignored — never the tracked `.env`): `AUTH_URL`, `AUTH_REALM_NAME`, `AUTH_ADMIN_CLIENT`, `AUTH_ADMIN_SECRET`. With `AUTH_ADMIN_SECRET` set the script uses `client_credentials` against the **instance realm** — a confidential client whose service account holds `realm-management` → `realm-admin`; without it, the classic username/password flow. No `migrate-wrapper.js` realm swap is needed.
+3. **Credentials** go in `migrator-src/.env.lomas` (gitignored — never the tracked `.env`): `AUTH_URL`, `AUTH_REALM_NAME`, `AUTH_ADMIN_CLIENT`, `AUTH_ADMIN_SECRET`. A rehearsal realm uses its own file via `--env-file <path>` (e.g. `.env.lomas.test` pointing `AUTH_REALM_NAME` at `AR_TEST` with that realm's client) — a realm-scoped client cannot create realms, so create the rehearsal realm by importing a sanitised partial-export of the production realm in the admin console. With `AUTH_ADMIN_SECRET` set the script uses `client_credentials` against the **instance realm** — a confidential client whose service account holds `realm-management` → `realm-admin`; without it, the classic username/password flow. No `migrate-wrapper.js` realm swap is needed.
 4. **Validate → pilot → import**: `npm run migrate-lomas -- --csv lomas-users.csv [--json lomas-users.json] --dry-run`, then import a handful of team-owned rows and walk forgot-password → login end-to-end, then the full run. Existing realm users count as `skipped-existing` (409), so re-running with a fresher export right before cutover is safe; the script re-authenticates every 4 minutes.
 5. **Reports** in `out/`: `results-<timestamp>.csv` (per-email audit trail) and `officials-mapping-sheet.csv` (Part B accounts needing manual role/institution assignment — in v2 the role → institution mapping lives in the model's `Role.meta`, not in per-user data).
 

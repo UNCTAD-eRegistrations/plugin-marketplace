@@ -7,14 +7,25 @@
 //
 // Inputs (either or both):
 //   --csv <path>   users-list.csv from server/scripts/generate-users-list.js
-//                  (Email;First Name;Last Name;Date Created;Submitted Count)
+//                  (Email;First Name;Last Name;Date Created;Submitted Count, date d/m/yyyy)
 //   --json <path>  enriched export from server/scripts/generate-users-migration-export.js
 //                  [{ userId, email, firstName, lastName, roles, institution,
 //                     identificationNumber, phone, createdAt, submittedCount }]
-//                  When both are given, JSON wins for rows sharing an email.
+//                  Rows sharing an email across the two files are merged (JSON wins)
+//                  when they describe the same person (same names).
 // Options:
-//   --dry-run          parse + validate + write reports only, no Keycloak calls
-//   --out-dir <path>   report directory (default ./out)
+//   --dry-run                 parse + validate + write reports only, no Keycloak calls
+//   --out-dir <path>          report directory (default ./out)
+//   --env-file <path>         credentials file (default ./.env.lomas): AUTH_URL, AUTH_REALM_NAME,
+//                             AUTH_ADMIN_CLIENT + AUTH_ADMIN_SECRET (client_credentials) or
+//                             AUTH_ADMIN_USERNAME + AUTH_ADMIN_PASSWORD (password grant)
+//   --dup-policy <mode>       what to do when one email is shared by rows with DIFFERENT
+//                             names (distinct people — the realm allows one account per
+//                             email): exclude (default; none imported, all listed as
+//                             conflict-email for manual resolution) | oldest | newest
+//                             (keep the account created first/last, list the rest).
+//                             Rows with the same email AND same names are one person
+//                             exported twice and are always deduplicated silently.
 //
 // Reports written to out-dir:
 //   results-<timestamp>.csv         email;status;detail;kcUserId
@@ -25,13 +36,11 @@ const KeycloakAdminClient = require('keycloak-admin').default;
 const cliProgress = require('cli-progress');
 const fs = require('fs');
 const path = require('path');
-// .env.lomas (gitignored) wins over the tracked .env — keeps real secrets out of git
-require('dotenv').config({ path: path.join(__dirname, '.env.lomas') });
-require('dotenv').config();
 
 const REAUTH_INTERVAL_MS = 4 * 60 * 1000; // re-login before the 5-minute default token expiry
 const EMAIL_RE = /^[^\s@;]+@[^\s@;]+\.[^\s@;]+$/;
 const CSV_HEADER = 'Email;First Name;Last Name;Date Created;Submitted Count';
+const DUP_POLICIES = ['exclude', 'oldest', 'newest'];
 
 const args = process.argv.slice(2);
 const getArg = (name) => {
@@ -42,15 +51,39 @@ const csvPath = getArg('--csv');
 const jsonPath = getArg('--json');
 const dryRun = args.includes('--dry-run');
 const outDir = getArg('--out-dir') || path.join(__dirname, 'out');
+const dupPolicy = getArg('--dup-policy') || 'exclude';
+// Credentials file (gitignored) wins over the tracked .env — keeps real secrets out of git.
+// --env-file lets a rehearsal realm use its own file (e.g. .env.lomas.test).
+const envFile = getArg('--env-file') || path.join(__dirname, '.env.lomas');
+require('dotenv').config({ path: envFile });
+require('dotenv').config();
 
-if (!csvPath && !jsonPath) {
-  console.error('Usage: node migrate-lomas.js [--csv <users-list.csv>] [--json <migration-export.json>] [--dry-run] [--out-dir <dir>]');
+if ((!csvPath && !jsonPath) || !DUP_POLICIES.includes(dupPolicy)) {
+  console.error('Usage: node migrate-lomas.js [--csv <users-list.csv>] [--json <migration-export.json>]'
+    + ' [--dry-run] [--out-dir <dir>] [--dup-policy exclude|oldest|newest] [--env-file <path>]');
   process.exit(1);
 }
 
 const results = []; // { email, status, detail, kcUserId }
 const record = (email, status, detail, kcUserId) =>
   results.push({ email: email || '', status, detail: detail || '', kcUserId: kcUserId || '' });
+
+// v2 CSV dates are d/m/yyyy (Argentina); JSON carries ISO strings. Returns a Date or null.
+const parseCreated = (value) => {
+  if (!value) return null;
+  const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(value).trim());
+  const date = dmy ? new Date(Date.UTC(+dmy[3], +dmy[2] - 1, +dmy[1])) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+const isoDate = (value) => {
+  const date = parseCreated(value);
+  if (!date) return value ? String(value) : undefined;
+  return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(value).trim()) ? date.toISOString().slice(0, 10) : date.toISOString();
+};
+// Same person if names match ignoring case, accents and spacing ("María Pérez" == "maria perez").
+const nameKey = (user) => `${user.firstName}|${user.lastName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim();
+const describe = (user) => `${user.firstName} ${user.lastName} (created ${user.createdAt || '?'})`.trim();
 
 const readCsvUsers = (file) => {
   const users = [];
@@ -97,34 +130,56 @@ const readJsonUsers = (file) => {
   }));
 };
 
+// Merge rows describing the same person: later rows (JSON after CSV) overlay non-empty fields.
+const mergeRows = (rows) => rows.reduce((merged, row) => {
+  Object.keys(row).forEach((key) => {
+    if (row[key] !== undefined && row[key] !== '' && row[key] !== null) merged[key] = row[key];
+  });
+  return merged;
+}, {});
+
+const resolveGroup = (rows) => {
+  const distinctPeople = [...new Set(rows.map(nameKey))];
+  if (distinctPeople.length === 1) {
+    if (rows.length > 1) {
+      rows.slice(1).forEach((row) => record(row.email, 'duplicate', `${row.source}: same person listed ${rows.length}x — merged into one account`));
+    }
+    return mergeRows(rows);
+  }
+  // Same email, different people: the realm allows one account per email.
+  const summary = rows.map(describe).join(' / ');
+  if (dupPolicy === 'exclude') {
+    rows.forEach((row) => record(row.email, 'conflict-email',
+      `${row.source}: email shared by ${distinctPeople.length} different people — none imported, resolve manually: ${summary}`));
+    return null;
+  }
+  const byDate = rows.slice().sort((a, b) => (parseCreated(a.createdAt) || 0) - (parseCreated(b.createdAt) || 0));
+  const kept = dupPolicy === 'oldest' ? byDate[0] : byDate[byDate.length - 1];
+  rows.filter((row) => row !== kept).forEach((row) => record(row.email, 'duplicate',
+    `${row.source}: email shared by different people — kept ${dupPolicy} account ${describe(kept)}, dropped ${describe(row)}`));
+  return kept;
+};
+
 const collectUsers = () => {
-  const byEmail = new Map();
+  const groups = new Map();
   const add = (user, source) => {
     if (!user.email || !EMAIL_RE.test(user.email)) {
       record(user.email, 'invalid', `${source}: missing or malformed email`);
       return;
     }
     const key = user.email.toLowerCase();
-    const existing = byEmail.get(key);
-    if (existing) {
-      if (source === 'json' && existing.source === 'csv') {
-        byEmail.set(key, { ...existing, ...user, source }); // enrich CSV row with JSON fields
-      } else {
-        record(user.email, 'duplicate', `${source}: same email already present from ${existing.source}`);
-      }
-      return;
-    }
-    byEmail.set(key, { ...user, source });
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...user, source });
   };
   if (csvPath) readCsvUsers(csvPath).forEach((user) => add(user, 'csv'));
   if (jsonPath) readJsonUsers(jsonPath).forEach((user) => add(user, 'json'));
-  return [...byEmail.values()];
+  return [...groups.values()].map(resolveGroup).filter(Boolean);
 };
 
 const toKeycloakUser = (user, realm) => {
   const attributes = { migrated_from: ['elomas-v2'] };
   if (user.userId) attributes.legacy_user_id = [String(user.userId)];
-  if (user.createdAt) attributes.legacy_created_at = [String(user.createdAt)];
+  if (user.createdAt) attributes.legacy_created_at = [isoDate(user.createdAt)];
   if (user.submittedCount !== undefined && user.submittedCount !== '') {
     attributes.legacy_submitted_count = [String(user.submittedCount)];
   }
@@ -167,7 +222,7 @@ const summarize = (users, files) => {
   results.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   console.log();
   console.log(dryRun ? 'Dry-run complete — no data written to Keycloak.' : 'Migration process complete.');
-  console.log(`${users.length} unique users in input`);
+  console.log(`${users.length} unique users in input (shared-email policy: ${dupPolicy})`);
   Object.keys(counts).sort().forEach((status) => console.log(`  ${status}: ${counts[status]}`));
   console.log(`Results: ${files.resultsFile}`);
   if (files.officialsFile) {
