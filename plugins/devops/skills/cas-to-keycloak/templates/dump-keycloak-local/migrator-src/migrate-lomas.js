@@ -114,6 +114,12 @@ if (credsFileArg !== null) {
       'An explicitly-passed credentials file must be self-contained — refusing to fill the gaps',
       'from the environment, which is how a rehearsal run ends up writing to production.');
   }
+  // The file is the only source of AUTH_*: drop ambient keys it does not define, so a stale
+  // AUTH_ADMIN_SECRET left in the shell cannot flip a rehearsal file's password grant to
+  // client_credentials and send a production secret.
+  Object.keys(process.env)
+    .filter((key) => key.startsWith('AUTH_') && !(key in fileEnv))
+    .forEach((key) => delete process.env[key]);
   Object.assign(process.env, fileEnv); // explicit file beats ambient AUTH_* in the shell
 } else {
   dotenv.config({ path: path.join(__dirname, DEFAULT_ENV_FILE) });
