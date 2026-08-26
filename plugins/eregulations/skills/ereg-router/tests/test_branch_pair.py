@@ -80,6 +80,7 @@ def test_invalid_when_the_reference_does_not_resolve(tmp_path):
 def test_undeterminable_when_the_csproj_is_missing(tmp_path):
     result = branch_pair.derive(str(tmp_path / "nope.csproj"), str(tmp_path), _reader({}))
     assert result["valid"] is None
+    assert "could not read" in result["reason"]
 
 
 def test_undeterminable_when_there_is_no_project_reference(tmp_path):
@@ -104,3 +105,53 @@ def test_windows_separators_in_the_reference_are_normalised(tmp_path):
         "</ItemGroup></Project>"
     )
     assert branch_pair.derive(str(csproj), str(admin), _reader({}))["valid"] is True
+
+
+def test_case_mismatch_in_the_reference_is_invalid_even_on_case_insensitive_hosts(tmp_path):
+    """os.path.exists follows the host filesystem's case-folding (case-insensitive
+    by default on macOS); the verdict must not depend on that. dotnet build on
+    Linux CI is case-sensitive, so a reference that only matches case-insensitively
+    is a build that Linux CI will reject.
+    """
+    admin = tmp_path / "Admin"
+    lib = admin / "Unctad.eRegulations.Library"
+    lib.mkdir(parents=True)
+    (lib / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+
+    public = tmp_path / "Public" / "src"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\Admin\\unctad.eregulations.library\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    result = branch_pair.derive(str(csproj), str(admin), _reader({}))
+    assert result["valid"] is False
+
+
+def test_invalid_when_the_reference_resolves_outside_admin_root(tmp_path):
+    """A reference that happens to resolve into some OTHER Admin-shaped checkout
+    must not be reported valid just because a Library.csproj exists there — the
+    admin_branch reported has to belong to the same tree that resolved.
+    """
+    admin_root = tmp_path / "Admin"
+    admin_root.mkdir()
+
+    other_admin = tmp_path / "OtherAdmin"
+    lib = other_admin / "Unctad.eRegulations.Library"
+    lib.mkdir(parents=True)
+    (lib / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+
+    public = tmp_path / "Public" / "src"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\OtherAdmin\\Unctad.eRegulations.Library\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    result = branch_pair.derive(str(csproj), str(admin_root), _reader({}))
+    assert result["valid"] is False

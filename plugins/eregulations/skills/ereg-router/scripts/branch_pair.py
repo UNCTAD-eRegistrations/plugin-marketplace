@@ -32,6 +32,38 @@ def extract_library_reference(csproj_text):
     return match.group(1)
 
 
+def _case_divergent_segment(path):
+    """Walk `path` segment by segment against real directory listings.
+
+    os.path.exists follows the host filesystem's case-folding — case-
+    insensitive by default on macOS, case-sensitive on Linux (and in the
+    actual dotnet build toolchain). A verdict built on os.path.exists alone
+    would therefore say `valid=True` on one host for a reference that
+    `dotnet build` rejects on another. Comparing each segment against
+    os.listdir() is a plain Python string comparison, so it gives the same
+    answer regardless of the host's case-folding.
+
+    Returns the first segment that is not present verbatim in its parent
+    directory's listing, or None if every segment matches exactly. Callers
+    only reach this after confirming the path exists (case-insensitively),
+    so a non-None result here means "case mismatch", not "missing".
+    """
+    path = os.path.normpath(path)
+    drive, rest = os.path.splitdrive(path)
+    is_abs = rest.startswith(os.sep)
+    segments = [part for part in rest.split(os.sep) if part]
+    current = (drive + os.sep) if is_abs else (drive or ".")
+    for segment in segments:
+        try:
+            entries = os.listdir(current)
+        except OSError:
+            return segment
+        if segment not in entries:
+            return segment
+        current = os.path.join(current, segment)
+    return None
+
+
 def git_branch(root):
     """Current branch of a checkout, or None if it is not a repo."""
     try:
@@ -55,9 +87,9 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
     }
 
     try:
-        with open(public_csproj, "r") as handle:
+        with open(public_csproj, "r", encoding="utf-8", errors="replace") as handle:
             text = handle.read()
-    except (IOError, OSError):
+    except (IOError, OSError, ValueError):
         result["reason"] = "could not read %s" % public_csproj
         return result
 
@@ -74,12 +106,34 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
     relative = reference.replace("\\", os.sep).replace("/", os.sep)
     target = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(public_csproj)), relative))
 
-    if os.path.exists(target):
-        result["valid"] = True
-        result["reason"] = "reference resolves to %s" % target
-    else:
+    if not os.path.exists(target):
         result["valid"] = False
         result["reason"] = "referenced project does not exist at %s" % target
+        return result
+
+    diverging = _case_divergent_segment(target)
+    if diverging is not None:
+        result["valid"] = False
+        result["reason"] = (
+            "referenced project resolves only case-insensitively; "
+            "%r does not appear verbatim on disk (path %s)" % (diverging, target)
+        )
+        return result
+
+    admin_root_abs = os.path.abspath(str(admin_root))
+    try:
+        inside_admin_root = os.path.commonpath([admin_root_abs, target]) == admin_root_abs
+    except ValueError:
+        inside_admin_root = False
+    if not inside_admin_root:
+        result["valid"] = False
+        result["reason"] = (
+            "reference resolves outside admin_root (%s): %s" % (admin_root_abs, target)
+        )
+        return result
+
+    result["valid"] = True
+    result["reason"] = "reference resolves to %s" % target
     return result
 
 

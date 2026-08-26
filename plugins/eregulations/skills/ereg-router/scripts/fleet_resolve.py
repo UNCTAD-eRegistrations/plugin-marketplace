@@ -25,9 +25,9 @@ DEFAULT_OVERLAY = os.path.join(os.path.expanduser("~"), ".ereg", "fleet.local.js
 def load_overlay(path):
     """Read the operator overlay. Absent is fine; malformed is not."""
     try:
-        with open(path, "r") as handle:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
             text = handle.read()
-    except (IOError, OSError):
+    except (IOError, OSError, ValueError):
         return {}
     try:
         return json.loads(text)
