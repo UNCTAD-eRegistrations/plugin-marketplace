@@ -39,6 +39,7 @@ The eRegistrations side of the house already solves this with the `unctad-digita
 | Admin crashes without `/app/media` | Handover Doc §10 | A deploy precondition check is mandatory |
 | Monitor API is still moving | `eRegulations-Monitor/PRD.md` (provisioning is Phase-1) | MCP server must fail loudly on shape change |
 | Monitor auth is user/password → JWT, no service accounts, 5-attempt lockout | `backend/src/routes/auth.ts`, `middleware/auth.ts` | Credential provisioning is a Monitor-side change, not an admin action |
+| All Monitor read endpoints require `authenticate` | `backend/src/routes/instances.ts` | The overlay, not Monitor, is the baseline fleet source; Monitor is an enhancement |
 
 ## Data classification
 
@@ -52,7 +53,7 @@ This table governs where every fact is allowed to live. It exists because the ma
 | **Addresses** | Server IPs, SSH targets, VPN endpoints | Operator's local overlay; `<host>` placeholders in docs | **The plugin** |
 | **Credentials** | Any secret value | Secret store, referenced by name only | **The plugin** |
 
-**Operator local overlay:** `~/.ereg/fleet.local.yaml` — never in any repo, listed in the plugin README as an operator-created file. Holds addresses and any posture overrides Monitor cannot yet serve.
+**Operator local overlay:** `~/.ereg/fleet.local.json` — JSON, not YAML: bundled plugin scripts are stdlib-only by CI policy (`.github/workflows/test-plugin-scripts.yml`) and PyYAML is third-party. Never in any repo, listed in the plugin README as an operator-created file. Holds addresses and any posture overrides Monitor cannot yet serve.
 
 > **Pre-existing exposure, out of scope but worth acting on:** `5.9.49.171` is already committed to this public repo. Every other address in `plugins/` is loopback or RFC1918. Worth a separate look; not fixed here.
 
@@ -78,7 +79,7 @@ plugin-marketplace/
         │   │   ├── resolution.md       # HOW to resolve fleet facts, not WHAT they are
         │   │   └── access.md           # credential NAMES + which VPN profile; no addresses
         │   └── fixtures/
-        │       └── fleet.sample.yaml   # synthetic fleet for gate tests; no real hosts
+        │       └── fleet.sample.json   # synthetic fleet for gate tests; no real hosts
         ├── deploying-legacy-eregulations-instance/   # from Drive, split
         │   ├── SKILL.md
         │   └── references/
@@ -132,7 +133,7 @@ Two sources with a strict precedence rule:
 
 They do not override each other because they answer different questions. Note the correction from the first draft: *which server hosts an instance* is state, and Monitor owns it. It was previously miscategorised as a plugin-held fact, which is what let the host gate run on stale data.
 
-**Resolution order for any fleet fact:** Monitor → operator overlay (`~/.ereg/fleet.local.yaml`) → **unresolved**. There is no third source and no guessing. "Unresolved" is a real outcome that gates act on.
+**Resolution order for any fleet fact:** Monitor → operator overlay (`~/.ereg/fleet.local.json`) → **unresolved**. There is no third source and no guessing. "Unresolved" is a real outcome that gates act on.
 
 **Drift detection.** Where Monitor and the overlay disagree, Monitor wins and the router reports the drift, so the overlay is corrected by real runs rather than rotting.
 
@@ -272,7 +273,7 @@ Keep `allowed-tools` minimal per the marketplace `CLAUDE.md`.
 
 ### Gate scenarios
 
-**All gate scenarios run in `execute` lane against `fixtures/fleet.sample.yaml`.** Both halves of that sentence are corrections from the first draft:
+**All gate scenarios run in `execute` lane against `fixtures/fleet.sample.json`.** Both halves of that sentence are corrections from the first draft:
 
 - *Execute lane*, because plan lane touches nothing **by construction** — no VPN, no SSH. A plan-lane assertion cannot distinguish "the gate fired" from "the lane prevented action," so it tests the lane, not the gate.
 - *Synthetic fixtures*, because the first draft pinned its host-gate test to Turkmenistan TP — the last instance on Old eRegulations, and the one the handover makes top priority to move. The day it moves, that test passes while testing nothing: a green result meaning the opposite of what it appears to.
@@ -309,7 +310,9 @@ A ships first, complete and working. B follows.
 1. A `viewer` service account — needs service-account support built, then reviewed and deployed.
 2. A `posture` field on the server record — needs a schema change, reviewed and deployed.
 
-Neither blocks A. **A is fully functional with posture supplied by the operator overlay**, and can be built, validated and shipped while both land.
+Neither blocks A. **A is fully functional with fleet facts supplied by the operator overlay**, and can be built, validated and shipped while both land.
+
+**Correction to an earlier claim in this spec.** A first draft of this section said A has no external dependency at all. That is wrong: `GET /api/instances` and `GET /api/instances/:id` both sit behind `authenticate` (`routes/instances.ts`), so A's *live-fleet* path needs a Monitor account exactly as B's does. What is true is narrower and still sufficient: **A ships and is useful with no Monitor access whatsoever**, resolving from the overlay and blocking, per the fail-closed rule, on anything the overlay does not cover. Monitor is an enhancement to A, not a precondition. Confirmed alongside this: those two read endpoints require only `authenticate`, with no `requireRole`, so a `viewer` account is sufficient — the admin role is reserved for writes and `/export`.
 
 **Rollout:** install from a local marketplace path → run the eight gate scenarios → publish to the marketplace at 0.1.0 → announce.
 
@@ -333,7 +336,7 @@ Neither blocks A. **A is fully functional with posture supplied by the operator 
 | F1 | Critical | Plugin would publish a compromised-host map to a public repo | **Data classification**; `fleet.md` deleted; overlay introduced |
 | F2 | Critical | Host gate consumed rotting data and failed **open** | **Step 4**; gate now fail-closed, unknown treated as compromised |
 | F3 | High | Gate scenario asserted in plan lane, where nothing can act anyway | **Gate scenarios**; all now execute lane |
-| F4 | High | Test fixture pinned to Turkmenistan, whose migration is top priority | **Gate scenarios**; `fixtures/fleet.sample.yaml` |
+| F4 | High | Test fixture pinned to Turkmenistan, whose migration is top priority | **Gate scenarios**; `fixtures/fleet.sample.json` |
 | F5 | High | Monitor has no service accounts; retry could lock the account | **Auth model**; `viewer` account, no-retry rule, scenario 8 |
 | F6 | Medium | "One-file swap" understated the MCP auth lifecycle | **The seam**; claim corrected, B re-estimated |
 | F7 | Medium | Single classification fails on compound incident requests | **Step 1**; primary + secondary kinds |
