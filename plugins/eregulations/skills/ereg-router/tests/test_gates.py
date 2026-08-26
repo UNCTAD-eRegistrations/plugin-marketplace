@@ -180,17 +180,23 @@ def test_every_decision_carries_a_remedy():
             assert d["remedy"], d
 
 
-def test_cli_reports_a_blocking_context_on_stdout_and_in_its_exit_status(capsys, monkeypatch):
+def test_cli_reports_a_blocking_context_on_stdout_and_still_exits_zero(capsys, monkeypatch):
     """The CLI exists so the router RUNS the gates rather than reading prose
-    about them. A blocking context must be visible both ways: the decisions
-    on stdout, and a non-zero status for a caller that never parses them.
+    about them, and the verdict lives in the JSON alone.
+
+    A block is this tool's normal, expected output, so it exits 0 like any
+    other verdict. Exiting non-zero on a block would abort a caller running
+    under `set -e`, and would invite the calling layer to treat the run as a
+    failed command and discard stdout -- throwing away the reasons and
+    remedies the operator needs. Non-zero is reserved for "the evaluation
+    could not run".
     """
     ctx = _ctx(posture="compromised")
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(ctx)))
 
     status = gates.main([])
 
-    assert status == 1
+    assert status == 0
     decisions = json.loads(capsys.readouterr().out)
     assert _by_gate(decisions, "host_posture")["status"] == gates.BLOCK
     assert decisions[0]["status"] == gates.BLOCK  # blocking sorts first
@@ -211,3 +217,22 @@ def test_cli_reports_a_passing_context_with_a_zero_exit_status(capsys, monkeypat
         "unsupported_version",
         "windows_target",
     }
+
+
+def test_cli_refuses_malformed_stdin_cleanly(capsys, monkeypatch):
+    """Unreadable input is the one case that IS an execution failure.
+
+    It must not surface as a traceback: a stack trace buries the one useful
+    fact (the context is not JSON) and looks like a crash in the gates
+    themselves, which is the last thing an operator should mistrust.
+    """
+    monkeypatch.setattr("sys.stdin", io.StringIO("not json"))
+
+    status = gates.main([])
+
+    assert status != 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "gates.py:" in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.err.strip().count("\n") == 0  # one line, not a dump

@@ -201,9 +201,13 @@ python3 "$SKILL/scripts/gates.py" < "$CONTEXT"; echo "exit=$?"
 ```
 
 It prints one decision per gate — `gate`, `status` (`block`/`warn`/`pass`),
-`reason`, `remedy`, `overridable` — sorted with blocking decisions first, and
-**exits 1 when any gate blocks**, 0 when none does. Read the decisions; the exit
-status is a guard rail, not the report.
+`reason`, `remedy`, `overridable` — sorted with blocking decisions first.
+
+**The verdict is in the JSON, and nowhere else.** The exit status answers "did
+the evaluation run", not "what did it decide": it is 0 whenever the gates were
+evaluated, block or pass alike, and non-zero only when the context on stdin
+could not be read (one line on stderr, no traceback). Never treat a non-zero
+status as "blocked", and never treat 0 as "cleared" — read the decisions.
 
 ### 4d — Act on the decisions
 

@@ -164,9 +164,14 @@ def blocking(decisions):
 def main(argv=None):
     """Read a JSON context on stdin, print the decisions as JSON.
 
-    Exit status is the summary a caller can act on without parsing:
-    1 when any gate blocks, 0 when none does. The router still reads the
-    decisions -- the status code is a guard rail, not the report.
+    Exit status answers "did the evaluation run", NOT "what did it decide".
+    A blocking verdict is this tool's normal, expected output, so it exits
+    0 like any other verdict; only a context that cannot be read exits
+    non-zero. Conflating the two would let a caller under `set -e` abort on
+    a legitimate block, and would invite the calling layer to read non-zero
+    as "the command failed" and discard stdout -- throwing away the very
+    reasons and remedies an operator needs to act on. The verdict lives in
+    the JSON, and nowhere else.
     """
     import argparse
     import json
@@ -177,10 +182,20 @@ def main(argv=None):
     )
     parser.parse_args(argv)
 
-    context = json.load(sys.stdin)
-    decisions = evaluate(context)
-    print(json.dumps(decisions, indent=2, sort_keys=True))
-    return 1 if blocking(decisions) else 0
+    try:
+        context = json.load(sys.stdin)
+    except ValueError as exc:
+        sys.stderr.write("gates.py: could not read a JSON context on stdin: %s\n" % exc)
+        return 2
+    if not isinstance(context, dict):
+        sys.stderr.write(
+            "gates.py: the context on stdin must be a JSON object, got %s\n"
+            % type(context).__name__
+        )
+        return 2
+
+    print(json.dumps(evaluate(context), indent=2, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
