@@ -70,6 +70,7 @@ jobs:
           REQUIRED_SUITES=(
             "plugins/bpa-mcp/skills/columns-normalization-migration/tests"
             "plugins/eregulations/skills/ereg-router/tests"
+            "plugins/eregulations/skills/merged-eregulations-translations-into-langadmin/tests"
           )
           for suite in "${REQUIRED_SUITES[@]}"; do
             if [ ! -d "$suite" ]; then

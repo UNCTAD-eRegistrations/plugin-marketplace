@@ -119,9 +119,8 @@ instance-specific the first time you see it — it isn't. Confirmed present
 on two independently-provisioned instances (`comoros`, `experimental-pilot`)
 before this gotcha was written down, which means it had likely never
 actually worked on either: earlier verification only confirmed the SPA
-didn't blank out or crash on a failed save (a separate, already-fixed bug —
-see [[project_translation_engine_initiative]]), not that the save reached
-the disk.
+didn't blank out or crash on a failed save (a separate,
+already-fixed bug), not that the save reached the disk.
 
 Root cause: the API writes new/updated translations via a
 write-temp-then-atomic-rename pattern inside

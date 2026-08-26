@@ -21,15 +21,9 @@ Rules:
   conflicts but the destination's English is always kept (never
   overwritten), to avoid corrupting the SPA's default label text.
 """
-import csv
 import os
 import sys
 from collections import OrderedDict
-
-SRC_DIR = sys.argv[1]
-OUT_LANGADMIN = sys.argv[2]
-CONFLICTS_PATH = sys.argv[3]
-SOURCE_FILES_IN_PRIORITY_ORDER = sys.argv[4:]
 
 
 def read_table(path):
@@ -73,83 +67,138 @@ def is_blank_or_english_mirror(row, header, lang, en_value):
     return False
 
 
-langadmin_header, dest_rows = read_table(os.path.join(SRC_DIR, "LangAdmin.txt"))
-langs = langadmin_header[1:]
+def consolidate(src_dir, source_files):
+    """Merge source_files into src_dir/LangAdmin.txt, in the given priority order.
 
-stats = []
-conflicts = []
-new_keys_total = 0
-filled_total = 0
+    Returns (langadmin_header, dest_rows, stats, conflicts). Nothing is written
+    to disk here — main() owns the output side, so tests can exercise the merge
+    rules without touching a live translation repository.
+    """
+    langadmin_header, dest_rows = read_table(os.path.join(src_dir, "LangAdmin.txt"))
+    langs = langadmin_header[1:]
 
-for fname in SOURCE_FILES_IN_PRIORITY_ORDER:
-    path = os.path.join(SRC_DIR, fname)
-    src_header, src_rows = read_table(path)
-    new_keys = 0
-    filled = 0
-    conflict_count = 0
+    stats = []
+    conflicts = []
 
-    for rid, srow in src_rows.items():
-        src_en = cell(srow, src_header, "en")
-        if rid not in dest_rows:
-            out = [rid]
-            for lang in langs:
-                out.append(cell(srow, src_header, lang))
-            dest_rows[rid] = out
-            new_keys += 1
-            continue
+    for fname in source_files:
+        path = os.path.join(src_dir, fname)
+        src_header, src_rows = read_table(path)
+        new_keys = 0
+        filled = 0
+        conflict_count = 0
 
-        drow = dest_rows[rid]
-        dest_en = cell(drow, langadmin_header, "en")
-        for lang in langs:
-            if lang == "en":
-                s_val = cell(srow, src_header, "en")
-                if s_val.strip() != "" and s_val != dest_en:
-                    conflicts.append(dict(file=fname, id=rid, lang=lang,
-                                           dest=dest_en, src=s_val,
-                                           reason="english text differs"))
-                    conflict_count += 1
+        for rid, srow in src_rows.items():
+            src_en = cell(srow, src_header, "en")
+            if rid not in dest_rows:
+                out = [rid]
+                for lang in langs:
+                    out.append(cell(srow, src_header, lang))
+                dest_rows[rid] = out
+                new_keys += 1
                 continue
-            d_val = cell(drow, langadmin_header, lang)
-            s_val = cell(srow, src_header, lang)
-            dest_untranslated = is_blank_or_english_mirror(drow, langadmin_header, lang, dest_en)
-            src_real = (s_val.strip() != "") and (s_val != src_en)
-            if not dest_untranslated:
-                if src_real and s_val != d_val:
-                    conflicts.append(dict(file=fname, id=rid, lang=lang,
-                                           dest=d_val, src=s_val,
-                                           reason="both have differing real translations"))
-                    conflict_count += 1
-                # keep destination value, no change
-            elif src_real:
-                idx = langadmin_header.index(lang)
-                drow[idx] = s_val
-                filled += 1
 
-    stats.append(dict(file=fname, new_keys=new_keys, filled=filled, conflicts=conflict_count))
-    new_keys_total += new_keys
-    filled_total += filled
+            drow = dest_rows[rid]
+            dest_en = cell(drow, langadmin_header, "en")
+            for lang in langs:
+                if lang == "en":
+                    s_val = cell(srow, src_header, "en")
+                    if s_val.strip() != "" and s_val != dest_en:
+                        conflicts.append(dict(file=fname, id=rid, lang=lang,
+                                              dest=dest_en, src=s_val,
+                                              reason="english text differs"))
+                        conflict_count += 1
+                    continue
+                d_val = cell(drow, langadmin_header, lang)
+                s_val = cell(srow, src_header, lang)
+                dest_untranslated = is_blank_or_english_mirror(drow, langadmin_header, lang, dest_en)
+                src_real = (s_val.strip() != "") and (s_val != src_en)
+                if not dest_untranslated:
+                    if src_real and s_val != d_val:
+                        conflicts.append(dict(file=fname, id=rid, lang=lang,
+                                              dest=d_val, src=s_val,
+                                              reason="both have differing real translations"))
+                        conflict_count += 1
+                    # keep destination value, no change
+                elif src_real:
+                    idx = langadmin_header.index(lang)
+                    drow[idx] = s_val
+                    filled += 1
 
-with open(OUT_LANGADMIN, "w", encoding="utf-8-sig", newline="\n") as f:
-    f.write("|".join(langadmin_header) + "\n")
-    for row in dest_rows.values():
-        f.write("|".join(row) + "\n")
+        stats.append(dict(file=fname, new_keys=new_keys, filled=filled,
+                          conflicts=conflict_count))
 
-with open(CONFLICTS_PATH, "w", encoding="utf-8") as f:
-    if not conflicts:
-        f.write("No conflicts found.\n")
-    else:
-        f.write(f"{len(conflicts)} conflicts found. LangAdmin (destination) value was kept in every case.\n\n")
-        for c in conflicts:
-            f.write(f"[{c['file']}] id={c['id']} lang={c['lang']} reason={c['reason']}\n")
-            f.write(f"    langadmin (kept): {c['dest']!r}\n")
-            f.write(f"    source (dropped): {c['src']!r}\n\n")
+    return langadmin_header, dest_rows, stats, conflicts
 
-print(f"{'file':30s} {'new_keys':>9s} {'filled':>7s} {'conflicts':>9s}")
-tot_new = tot_filled = tot_conf = 0
-for s in stats:
-    print(f"{s['file']:30s} {s['new_keys']:9d} {s['filled']:7d} {s['conflicts']:9d}")
-    tot_new += s['new_keys']
-    tot_filled += s['filled']
-    tot_conf += s['conflicts']
-print(f"{'TOTAL':30s} {tot_new:9d} {tot_filled:7d} {tot_conf:9d}")
-print(f"\nFinal LangAdmin.txt row count: {len(dest_rows)}")
+
+def write_langadmin(path, header, dest_rows):
+    with open(path, "w", encoding="utf-8-sig", newline="\n") as f:
+        f.write("|".join(header) + "\n")
+        for row in dest_rows.values():
+            f.write("|".join(row) + "\n")
+
+
+def write_conflicts(path, conflicts):
+    with open(path, "w", encoding="utf-8") as f:
+        if not conflicts:
+            f.write("No conflicts found.\n")
+        else:
+            f.write(f"{len(conflicts)} conflicts found. LangAdmin (destination) value was kept in every case.\n\n")
+            for c in conflicts:
+                f.write(f"[{c['file']}] id={c['id']} lang={c['lang']} reason={c['reason']}\n")
+                f.write(f"    langadmin (kept): {c['dest']!r}\n")
+                f.write(f"    source (dropped): {c['src']!r}\n\n")
+
+
+USAGE = (
+    "usage: consolidate_into_langadmin.py <src-dir> <out-langadmin> "
+    "<conflicts-report> <source-file> [<source-file> ...]\n"
+    "\n"
+    "  <src-dir>           directory holding LangAdmin.txt and every source file\n"
+    "  <out-langadmin>     path to write the merged LangAdmin.txt to\n"
+    "  <conflicts-report>  path to write the human-review conflicts report to\n"
+    "  <source-file>       one or more family filenames, in priority order\n"
+)
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+
+    # Arity check: three paths plus at least one source file. Consolidating
+    # zero sources is a no-op that would still overwrite the destination, so
+    # it is refused rather than reported as a successful merge.
+    if len(argv) < 4:
+        sys.stderr.write(USAGE)
+        return 2
+
+    src_dir, out_langadmin, conflicts_path = argv[0], argv[1], argv[2]
+    source_files = argv[3:]
+
+    langadmin_path = os.path.join(src_dir, "LangAdmin.txt")
+    if not os.path.isfile(langadmin_path):
+        sys.stderr.write("error: no LangAdmin.txt in %s\n" % src_dir)
+        return 1
+    missing = [f for f in source_files if not os.path.isfile(os.path.join(src_dir, f))]
+    if missing:
+        sys.stderr.write("error: source file(s) not found in %s: %s\n"
+                         % (src_dir, ", ".join(missing)))
+        return 1
+
+    header, dest_rows, stats, conflicts = consolidate(src_dir, source_files)
+
+    write_langadmin(out_langadmin, header, dest_rows)
+    write_conflicts(conflicts_path, conflicts)
+
+    print(f"{'file':30s} {'new_keys':>9s} {'filled':>7s} {'conflicts':>9s}")
+    tot_new = tot_filled = tot_conf = 0
+    for s in stats:
+        print(f"{s['file']:30s} {s['new_keys']:9d} {s['filled']:7d} {s['conflicts']:9d}")
+        tot_new += s['new_keys']
+        tot_filled += s['filled']
+        tot_conf += s['conflicts']
+    print(f"{'TOTAL':30s} {tot_new:9d} {tot_filled:7d} {tot_conf:9d}")
+    print(f"\nFinal LangAdmin.txt row count: {len(dest_rows)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -62,6 +62,17 @@ Ask **one** question only when the *primary* is genuinely ambiguous and the two
 candidates dispatch differently (`deploy` versus `upgrade`, typically). Do not
 pick for the user, and do not ask about secondaries — add them.
 
+**`translations` covers two unrelated systems — split them here, not later.**
+This router's only `translations` target is the eRegulations *legacy* Admin
+path: `MultilangCentralRepository` label-family files consolidated into
+`LangAdmin.txt`. eRegistrations 2.x work through the Global Translation
+Service is a different platform with its own tooling — **hand it off to the
+`translations-mcp` plugin and stop**, rather than classifying it `translations`
+and dispatching. If the request names a GTS key, `ds_sync`, a country
+*instance* translation catalogue, or an eRegistrations 2.x version, it is the
+latter. When it is genuinely unclear which platform is meant, that is the one
+question to ask.
+
 ## Step 2 — Resolve
 
 ```bash

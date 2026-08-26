@@ -23,9 +23,9 @@ one master username shared with an already-working sibling instance and
 confirm the hash is byte-identical:
 ```sql
 SELECT CASE WHEN
-  (SELECT Password FROM [User] WHERE UserName = 'rdina')
+  (SELECT Password FROM [User] WHERE UserName = '<shared-master-username>')
   COLLATE DATABASE_DEFAULT =
-  (SELECT Password FROM [<known-good-sibling-db>].dbo.[User] WHERE UserName = 'rdina')
+  (SELECT Password FROM [<known-good-sibling-db>].dbo.[User] WHERE UserName = '<shared-master-username>')
   COLLATE DATABASE_DEFAULT
 THEN 'MATCH' ELSE 'NO MATCH' END;
 ```
