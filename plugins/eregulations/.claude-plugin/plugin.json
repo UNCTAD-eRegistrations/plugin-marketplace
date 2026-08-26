@@ -1,0 +1,8 @@
+{
+  "name": "eregulations",
+  "description": "One front door for eRegulations work — /ereg routes a request to the right knowledge, resolves which instance and version it concerns, and blocks on unsafe hosts, mismatched Admin/Public branches, and unsupported versions before anything runs.",
+  "version": "0.1.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  }
+}

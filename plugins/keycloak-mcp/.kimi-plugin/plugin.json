@@ -1,6 +1,6 @@
 {
   "name": "keycloak-mcp",
-  "version": "1.58.8",
+  "version": "1.60.2",
   "description": "Install the Keycloak Admin MCP server for eRegistrations IAM management. Manage users, roles, realms, themes, and token operations across all eRegistrations Keycloak instances.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"

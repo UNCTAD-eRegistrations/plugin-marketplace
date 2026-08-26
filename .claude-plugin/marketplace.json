@@ -149,6 +149,15 @@
    },
    "source": "./plugins/team-bus",
    "category": "workflow"
+  },
+  {
+   "name": "eregulations",
+   "description": "One front door for eRegulations work — /ereg routes development, deployment and bugfix requests, resolves instance and version context, and enforces safety gates before anything runs.",
+   "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+   },
+   "source": "./plugins/eregulations",
+   "category": "integration"
   }
  ]
 }
