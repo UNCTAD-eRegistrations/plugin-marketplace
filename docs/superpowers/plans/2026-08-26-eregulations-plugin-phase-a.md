@@ -25,6 +25,11 @@ Copied verbatim from the spec and the repo's own CI policy. Every task's require
 - **Validator needs Python ≥3.10**; the system Python is 3.9. Always run it as `uv run --python 3.12 scripts/validate-plugins.py`.
 - **Local test command** (matches CI's per-suite invocation): `uv run --python 3.12 --with pytest python -m pytest plugins/eregulations/skills/ereg-router/tests -q`
 - **Overlay and fixtures are JSON**, never YAML — a direct consequence of stdlib-only.
+- **Never hand-edit generated files.** `plugins/*/.kimi-plugin/plugin.json`, `kimi-marketplace.json` and `kimi-marketplace.local.json` are generated. `CLAUDE.md`: *"never edit them by hand."* Run `python3 scripts/generate-kimi-manifests.py` after **any** change to a `.claude-plugin/plugin.json`, a `.mcp.json`, or the `skills/` / `commands/` set — which in this plan means Tasks 1, 6 and 7. `--check` verifies.
+- **Two validators gate this repo, and only one runs locally.** `scripts/validate-plugins.py` (packaging, Python ≥3.10) and `.github/scripts/validate-frontmatter.ts` (frontmatter, run by `bun` in `validate-plugins.yml`). **bun is not installed on this machine**, so the frontmatter validator is CI-only unless you install it; do not claim a local pass you did not run.
+- **Command frontmatter carries `effort`.** Twenty existing commands set it (10 `low`, 7 `medium`, 3 `high`). Use `medium` for the router.
+- **The front door is plain English, not a slash command.** Plugin commands namespace as `plugin:command`, so a bare `/ereg` is unreachable from a plugin. The skill's `description` is the primary entry point and is therefore load-bearing; `/eregulations:ereg` is the explicit form.
+- **Commit style is Conventional Commits with a scope**, e.g. `feat(bpa-mcp): …`. A Jira key in parentheses (`(TOBE-18009)`) is used when the work tracks a ticket; feature commits without one are also normal here (`c7384a2`). eRegulations work tracks in the **ERN** project — append an ERN key if this work has one, otherwise omit it rather than inventing one.
 - **Gate directions:** `host_posture`, `branch_pair`, `media_mount`, `unsupported_version` fail **closed** (unresolved input blocks). `windows_target` fails **open** (warns). Only `unsupported_version` is overridable, and only with a stated reason.
 
 ## File Structure
@@ -32,7 +37,7 @@ Copied verbatim from the spec and the repo's own CI policy. Every task's require
 ```
 plugins/eregulations/
 ├── .claude-plugin/plugin.json          # packaging
-├── .kimi-plugin/plugin.json            # mirror, validator-enforced
+├── .kimi-plugin/plugin.json            # GENERATED — never hand-edited
 ├── README.md                           # documents the ~/.ereg/ overlay operators create
 ├── commands/
 │   └── ereg.md                         # /ereg front door, argument-hint, allowed-tools
@@ -64,8 +69,8 @@ plugins/eregulations/
 ```
 
 Modified outside the plugin:
-- `.claude-plugin/marketplace.json` — add the plugin entry
-- `kimi-marketplace.json` — add the mirror entry
+- `.claude-plugin/marketplace.json` — add the plugin entry (hand-edited; this one is the source of truth)
+- `kimi-marketplace.json`, `kimi-marketplace.local.json`, `plugins/eregulations/.kimi-plugin/plugin.json` — **generated**, never hand-edited
 - `.github/workflows/test-plugin-scripts.yml:REQUIRED_SUITES` — register the new suite so deletion fails the build
 
 ---
@@ -103,9 +108,24 @@ Expected: `14 error(s) in 149 file(s)`. Write this number down — every later t
 }
 ```
 
-- [ ] **Step 3: Create the kimi mirror at `plugins/eregulations/.kimi-plugin/plugin.json`**
+- [ ] **Step 3: Establish the generated-manifest baseline before touching anything**
 
-Read a sibling first — `cat plugins/devops/.kimi-plugin/plugin.json` — and match its field set exactly. The validator checks that `name` matches the directory and that every declared path exists and stays inside the plugin root, so declare only paths created by this task.
+Run: `python3 scripts/generate-kimi-manifests.py --check`
+
+This is expected to report **already out of date** for six plugins and both catalogs — stale output left by `68d5ad9 chore: bump MCP plugins to v1.60.2`. That matters: the moment this plan runs the generator, those six regenerate too and land in this PR alongside the new plugin.
+
+Resolve it deliberately, do not absorb it:
+
+```bash
+git stash                                   # park the new plugin
+git checkout main && git pull
+python3 scripts/generate-kimi-manifests.py
+git commit -am "chore: regenerate kimi manifests after the v1.60.2 bump"
+git push                                    # or open a small PR if main is protected
+git checkout feat/eregulations-plugin && git rebase main && git stash pop
+```
+
+If you cannot land that separately, say so in the PR description and list the six plugins, so a reviewer knows the extra diff is regeneration and not a change.
 
 - [ ] **Step 4: Add the entry to `.claude-plugin/marketplace.json`**
 
@@ -123,9 +143,13 @@ Insert into the `plugins` array, matching the shape of the existing entries:
 }
 ```
 
-- [ ] **Step 5: Add the mirror entry to `kimi-marketplace.json`**
+- [ ] **Step 5: Generate the kimi manifest and catalogs**
 
-Match the existing entries' `id` / `source` shape. The validator checks every local source path exists.
+Run: `python3 scripts/generate-kimi-manifests.py`
+
+This writes `plugins/eregulations/.kimi-plugin/plugin.json`, `kimi-marketplace.json` and `kimi-marketplace.local.json` from the Claude manifest. **Do not write any of them by hand** — `CLAUDE.md` is explicit, and hand edits are reverted by the next run.
+
+Then confirm: `python3 scripts/generate-kimi-manifests.py --check` → clean.
 
 - [ ] **Step 6: Write `plugins/eregulations/README.md`**
 
@@ -177,7 +201,7 @@ Expected: `CLEAN`
 - [ ] **Step 9: Commit**
 
 ```bash
-git add plugins/eregulations .claude-plugin/marketplace.json kimi-marketplace.json
+git add plugins/eregulations .claude-plugin/marketplace.json kimi-marketplace.json kimi-marketplace.local.json
 git commit -m "feat(eregulations): plugin skeleton and marketplace registration"
 ```
 
@@ -554,6 +578,7 @@ git commit -m "feat(eregulations): fail-closed gate evaluation with tests"
 - Consumes: nothing from earlier tasks
 - Produces:
   - `load_overlay(path: str) -> dict`
+  - CLI honours `--overlay` and the `EREG_OVERLAY` environment variable, in that order, falling back to `~/.ereg/fleet.local.json`. The acceptance scenarios in Task 8 depend on this — without it there is no way to point the router at the synthetic fixture.
   - `resolve(slug: str, monitor_record, overlay: dict) -> dict` — returns keys `instance`, `host`, `version`, `version_major`, `platform`, `posture`, `source`, `drift`, `unresolved`
   - `fetch_instance(base_url: str, token, slug: str, opener) -> dict or None`
   - Feeds Task 2's `gates.evaluate` — `posture`, `version_major`, `platform` are the shared keys
@@ -834,7 +859,7 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Resolve fleet context for one instance.")
     parser.add_argument("slug")
-    parser.add_argument("--overlay", default=DEFAULT_OVERLAY)
+    parser.add_argument("--overlay", default=os.environ.get("EREG_OVERLAY", DEFAULT_OVERLAY))
     parser.add_argument("--monitor-url", default=os.environ.get("EREG_MONITOR_URL"))
     parser.add_argument("--token", default=os.environ.get("EREG_MONITOR_TOKEN"))
     args = parser.parse_args(argv)
@@ -1349,6 +1374,8 @@ The markdown that orchestrates Tasks 2–5. It holds no logic the scripts alread
 
 - [ ] **Step 1: Write `SKILL.md` with validator-required frontmatter**
 
+The `description` is the product surface, not documentation. Because a bare `/ereg` is unreachable from a plugin, plain English is the front door and this field is what makes it work. It must name the concrete things people actually say — a country portal returning errors, a deploy, a version upgrade, a translation fix — and must **not** set `metadata.disable-model-invocation`, which would switch off the primary entry point.
+
 ```markdown
 ---
 name: ereg-router
@@ -1398,16 +1425,29 @@ Per the marketplace `CLAUDE.md` conventions:
 ---
 description: Route an eRegulations request — bugfix, deploy, upgrade, dev, translations — through classification, context resolution and safety gates.
 argument-hint: "[request] or --dry-run [request]"
+effort: medium
 allowed-tools: Read, Bash, Grep, Glob
 ---
 ```
 
+`effort` is required by house convention — twenty existing commands set it. The router classifies, resolves and gates, so `medium`.
+
+This command resolves as **`/eregulations:ereg`**, not `/ereg`: plugin commands are namespaced `plugin:command`. It is the *explicit* entry point; the primary one is the skill description in Step 1, which fires on plain English with no command at all.
+
 Body: invoke the `ereg-router` skill with `$ARGUMENTS`. If the first argument is `--dry-run`, run steps 1–4 and print the decision — classification, resolved context, lane, every gate decision with its reason — then stop before dispatch.
 
-- [ ] **Step 7: Validate**
+- [ ] **Step 7: Regenerate the kimi manifests and validate**
 
-Run: `uv run --python 3.12 scripts/validate-plugins.py 2>&1 | grep -E 'eregulations|error\(s\)'`
-Expected: `14 error(s)`, with no `eregulations` lines. If a skill is flagged, it is missing `allowed-tools` or the `metadata.version` / `metadata.version-date` block.
+Adding `skills/` and `commands/` changes the generator's input, so it must run again:
+
+```bash
+python3 scripts/generate-kimi-manifests.py
+python3 scripts/generate-kimi-manifests.py --check
+uv run --python 3.12 scripts/validate-plugins.py 2>&1 | grep -E 'eregulations|error\(s\)'
+```
+Expected: `--check` clean, then `14 error(s)` with no `eregulations` lines. If a skill is flagged, it is missing `allowed-tools` or the `metadata.version` / `metadata.version-date` block.
+
+The frontmatter validator (`.github/scripts/validate-frontmatter.ts`) is the other gate and needs `bun`, which is not installed here. If you have bun: `bun add yaml && bun .github/scripts/validate-frontmatter.ts ./plugins`. If not, it runs in CI at Task 8 Step 8 — do not record it as locally verified.
 
 - [ ] **Step 8: Verify no addresses leaked**
 
@@ -1417,8 +1457,8 @@ Expected: `CLEAN`
 - [ ] **Step 9: Commit**
 
 ```bash
-git add plugins/eregulations
-git commit -m "feat(eregulations): /ereg router skill, references and command"
+git add plugins/eregulations kimi-marketplace.json kimi-marketplace.local.json
+git commit -m "feat(eregulations): router skill, references and command"
 ```
 
 ---
@@ -1474,10 +1514,16 @@ Target: `SKILL.md` under 8 KB.
 Run: `wc -c plugins/eregulations/skills/deploying-legacy-eregulations-instance/SKILL.md`
 Expected: under 8192.
 
-- [ ] **Step 5: Validate**
+- [ ] **Step 5: Regenerate and validate**
 
-Run: `uv run --python 3.12 scripts/validate-plugins.py 2>&1 | grep -E 'eregulations|error\(s\)'`
-Expected: `14 error(s)`, no `eregulations` lines.
+Three skills were added, so the generator input changed again:
+
+```bash
+python3 scripts/generate-kimi-manifests.py
+python3 scripts/generate-kimi-manifests.py --check
+uv run --python 3.12 scripts/validate-plugins.py 2>&1 | grep -E 'eregulations|error\(s\)'
+```
+Expected: `--check` clean, then `14 error(s)`, no `eregulations` lines.
 
 - [ ] **Step 6: Re-run the redaction check across the whole plugin**
 
@@ -1487,7 +1533,7 @@ Expected: `CLEAN`
 - [ ] **Step 7: Commit**
 
 ```bash
-git add plugins/eregulations/skills
+git add plugins/eregulations kimi-marketplace.json kimi-marketplace.local.json
 git commit -m "feat(eregulations): migrate the three Drive skills into the plugin"
 ```
 
@@ -1517,32 +1563,64 @@ Expected: PASS on both. 3.9 is not decoration — the CI comment records a `zip(
 Run: `uv run --python 3.9 python -m compileall plugins/ -q && echo OK`
 Expected: `OK`
 
-- [ ] **Step 3: Confirm the validator is still at baseline**
+- [ ] **Step 3: Confirm both generated state and the validator are clean**
 
-Run: `uv run --python 3.12 scripts/validate-plugins.py 2>&1 | tail -2`
-Expected: `14 error(s) in <n> files` — the same 14, none from `eregulations`.
+```bash
+python3 scripts/generate-kimi-manifests.py --check
+uv run --python 3.12 scripts/validate-plugins.py 2>&1 | tail -2
+```
+Expected: `--check` reports nothing out of date; the validator reports the same `14 error(s)`, none from `eregulations`. If `--check` is dirty, the generator was not re-run after Task 6 or 7 — run it and amend, do not hand-edit the output.
 
-- [ ] **Step 4: Install locally and run the spec's gate scenarios**
+- [ ] **Step 4: Install the plugin from this working copy**
 
-Add the local path as a marketplace source, enable the plugin, then run each scenario against `fixtures/fleet.sample.json` with `--dry-run`, recording actual output:
+```
+/plugin marketplace add /Users/melux/Work/UN/GIT/plugin-marketplace
+/plugin install eregulations@unctad-digital-government
+```
 
-| # | Command | Must |
+Note this shadows the published `unctad-digital-government` marketplace with the local clone. When the acceptance run is finished, restore the published source so you are not silently running a working copy:
+
+```
+/plugin marketplace remove unctad-digital-government
+/plugin marketplace add UNCTAD-eRegistrations/plugin-marketplace
+```
+
+- [ ] **Step 5: Run the gate scenarios against the synthetic fixture**
+
+Point the router at the fixture rather than your real overlay — the scenarios depend on `bravo` being compromised and `charlie` having no posture, which no real overlay should contain:
+
+```bash
+export EREG_OVERLAY="$PWD/plugins/eregulations/skills/ereg-router/fixtures/fleet.sample.json"
+```
+
+Confirm the wiring before trusting any scenario:
+
+```bash
+uv run --python 3.12 python plugins/eregulations/skills/ereg-router/scripts/fleet_resolve.py bravo
+```
+Expected: `"posture": "compromised"`. If it returns `null`, `EREG_OVERLAY` is not reaching the script and **every scenario below is invalid** — they would all block on unresolved posture and look like passes.
+
+Then run each scenario and record the actual output. Both forms are exercised deliberately: scenarios 1–3 in plain English to prove the description-based front door works at all, the rest via the explicit command.
+
+| # | Input | Must |
 | --- | --- | --- |
-| 1 | `/ereg --dry-run bugfix on bravo` | Block: host posture compromised |
-| 2 | `/ereg --dry-run bugfix on charlie` | Block: posture unresolved — the fail-closed assertion |
-| 3 | `/ereg --dry-run build admin and public` | Block on the derived pair, citing the actual csproj reference |
-| 4 | `/ereg --dry-run status of alpha` with no overlay and no Monitor | Advisory facts unverified; fail-closed gates block |
-| 5 | `/ereg --dry-run deploy delta` | Block: version unresolved |
-| 6 | `/ereg --dry-run upgrade bravo` then override with no reason | Override refused; nothing appended to the log |
-| 7 | `/ereg --dry-run bravo is down and it is on 5.x, migrate it` | Both `bugfix` and `upgrade` resolved; gates see both |
+| 1 | `bravo has started throwing 500s` (plain English, no command) | Router fires unprompted; blocks on host posture compromised |
+| 2 | `charlie is down, need to look at it` (plain English) | Blocks: posture unresolved — the fail-closed assertion |
+| 3 | `I need to build admin and public together` (plain English) | Blocks on the derived pair, citing the actual csproj reference |
+| 4 | `/eregulations:ereg --dry-run status of alpha` with `EREG_OVERLAY` unset and no Monitor | Advisory facts unverified; fail-closed gates block |
+| 5 | `/eregulations:ereg --dry-run deploy delta` | Blocks: version unresolved |
+| 6 | `/eregulations:ereg --dry-run upgrade bravo`, then override with no reason | Override refused; `audit.jsonl` unchanged |
+| 7 | `/eregulations:ereg --dry-run bravo is down and it is on 5.x, migrate it` | Both `bugfix` and `upgrade` resolved; gates see both |
 
 Scenario 8 from the spec (Monitor credential, no retry) belongs to Phase B — there is no login path in Phase A.
 
-- [ ] **Step 5: Record the results in the README**
+If scenarios 1–3 do not fire without a command, the skill `description` is too weak. That is a **code fix in the description**, not a reason to fall back on the explicit command — plain English is the front door this design chose.
+
+- [ ] **Step 6: Record the results in the README**
 
 Add a "Verified" section listing each scenario and its observed outcome, dated. A scenario that did not behave as specified is a **stop**: fix the code, do not amend the expectation.
 
-- [ ] **Step 6: Commit and open the PR**
+- [ ] **Step 7: Commit and open the PR**
 
 ```bash
 git add plugins/eregulations
@@ -1555,10 +1633,21 @@ Phase B (Monitor MCP server) is a separate plan, blocked on two eRegulations-Mon
 Note for reviewers: this repo is public. The plugin deliberately ships no fleet data, no addresses and no posture — those come from an operator-local ~/.ereg/fleet.local.json. Please check any added file for leaked hosts."
 ```
 
-- [ ] **Step 7: Confirm CI is green**
+- [ ] **Step 8: Confirm CI is green**
 
 Run: `gh pr checks --watch`
-Expected: `validate-plugins`, `test-plugin-scripts` (3.9 and 3.13) all pass.
+Expected, all passing:
+- `Validate Plugin Frontmatter` — the bun/TypeScript validator that could not run locally. **This is its first real execution**; treat a failure here as expected-and-fixable, not as a surprise.
+- `Test bundled plugin scripts` — pytest on both 3.9 and 3.13, plus `compileall` on 3.9.
+
+- [ ] **Step 9: Restore the published marketplace source**
+
+```
+/plugin marketplace remove unctad-digital-government
+/plugin marketplace add UNCTAD-eRegistrations/plugin-marketplace
+```
+
+Skipping this leaves you running a local working copy while believing you are on the published plugin.
 
 ---
 
@@ -1569,7 +1658,9 @@ Blocked on two changes to `eRegulations-Monitor`:
 1. A `viewer` service account for the MCP server. Monitor has no service-account concept today — a feature request, not an admin action.
 2. A `posture` field on the server record, so the host gate resolves posture from live state instead of the operator overlay.
 
-Neither blocks Phase A. When both land, write `docs/superpowers/plans/<date>-eregulations-plugin-phase-b.md` covering the `mcp_eregulations_monitor` package (seven read-only tools, auth with refresh, the no-retry lockout rule, the shape probe), its `.mcp.json` registration, and the router's seam swap in Step 2 of `SKILL.md`.
+Neither blocks Phase A. When both land, write `docs/superpowers/plans/<date>-eregulations-plugin-phase-b.md` covering the `mcp_eregulations_monitor` package (seven read-only tools, auth with refresh, the no-retry lockout rule, the shape probe), and the router's seam swap in Step 2 of `SKILL.md`.
+
+**Phase B ships as a separate `monitor-mcp` plugin, not inside `eregulations`.** Every plugin in this marketplace carrying a `.mcp.json` is named `*-mcp` — `bpa-mcp`, `ds-mcp`, `gdb-mcp`, `graylog-mcp`, `keycloak-mcp`, `translations-mcp` — and none also carries domain knowledge. Bundling the server into the knowledge plugin would break that split and force a Monitor account on everyone who only wants the router. This is why Phase A ships no `.mcp.json`.
 
 ## Follow-up — not in this plan
 
@@ -1578,3 +1669,30 @@ Neither blocks Phase A. When both land, write `docs/superpowers/plans/<date>-ere
 ## Deliberately untested
 
 **Lane detection** (Step 3) is prose, with no script and no suite. This is a considered exception to the rule that drives the rest of the plan. Lane detection is *context* — it reports what the environment can currently do — not a gate. Nothing downstream trusts it for safety: a request that reaches `execute` lane on a bad probe still meets every gate, and the gates are what fail closed. Gate logic lives in tested scripts precisely because it is what stands between a request and a production system; lane detection does not carry that weight.
+
+
+## Open question for the maintainer
+
+`CLAUDE.md` says *"Always add a changelog entry when bumping a skill version"*, but no plugin in this repo contains a `CHANGELOG` file, so there is no example to follow. This plan sets `metadata.version: 0.1.0` on four new skills and adds no changelog entry, because inventing a location would create a convention rather than follow one.
+
+Ask before Task 8: where do skill changelog entries go — a per-plugin `CHANGELOG.md`, a section inside `SKILL.md`, or is the line in `CLAUDE.md` aspirational? Whatever the answer, apply it in Task 8 Step 6 alongside the README results.
+
+## Conventions verified against the repo
+
+Checked before this plan was written, so an executor does not have to re-derive them:
+
+| Convention | Evidence |
+| --- | --- |
+| Kimi manifests + both catalogs are generated | `scripts/generate-kimi-manifests.py` docstring; `CLAUDE.md` |
+| Generator is stale on the base branch | `--check` reports 6 plugins + 2 catalogs out of date at `68d5ad9` |
+| Bundled scripts are stdlib-only | `.github/workflows/test-plugin-scripts.yml` header comment |
+| Suites are per-skill with their own `conftest.py` | `plugins/bpa-mcp/skills/columns-normalization-migration/tests/` |
+| `REQUIRED_SUITES` guards against silent deletion | same workflow |
+| Python 3.9 + 3.13 matrix, with a recorded reason | same workflow's matrix comment |
+| Two validators, one bun-based | `validate-plugins.yml` runs `bun .github/scripts/validate-frontmatter.ts` |
+| Commands carry `description`, `argument-hint`, `effort`, `allowed-tools` | `plugins/*/commands/*.md`; `effort` used 20 times |
+| Commands namespace as `plugin:command` | every command in this marketplace resolves that way |
+| `.mcp.json` only in `*-mcp` plugins | the six plugins that ship one |
+| Plugin manifest fields | `name`, `description`, `version`, `author`, `category` |
+| Conventional Commits with scope | `git log`; ticket keys appear on ticket-tracked fixes |
+| Specs and plans live in `docs/superpowers/` | `2026-03-31-handoff-plugin-design.md` and its plan |

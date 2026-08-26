@@ -32,7 +32,10 @@ The eRegistrations side of the house already solves this with the `unctad-digita
 | Terminal is the only executor | User decision, 2026-08-25 | App/web lanes must degrade honestly, never half-execute |
 | Ships to the team via the marketplace | User decision, 2026-08-25 | See next row — this one has teeth |
 | **`plugin-marketplace` is a PUBLIC GitHub repo** | `gh repo view` → `"visibility": "PUBLIC"` | **No credentials, no server addresses, and no security posture may ship in the plugin** |
-| Front door is one router command | User decision, 2026-08-25 | Routing is explicit and auditable, not implicit skill-matching |
+| Front door is one router | User decision, 2026-08-25 | Routing is explicit and auditable, not scattered across skills |
+| Plugin commands are namespaced `plugin:command` | Claude Code plugin loading; every listed command in this marketplace resolves as `bpa-mcp:status`, `devops:align-mule3-repo`, … | **A bare `/ereg` is not achievable from a plugin.** Plain English is the front door; `/eregulations:ereg` is the explicit form |
+| Kimi manifests and catalogs are generated | `CLAUDE.md`: *"generated — never edit them by hand"* | `scripts/generate-kimi-manifests.py` after any change to `plugin.json`, `.mcp.json`, `skills/` or `commands/` |
+| Two validators gate this repo | `scripts/validate-plugins.py` (packaging) and `.github/scripts/validate-frontmatter.ts` under `bun` (frontmatter) | Both must pass; the second is CI-only unless bun is installed |
 | 7.x only going forward | Handover Doc §3 | New work on 4.x/5.x/6.x is gated |
 | Admin ↔ Public branch pairing | Handover Doc §10; `WebAppCore.csproj` project-references `Unctad.eRegulations.Library` | A build gate is mandatory — and derivable from code, so it is derived |
 | Two hosts recorded as likely compromised | Handover Doc §5 | A fail-closed host gate is mandatory |
@@ -66,7 +69,6 @@ plugin-marketplace/
 └── plugins/eregulations/
     ├── .claude-plugin/plugin.json      # name matches dir; validate-plugins.py enforces
     ├── .kimi-plugin/plugin.json        # mirror; enforced by same validator
-    ├── .mcp.json                       # registers the Monitor server
     ├── README.md                       # documents the ~/.ereg/ overlay the operator must create
     ├── commands/
     │   └── ereg.md                     # the /ereg front door
@@ -85,6 +87,10 @@ plugin-marketplace/
         │   └── references/
         ├── adding-mule3-webservice/                  # from Drive
         └── merged-eregulations-translations-into-langadmin/  # from Drive
+
+plugin-marketplace/
+└── plugins/monitor-mcp/                # Phase B — separate plugin, matches the *-mcp convention
+    └── .mcp.json
 
 mcp-eregistrations/
 └── src/mcp_eregulations_monitor/       # tenth package in the monorepo
@@ -108,11 +114,21 @@ They are data the router reads, not behaviour. Registering them as skills would 
 
 `deploying-legacy-eregulations-instance/SKILL.md` is 51 KB as authored. Loaded whole it dominates context on every invocation, for a procedure where a typical run needs a fraction of it. It becomes a `SKILL.md` carrying the flow, plus `references/` for per-phase detail.
 
-## Component 1 — The `/ereg` router
+## Component 1 — The router
 
-`/ereg <free-form request>` runs five steps in fixed order. Each may stop the run. None guesses silently.
+### How it is reached
 
-`/ereg --dry-run <request>` runs steps 1–4 and prints the decision — classification, resolved context, lane, gates evaluated and why — then stops before dispatch. This is both the safety valve before a consequential run and the only practical way to debug a misroute. Dry-run is also the mode every acceptance scenario is asserted against.
+Plugin commands are namespaced `plugin:command`, so a marketplace plugin cannot publish a bare `/ereg`. The router is therefore reached two ways, and the first is primary:
+
+1. **Plain English.** Describing an eRegulations problem triggers the router through the skill's `description`. Nothing to remember, nothing to install, identical in every window. This makes the skill description load-bearing — it is the front door, not documentation.
+2. **`/eregulations:ereg [--dry-run] <request>`** — the explicit form, for when you want to be sure which path ran.
+
+Anyone wanting a literal `/ereg` can add a personal `~/.claude/commands/ereg.md`, but that does not travel with the plugin and is not part of this design.
+
+
+The router runs five steps in fixed order. Each may stop the run. None guesses silently.
+
+`/eregulations:ereg --dry-run <request>` runs steps 1–4 and prints the decision — classification, resolved context, lane, gates evaluated and why — then stops before dispatch. This is both the safety valve before a consequential run and the only practical way to debug a misroute. Dry-run is also the mode every acceptance scenario is asserted against.
 
 ### Step 1 — Classify
 
@@ -198,6 +214,8 @@ If the request names an ERN key, the handoff is also posted as a Jira comment. I
 | Dispatched skill fails mid-run | Router owns the record: what was attempted, what changed, what did not. Half-finished server work that nobody wrote down is the worst available outcome. |
 
 ## Component 2 — Monitor MCP server
+
+**Ships as its own `monitor-mcp` plugin, not inside `eregulations`.** Every plugin in this marketplace that carries a `.mcp.json` is named `*-mcp` — `bpa-mcp`, `ds-mcp`, `gdb-mcp`, `graylog-mcp`, `keycloak-mcp`, `translations-mcp` — and none of them also carries domain knowledge. Bundling the server into the knowledge plugin would break that split and force a Monitor account on everyone who only wants the router.
 
 Package `mcp_eregulations_monitor` in the `mcp-eregistrations` monorepo. Follows the `graylog-mcp` precedent: **Monitor-native auth, not Keycloak**. Reuses `mcp_eregistrations_common` for HTTP and audit.
 
