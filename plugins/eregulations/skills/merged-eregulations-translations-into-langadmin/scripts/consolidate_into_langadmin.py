@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+Consolidate several legacy Multilang family files into LangAdmin.txt, so
+that the Admin SPA (hardcoded to read only the LangAdmin family) can reach
+translations that already exist under other legacy module names.
+
+Rules:
+- LangAdmin.txt is the destination; its existing rows/cells are never
+  regressed.
+- Source files are processed in a fixed priority order (as given). For a
+  key not yet in the accumulated destination, the row is added whole from
+  the first source file that has it.
+- For a key already present in the destination (from LangAdmin.txt itself,
+  or from an earlier source file in this pass): for each language cell, if
+  the destination's cell is blank or equal to the destination's own English
+  anchor text (i.e. "untranslated"), and the source has a real, distinct
+  value, fill it in from source. If the destination already has a real
+  value that differs from source's, keep the destination and log a
+  conflict for human review.
+- English ("en") is treated as anchor text: differences are logged as
+  conflicts but the destination's English is always kept (never
+  overwritten), to avoid corrupting the SPA's default label text.
+"""
+import csv
+import os
+import sys
+from collections import OrderedDict
+
+SRC_DIR = sys.argv[1]
+OUT_LANGADMIN = sys.argv[2]
+CONFLICTS_PATH = sys.argv[3]
+SOURCE_FILES_IN_PRIORITY_ORDER = sys.argv[4:]
+
+
+def read_table(path):
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        content = f.read()
+    lines = content.splitlines()
+    if not lines:
+        return [], OrderedDict()
+    header = lines[0].split("|")
+    rows = OrderedDict()
+    for line in lines[1:]:
+        if line == "":
+            continue
+        cols = line.split("|")
+        rid = cols[0]
+        if rid == "id":
+            continue
+        if len(cols) < len(header):
+            cols = cols + [""] * (len(header) - len(cols))
+        elif len(cols) > len(header):
+            cols = cols[: len(header)]
+        rows[rid] = cols
+    return header, rows
+
+
+def cell(row, header, lang):
+    if lang not in header:
+        return ""
+    idx = header.index(lang)
+    if idx >= len(row):
+        return ""
+    return row[idx]
+
+
+def is_blank_or_english_mirror(row, header, lang, en_value):
+    v = cell(row, header, lang)
+    if v.strip() == "":
+        return True
+    if v == en_value:
+        return True
+    return False
+
+
+langadmin_header, dest_rows = read_table(os.path.join(SRC_DIR, "LangAdmin.txt"))
+langs = langadmin_header[1:]
+
+stats = []
+conflicts = []
+new_keys_total = 0
+filled_total = 0
+
+for fname in SOURCE_FILES_IN_PRIORITY_ORDER:
+    path = os.path.join(SRC_DIR, fname)
+    src_header, src_rows = read_table(path)
+    new_keys = 0
+    filled = 0
+    conflict_count = 0
+
+    for rid, srow in src_rows.items():
+        src_en = cell(srow, src_header, "en")
+        if rid not in dest_rows:
+            out = [rid]
+            for lang in langs:
+                out.append(cell(srow, src_header, lang))
+            dest_rows[rid] = out
+            new_keys += 1
+            continue
+
+        drow = dest_rows[rid]
+        dest_en = cell(drow, langadmin_header, "en")
+        for lang in langs:
+            if lang == "en":
+                s_val = cell(srow, src_header, "en")
+                if s_val.strip() != "" and s_val != dest_en:
+                    conflicts.append(dict(file=fname, id=rid, lang=lang,
+                                           dest=dest_en, src=s_val,
+                                           reason="english text differs"))
+                    conflict_count += 1
+                continue
+            d_val = cell(drow, langadmin_header, lang)
+            s_val = cell(srow, src_header, lang)
+            dest_untranslated = is_blank_or_english_mirror(drow, langadmin_header, lang, dest_en)
+            src_real = (s_val.strip() != "") and (s_val != src_en)
+            if not dest_untranslated:
+                if src_real and s_val != d_val:
+                    conflicts.append(dict(file=fname, id=rid, lang=lang,
+                                           dest=d_val, src=s_val,
+                                           reason="both have differing real translations"))
+                    conflict_count += 1
+                # keep destination value, no change
+            elif src_real:
+                idx = langadmin_header.index(lang)
+                drow[idx] = s_val
+                filled += 1
+
+    stats.append(dict(file=fname, new_keys=new_keys, filled=filled, conflicts=conflict_count))
+    new_keys_total += new_keys
+    filled_total += filled
+
+with open(OUT_LANGADMIN, "w", encoding="utf-8-sig", newline="\n") as f:
+    f.write("|".join(langadmin_header) + "\n")
+    for row in dest_rows.values():
+        f.write("|".join(row) + "\n")
+
+with open(CONFLICTS_PATH, "w", encoding="utf-8") as f:
+    if not conflicts:
+        f.write("No conflicts found.\n")
+    else:
+        f.write(f"{len(conflicts)} conflicts found. LangAdmin (destination) value was kept in every case.\n\n")
+        for c in conflicts:
+            f.write(f"[{c['file']}] id={c['id']} lang={c['lang']} reason={c['reason']}\n")
+            f.write(f"    langadmin (kept): {c['dest']!r}\n")
+            f.write(f"    source (dropped): {c['src']!r}\n\n")
+
+print(f"{'file':30s} {'new_keys':>9s} {'filled':>7s} {'conflicts':>9s}")
+tot_new = tot_filled = tot_conf = 0
+for s in stats:
+    print(f"{s['file']:30s} {s['new_keys']:9d} {s['filled']:7d} {s['conflicts']:9d}")
+    tot_new += s['new_keys']
+    tot_filled += s['filled']
+    tot_conf += s['conflicts']
+print(f"{'TOTAL':30s} {tot_new:9d} {tot_filled:7d} {tot_conf:9d}")
+print(f"\nFinal LangAdmin.txt row count: {len(dest_rows)}")
