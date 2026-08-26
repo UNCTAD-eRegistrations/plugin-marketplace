@@ -80,6 +80,15 @@ def test_invalid_branch_pair_blocks():
     assert d["status"] == gates.BLOCK
 
 
+def test_unrecognised_branch_pair_value_blocks():
+    """Fail-closed: any value other than True/False is treated as unresolved."""
+    d = _by_gate(
+        gates.evaluate(_ctx(touches_admin_public=True, branch_pair_valid="maybe")),
+        "branch_pair",
+    )
+    assert d["status"] == gates.BLOCK
+
+
 def test_valid_branch_pair_passes():
     d = _by_gate(
         gates.evaluate(_ctx(touches_admin_public=True, branch_pair_valid=True)),
@@ -104,6 +113,23 @@ def test_admin_deploy_with_unknown_media_mount_blocks():
     assert d["status"] == gates.BLOCK
 
 
+def test_admin_deploy_with_unrecognised_media_mount_value_blocks():
+    """Fail-closed: any value other than True/False is treated as unresolved."""
+    d = _by_gate(
+        gates.evaluate(_ctx(kind="deploy", targets_admin_deploy=True, media_mount="yes")),
+        "media_mount",
+    )
+    assert d["status"] == gates.BLOCK
+
+
+def test_admin_deploy_with_confirmed_media_mount_passes():
+    d = _by_gate(
+        gates.evaluate(_ctx(kind="deploy", targets_admin_deploy=True, media_mount=True)),
+        "media_mount",
+    )
+    assert d["status"] == gates.PASS
+
+
 def test_unsupported_version_blocks_but_is_overridable():
     for major in ("4", "5", "6"):
         d = _by_gate(gates.evaluate(_ctx(version_major=major)), "unsupported_version")
@@ -117,6 +143,14 @@ def test_unresolved_version_blocks_and_is_not_overridable():
     assert d["overridable"] is False
 
 
+def test_unrecognised_version_value_blocks():
+    """Fail-closed: any value other than '7' or a known unsupported major is
+    treated as unresolved, not silently let through."""
+    d = _by_gate(gates.evaluate(_ctx(version_major="banana")), "unsupported_version")
+    assert d["status"] == gates.BLOCK
+    assert d["overridable"] is False
+
+
 def test_windows_target_warns_and_fails_open():
     d = _by_gate(gates.evaluate(_ctx(platform="windows")), "windows_target")
     assert d["status"] == gates.WARN
@@ -125,9 +159,16 @@ def test_windows_target_warns_and_fails_open():
 
 
 def test_secondary_kinds_are_gated_too():
-    """A bugfix that is also an upgrade must still hit the version gate."""
-    ctx = _ctx(kind="bugfix", secondary_kinds=["upgrade"], version_major="5")
-    assert _by_gate(gates.evaluate(ctx), "unsupported_version")["status"] == gates.BLOCK
+    """A bugfix carrying 'upgrade' as a secondary kind is itself the
+    remediation the version gate would otherwise demand, so it passes on
+    an unsupported major. Without that secondary, the identical version
+    still blocks -- proving the key is actually read, not just accepted.
+    """
+    with_upgrade = _ctx(kind="bugfix", secondary_kinds=["upgrade"], version_major="5")
+    assert _by_gate(gates.evaluate(with_upgrade), "unsupported_version")["status"] == gates.PASS
+
+    without_upgrade = _ctx(kind="bugfix", secondary_kinds=[], version_major="5")
+    assert _by_gate(gates.evaluate(without_upgrade), "unsupported_version")["status"] == gates.BLOCK
 
 
 def test_every_decision_carries_a_remedy():

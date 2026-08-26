@@ -101,11 +101,23 @@ def _media_mount(context):
     )
 
 
+def _is_upgrade_request(context):
+    kinds = list(context.get("secondary_kinds") or ())
+    kinds.append(context.get("kind"))
+    return "upgrade" in kinds
+
+
 def _unsupported_version(context):
     major = context.get("version_major")
     if major == SUPPORTED_MAJOR:
         return _decision("unsupported_version", PASS, "target is 7.x")
     if major in UNSUPPORTED_MAJORS:
+        if _is_upgrade_request(context):
+            return _decision(
+                "unsupported_version",
+                PASS,
+                "target is %s.x, but this request is itself the upgrade to 7.x" % major,
+            )
         return _decision(
             "unsupported_version",
             BLOCK,
