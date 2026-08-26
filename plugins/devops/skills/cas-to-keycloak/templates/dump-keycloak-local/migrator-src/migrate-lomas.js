@@ -16,9 +16,6 @@
 // Options:
 //   --dry-run                 parse + validate + write reports only, no Keycloak calls
 //   --out-dir <path>          report directory (default ./out)
-//   --env-file <path>         credentials file (default ./.env.lomas): AUTH_URL, AUTH_REALM_NAME,
-//                             AUTH_ADMIN_CLIENT + AUTH_ADMIN_SECRET (client_credentials) or
-//                             AUTH_ADMIN_USERNAME + AUTH_ADMIN_PASSWORD (password grant)
 //   --dup-policy <mode>       what to do when one email is shared by rows with DIFFERENT
 //                             names (distinct people — the realm allows one account per
 //                             email): exclude (default; none imported, all listed as
@@ -26,6 +23,15 @@
 //                             (keep the account created first/last, list the rest).
 //                             Rows with the same email AND same names are one person
 //                             exported twice and are always deduplicated silently.
+//   --creds-file <path>         credentials file (default ./.env.lomas), so a rehearsal realm
+//                             can use its own (e.g. .env.lomas.test). When passed explicitly
+//                             the file MUST exist and MUST itself define AUTH_URL,
+//                             AUTH_REALM_NAME, AUTH_ADMIN_CLIENT and either AUTH_ADMIN_SECRET
+//                             (client_credentials) or AUTH_ADMIN_USERNAME + AUTH_ADMIN_PASSWORD
+//                             — the run aborts otherwise, and its values override any ambient
+//                             AUTH_* left in the shell. A safety flag must never fail open.
+//   --confirm-realm <name>    non-interactive confirmation of the target realm; required for a
+//                             real (non-dry-run) import when stdin is not a TTY.
 //
 // Reports written to out-dir:
 //   results-<timestamp>.csv         email;status;detail;kcUserId
@@ -34,6 +40,8 @@
 
 const KeycloakAdminClient = require('keycloak-admin').default;
 const cliProgress = require('cli-progress');
+const dotenv = require('dotenv');
+const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 
@@ -41,9 +49,14 @@ const REAUTH_INTERVAL_MS = 4 * 60 * 1000; // re-login before the 5-minute defaul
 const EMAIL_RE = /^[^\s@;]+@[^\s@;]+\.[^\s@;]+$/;
 const CSV_HEADER = 'Email;First Name;Last Name;Date Created;Submitted Count';
 const DUP_POLICIES = ['exclude', 'oldest', 'newest'];
+const DEFAULT_ENV_FILE = '.env.lomas';
 
 const args = process.argv.slice(2);
+// accepts both "--flag value" and "--flag=value" — the latter used to be read as absent,
+// which silently sent a rehearsal run at the production realm
 const getArg = (name) => {
+  const inline = args.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
   const i = args.indexOf(name);
   return i !== -1 ? args[i + 1] : null;
 };
@@ -52,16 +65,59 @@ const jsonPath = getArg('--json');
 const dryRun = args.includes('--dry-run');
 const outDir = getArg('--out-dir') || path.join(__dirname, 'out');
 const dupPolicy = getArg('--dup-policy') || 'exclude';
-// Credentials file (gitignored) wins over the tracked .env — keeps real secrets out of git.
-// --env-file lets a rehearsal realm use its own file (e.g. .env.lomas.test).
-const envFile = getArg('--env-file') || path.join(__dirname, '.env.lomas');
-require('dotenv').config({ path: envFile });
-require('dotenv').config();
+const credsFileArg = getArg('--creds-file');
+const confirmRealmArg = getArg('--confirm-realm');
 
-if ((!csvPath && !jsonPath) || !DUP_POLICIES.includes(dupPolicy)) {
-  console.error('Usage: node migrate-lomas.js [--csv <users-list.csv>] [--json <migration-export.json>]'
-    + ' [--dry-run] [--out-dir <dir>] [--dup-policy exclude|oldest|newest] [--env-file <path>]');
+const die = (...lines) => {
+  lines.forEach((line) => console.error(line));
   process.exit(1);
+};
+
+if (!csvPath && !jsonPath) {
+  die('Usage: node migrate-lomas.js [--csv <users-list.csv>] [--json <migration-export.json>]',
+    '       [--dry-run] [--out-dir <dir>] [--dup-policy exclude|oldest|newest]',
+    '       [--creds-file <path>] [--confirm-realm <realm>]');
+}
+if (!DUP_POLICIES.includes(dupPolicy)) {
+  die(`--dup-policy must be one of: ${DUP_POLICIES.join(' | ')} (got "${dupPolicy}")`);
+}
+
+// --- credentials -------------------------------------------------------------
+// Explicitly-passed file: strict. Its own contents must be complete and they win over
+// ambient AUTH_* values, so "I pointed at the rehearsal realm" can never silently mean
+// "I wrote to production". Default file: lenient (backwards compatible), still validated
+// before any write and always echoed.
+const authKeysFrom = (env) => {
+  const missing = ['AUTH_URL', 'AUTH_REALM_NAME', 'AUTH_ADMIN_CLIENT'].filter((k) => !env[k]);
+  const hasSecret = !!env.AUTH_ADMIN_SECRET;
+  const hasPassword = !!env.AUTH_ADMIN_USERNAME && !!env.AUTH_ADMIN_PASSWORD;
+  if (!hasSecret && !hasPassword) missing.push('AUTH_ADMIN_SECRET (or AUTH_ADMIN_USERNAME + AUTH_ADMIN_PASSWORD)');
+  return missing;
+};
+
+if (args.some((arg) => arg === '--env-file' || arg.startsWith('--env-file='))) {
+  die('--env-file is a Node option (Node loads that file itself and aborts when it is missing),',
+    'so this tool cannot see it. Use --creds-file <path> instead.');
+}
+
+if (credsFileArg !== null) {
+  if (!credsFileArg || credsFileArg.startsWith('--')) {
+    die(`--creds-file needs a path, got "${credsFileArg === null ? '' : credsFileArg}"`,
+      '(a following flag is not a value — write --creds-file <path> or --creds-file=<path>)');
+  }
+  const resolved = path.resolve(credsFileArg);
+  if (!fs.existsSync(resolved)) die(`--creds-file not found: ${resolved}`);
+  const fileEnv = dotenv.parse(fs.readFileSync(resolved));
+  const missing = authKeysFrom(fileEnv);
+  if (missing.length) {
+    die(`${resolved} does not define: ${missing.join(', ')}`,
+      'An explicitly-passed credentials file must be self-contained — refusing to fill the gaps',
+      'from the environment, which is how a rehearsal run ends up writing to production.');
+  }
+  Object.assign(process.env, fileEnv); // explicit file beats ambient AUTH_* in the shell
+} else {
+  dotenv.config({ path: path.join(__dirname, DEFAULT_ENV_FILE) });
+  dotenv.config();
 }
 
 const results = []; // { email, status, detail, kcUserId }
@@ -90,8 +146,7 @@ const readCsvUsers = (file) => {
   const raw = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
   const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== '');
   if (lines[0].trim() !== CSV_HEADER) {
-    console.error(`Unexpected CSV header in ${file}:\n  got      "${lines[0].trim()}"\n  expected "${CSV_HEADER}"`);
-    process.exit(1);
+    die(`Unexpected CSV header in ${file}:`, `  got      "${lines[0].trim()}"`, `  expected "${CSV_HEADER}"`);
   }
   lines.slice(1).forEach((line, idx) => {
     const cols = line.split(';');
@@ -112,10 +167,7 @@ const readCsvUsers = (file) => {
 
 const readJsonUsers = (file) => {
   const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (!Array.isArray(parsed)) {
-    console.error(`${file} must contain a JSON array`);
-    process.exit(1);
-  }
+  if (!Array.isArray(parsed)) die(`${file} must contain a JSON array`);
   return parsed.map((user) => ({
     email: (user.email || '').trim(),
     firstName: (user.firstName || '').trim(),
@@ -139,24 +191,40 @@ const mergeRows = (rows) => rows.reduce((merged, row) => {
 }, {});
 
 const resolveGroup = (rows) => {
-  const distinctPeople = [...new Set(rows.map(nameKey))];
-  if (distinctPeople.length === 1) {
+  // one entry per distinct person, each already merged across its source rows, so
+  // oldest/newest can never keep a bare CSV row over its enriched JSON counterpart
+  const byPerson = new Map();
+  rows.forEach((row) => {
+    const key = nameKey(row);
+    if (!byPerson.has(key)) byPerson.set(key, []);
+    byPerson.get(key).push(row);
+  });
+  const people = [...byPerson.values()].map(mergeRows);
+
+  if (people.length === 1) {
     if (rows.length > 1) {
-      rows.slice(1).forEach((row) => record(row.email, 'duplicate', `${row.source}: same person listed ${rows.length}x — merged into one account`));
+      rows.slice(1).forEach((row) => record(row.email, 'duplicate',
+        `${row.source}: same person listed ${rows.length}x — merged into one account`));
     }
-    return mergeRows(rows);
+    return people[0];
   }
+
   // Same email, different people: the realm allows one account per email.
-  const summary = rows.map(describe).join(' / ');
+  const summary = people.map(describe).join(' / ');
   if (dupPolicy === 'exclude') {
-    rows.forEach((row) => record(row.email, 'conflict-email',
-      `${row.source}: email shared by ${distinctPeople.length} different people — none imported, resolve manually: ${summary}`));
+    people.forEach((person) => record(person.email, 'conflict-email',
+      `${person.source}: email shared by ${people.length} different people — none imported, resolve manually: ${summary}`));
     return null;
   }
-  const byDate = rows.slice().sort((a, b) => (parseCreated(a.createdAt) || 0) - (parseCreated(b.createdAt) || 0));
-  const kept = dupPolicy === 'oldest' ? byDate[0] : byDate[byDate.length - 1];
-  rows.filter((row) => row !== kept).forEach((row) => record(row.email, 'duplicate',
-    `${row.source}: email shared by different people — kept ${dupPolicy} account ${describe(kept)}, dropped ${describe(row)}`));
+  // Undated rows never win a date comparison — an unparseable date must not read as 1970.
+  const dated = people.filter((person) => parseCreated(person.createdAt))
+    .sort((a, b) => parseCreated(a.createdAt) - parseCreated(b.createdAt));
+  const kept = dated.length
+    ? (dupPolicy === 'oldest' ? dated[0] : dated[dated.length - 1])
+    : people[0];
+  const detail = dated.length ? `kept ${dupPolicy} account` : 'no parsable creation date — kept the first row';
+  people.filter((person) => person !== kept).forEach((person) => record(person.email, 'duplicate',
+    `${person.source}: email shared by different people — ${detail} ${describe(kept)}, dropped ${describe(person)}`));
   return kept;
 };
 
@@ -221,7 +289,8 @@ const summarize = (users, files) => {
   const counts = {};
   results.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   console.log();
-  console.log(dryRun ? 'Dry-run complete — no data written to Keycloak.' : 'Migration process complete.');
+  console.log(dryRun ? 'Dry-run complete — no data written to Keycloak.'
+    : `Migration process complete — realm ${process.env.AUTH_REALM_NAME} at ${process.env.AUTH_URL}`);
   console.log(`${users.length} unique users in input (shared-email policy: ${dupPolicy})`);
   Object.keys(counts).sort().forEach((status) => console.log(`  ${status}: ${counts[status]}`));
   console.log(`Results: ${files.resultsFile}`);
@@ -230,13 +299,45 @@ const summarize = (users, files) => {
   }
 };
 
+// Nothing used to name the target before the progress bar appeared, so a rehearsal run and a
+// production run looked identical until the audit CSV was read — i.e. after the writes.
+const confirmTarget = async () => {
+  const realm = process.env.AUTH_REALM_NAME;
+  const missing = authKeysFrom(process.env);
+  if (missing.length) {
+    die(`Credentials incomplete (${credsFileArg ? path.resolve(credsFileArg) : DEFAULT_ENV_FILE}): missing ${missing.join(', ')}`);
+  }
+  console.log(`Target realm : ${realm}`);
+  console.log(`Keycloak URL : ${process.env.AUTH_URL}`);
+  console.log(`Admin client : ${process.env.AUTH_ADMIN_CLIENT}`);
+  console.log(`Credentials  : ${credsFileArg ? path.resolve(credsFileArg) : `${DEFAULT_ENV_FILE} (default)`}`);
+
+  if (confirmRealmArg !== null) {
+    if (confirmRealmArg !== realm) {
+      die(`--confirm-realm "${confirmRealmArg}" does not match the target realm "${realm}" — aborting.`);
+    }
+    return;
+  }
+  if (!process.stdin.isTTY) {
+    die('Refusing to import without confirmation on a non-interactive terminal.',
+      `Re-run with --confirm-realm ${realm} once you are sure that is the right realm.`);
+  }
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise((resolve) =>
+    rl.question(`Type the realm name to write to it: `, (value) => { rl.close(); resolve(value.trim()); }));
+  if (answer !== realm) die(`"${answer}" does not match "${realm}" — aborting.`);
+};
+
 const startMigration = async () => {
   const users = collectUsers();
 
   if (dryRun) {
     users.forEach((user) => record(user.email, 'would-create', `source: ${user.source}`));
+    console.log(`Dry-run — target would be realm ${process.env.AUTH_REALM_NAME || '(unset)'} at ${process.env.AUTH_URL || '(unset)'}`);
     return users;
   }
+
+  await confirmTarget();
 
   const authClient = new KeycloakAdminClient({
     baseUrl: process.env.AUTH_URL,
@@ -268,7 +369,18 @@ const startMigration = async () => {
 
   for (const user of users) {
     if (Date.now() - lastAuth > REAUTH_INTERVAL_MS) {
-      await authenticate();
+      // a re-auth failure must not throw past writeReports — on a 13k-account run that
+      // would lose the audit trail for everything already created
+      const reauthFailed = await authenticate().then(() => null, (error) =>
+        error?.response?.data?.error_description || error.message || 'unknown error');
+      if (reauthFailed) {
+        progressBar.stop();
+        console.log();
+        console.log(`Re-authentication failed after ${processed}/${users.length} users: ${reauthFailed}`);
+        console.log('Stopping here — the report below covers what was created; re-run to resume (existing users are skipped).');
+        users.slice(processed).forEach((remaining) => record(remaining.email, 'not-attempted', 're-authentication failed before this user'));
+        return users;
+      }
       lastAuth = Date.now();
     }
     await authClient.users.create(toKeycloakUser(user, process.env.AUTH_REALM_NAME))
