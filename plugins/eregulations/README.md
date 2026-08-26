@@ -63,3 +63,39 @@ overlay at `~/.ereg/fleet.local.json` (JSON, never committed anywhere):
 `posture` is one of `ok`, `degraded`, `compromised`. **A host you do not list
 resolves as unknown, and unknown blocks** — that is deliberate. See
 `skills/ereg-router/references/gates.md`.
+
+## Verified (2026-08-26)
+
+Phase A acceptance run, against the synthetic fixture
+`skills/ereg-router/fixtures/fleet.sample.json` (`EREG_OVERLAY` pointed at it —
+never a real overlay, since the fixture's `bravo` is deliberately compromised
+and `charlie` deliberately unlisted). Wiring was confirmed first: resolving
+`bravo` reports `"posture": "compromised"`, proving `EREG_OVERLAY` reaches the
+script before any scenario below was trusted.
+
+| # | Scenario | Outcome |
+| --- | --- | --- |
+| 1 | `bravo has started throwing 500s` (plain English, no command) | **NOT VERIFIED — requires local install.** Exercising the description-based front door needs a live session with the plugin installed; that install step is out of scope for this run (it would replace the operator's current marketplace source). To verify: `/plugin marketplace add <local-or-published-source>`, `/plugin install eregulations@unctad-digital-government`, then in a fresh turn type `bravo has started throwing 500s` with no command. Expect the router to fire unprompted and block on host posture `compromised`. |
+| 2 | `charlie is down, need to look at it` (plain English) | **NOT VERIFIED — requires local install.** Same reason and setup as #1. Expect the router to fire unprompted and block on host posture unresolved (charlie's host is not listed in the overlay's `hosts` map) — the fail-closed assertion. |
+| 3 | `I need to build admin and public together` (plain English) | **NOT VERIFIED — requires local install.** Same reason and setup as #1. Expect the router to fire unprompted and block on the derived Admin/Public branch pair, citing the actual `.csproj` reference it found. |
+| 4 | Resolve `alpha` with `EREG_OVERLAY` unset and no Monitor, then evaluate gates | **Passed.** `fleet_resolve.py alpha` reported every advisory fact (`host`, `version`, `platform`, `posture`) unresolved. Feeding that context to `gates.py` blocked on two gates: `host_posture` ("host posture is unresolved") and `unsupported_version` ("target version is unresolved") — the fail-closed gates blocked on unverified facts as specified. |
+| 5 | Gates on a `deploy` context for `delta` | **Passed.** `delta` resolves with a known host (`posture: ok`) and platform but no `version`. Gate evaluation blocked on exactly `unsupported_version` ("target version is unresolved"); `host_posture`, `branch_pair`, `media_mount` and `windows_target` all passed. |
+| 6 | `audit.py` override with a blank reason, then with a real one (scratch log, never `~/.ereg/audit.jsonl`) | **Passed.** First call (`--reason ""`) raised `ValueError: an override requires a stated reason` and exit code 1; the scratch log file did not exist afterward. Second call, same context, a real reason, wrote exit code 0 and appended exactly one JSONL record to the scratch log (line count 1). `~/.ereg/audit.jsonl` was never created or touched by this run. |
+| 7 | Gates on a compound context (`kind=bugfix`, `secondary_kinds=["upgrade"]`, `version_major="5"`) | **Passed.** `unsupported_version` returned `pass` with reason "target is 5.x, but this request is itself the upgrade to 7.x" — the upgrade passthrough recognised `upgrade` in `secondary_kinds` even though the primary kind was `bugfix`. All other gates passed. |
+| — | Compromised posture vs. absent posture (fail-closed assertion) | **Passed.** `bravo` (posture `compromised`) and `charlie` (host absent from the overlay's `hosts` map) both evaluated to `host_posture: block` — same status, as fail-closed requires, with distinct reasons ("host is recorded as compromised" vs. "host posture is unresolved") so the operator can tell the two apart. |
+
+Also run and clean, off the real repository (not the fixture):
+
+- `uv run --python 3.9 --with pytest python -m pytest plugins/eregulations/skills/ereg-router/tests -q` — 49 passed.
+- `uv run --python 3.13 --with pytest python -m pytest plugins/eregulations/skills/ereg-router/tests -q` — 49 passed.
+- `uv run --python 3.9 python -m compileall plugins/ -q` — clean compile, no errors.
+- `python3 scripts/generate-kimi-manifests.py --check` — all manifests up to date.
+- `uv run --python 3.12 scripts/validate-plugins.py` — 14 error(s), all pre-existing in other plugins; none from `eregulations`.
+
+### Changelog entries
+
+No CHANGELOG file exists anywhere in this repository to follow as precedent, and
+this run made no functional change to any skill — `metadata.version` stays
+`0.1.0` on all four skills, so `CLAUDE.md`'s "changelog entry on version bump"
+rule does not trigger here. Where that entry should live for a future bump is
+still open; see the maintainer note in the Phase A task plan.
