@@ -9,6 +9,9 @@ so that regression cannot recur.
 
 from __future__ import annotations
 
+import io
+import json
+
 import gates
 
 
@@ -175,3 +178,36 @@ def test_every_decision_carries_a_remedy():
     for d in gates.evaluate(_ctx(posture="compromised", version_major="4")):
         if d["status"] == gates.BLOCK:
             assert d["remedy"], d
+
+
+def test_cli_reports_a_blocking_context_on_stdout_and_in_its_exit_status(capsys, monkeypatch):
+    """The CLI exists so the router RUNS the gates rather than reading prose
+    about them. A blocking context must be visible both ways: the decisions
+    on stdout, and a non-zero status for a caller that never parses them.
+    """
+    ctx = _ctx(posture="compromised")
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(ctx)))
+
+    status = gates.main([])
+
+    assert status == 1
+    decisions = json.loads(capsys.readouterr().out)
+    assert _by_gate(decisions, "host_posture")["status"] == gates.BLOCK
+    assert decisions[0]["status"] == gates.BLOCK  # blocking sorts first
+
+
+def test_cli_reports_a_passing_context_with_a_zero_exit_status(capsys, monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(_ctx())))
+
+    status = gates.main([])
+
+    assert status == 0
+    decisions = json.loads(capsys.readouterr().out)
+    assert [d for d in decisions if d["status"] == gates.BLOCK] == []
+    assert {d["gate"] for d in decisions} == {
+        "host_posture",
+        "branch_pair",
+        "media_mount",
+        "unsupported_version",
+        "windows_target",
+    }

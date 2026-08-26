@@ -152,7 +152,7 @@
   },
   {
    "name": "eregulations",
-   "description": "One front door for eRegulations work — /ereg routes development, deployment and bugfix requests, resolves instance and version context, and enforces safety gates before anything runs.",
+   "description": "One front door for eRegulations work — plain English (or /eregulations:ereg) routes development, deployment and bugfix requests, resolves instance and version context, and enforces safety gates before anything runs.",
    "author": {
     "name": "UNCTAD Trade Facilitation Section"
    },

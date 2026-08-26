@@ -1,7 +1,7 @@
 ---
 name: ereg-router
 description: Use when handling any eRegulations or TradePortal request — a country portal throwing errors or refusing to start, a deploy or redeploy of Admin or Public, an upgrade to 7.x, a code change across the Admin and Public repos, a new instance, or a missing or wrong translation label. Classifies the request, resolves which instance and version it concerns, detects what this environment can actually do right now, and evaluates the safety gates before any work starts. Also reachable explicitly as /eregulations:ereg.
-allowed-tools: Read, Bash, Grep, Glob
+allowed-tools: Read, Bash, Grep, Glob, Skill
 metadata:
   version: "0.1.0"
   version-date: "2026-08-26"
@@ -35,12 +35,11 @@ whatever reason is offered.
 
 ## Before you start
 
-Set `$SKILL` to this skill's own directory (the one holding this file), so the
-commands below can be pasted as written:
-
-```bash
-SKILL=<path-to>/plugins/eregulations/skills/ereg-router
-```
+Every command below refers to this skill's own directory — the one holding this
+file — as `$SKILL`, and each runnable block assigns it itself. **That repetition
+is deliberate: shell state does not persist between tool calls**, so a variable
+set in one block is gone by the next. Substitute the real path and paste each
+block whole; never rely on an assignment from an earlier step.
 
 Scripts are stdlib-only and run under plain `python3`. They need no install.
 
@@ -66,6 +65,7 @@ pick for the user, and do not ask about secondaries — add them.
 ## Step 2 — Resolve
 
 ```bash
+SKILL=<path-to>/plugins/eregulations/skills/ereg-router
 python3 "$SKILL/scripts/fleet_resolve.py" <instance-slug>
 ```
 
@@ -118,9 +118,15 @@ filename is branch-dependent — on some branches it is `WebAppCore.csproj`, on
 confident wrong answer.
 
 ```bash
-grep -rl 'Unctad\.eRegulations\.Library\.csproj' \
+PUBLIC_ROOT=<path-to>/eRegulations-4.0-Public
+grep -rli 'Unctad\.eRegulations\.Library\.csproj' \
   --include='*.csproj' "$PUBLIC_ROOT"
 ```
+
+`-i` is required, not cosmetic: `branch_pair.py` matches the reference
+case-insensitively, so a branch that spells it differently is found by the
+module and would be missed by a case-sensitive grep — silently, as zero
+candidates.
 
 - **Exactly one candidate** — that is the Public web project. Use it.
 - **Zero, or more than one** — do not guess. Leave `branch_pair_valid` unset
@@ -130,6 +136,7 @@ grep -rl 'Unctad\.eRegulations\.Library\.csproj' \
 Then derive:
 
 ```bash
+SKILL=<path-to>/plugins/eregulations/skills/ereg-router
 python3 "$SKILL/scripts/branch_pair.py" <public-csproj> <admin-root>
 ```
 
@@ -185,23 +192,18 @@ The context is one flat JSON object. Every key has exactly one producer:
 | `branch_pair_valid` | Step 4a, `branch_pair.py` → `valid` |
 | `media_mount` | Step 4b, reading the instance compose |
 
-Write it to a file, then evaluate. `gates.py` is a pure module with no CLI:
+Write it to a file, then evaluate. `gates.py` reads the context on stdin:
 
 ```bash
-python3 -c "
-import json, sys
-sys.path.insert(0, '$SKILL/scripts')
-import gates
-ctx = json.load(open('/tmp/ereg-context.json'))
-decisions = gates.evaluate(ctx)
-print(json.dumps(decisions, indent=2))
-print('BLOCKING:', len(gates.blocking(decisions)))
-"
+SKILL=<path-to>/plugins/eregulations/skills/ereg-router
+CONTEXT=/tmp/ereg-context.json
+python3 "$SKILL/scripts/gates.py" < "$CONTEXT"; echo "exit=$?"
 ```
 
-`evaluate` returns one decision per gate — `gate`, `status`
-(`block`/`warn`/`pass`), `reason`, `remedy`, `overridable` — sorted with
-blocking decisions first. `blocking` filters to just those.
+It prints one decision per gate — `gate`, `status` (`block`/`warn`/`pass`),
+`reason`, `remedy`, `overridable` — sorted with blocking decisions first, and
+**exits 1 when any gate blocks**, 0 when none does. Read the decisions; the exit
+status is a guard rail, not the report.
 
 ### 4d — Act on the decisions
 
@@ -215,10 +217,12 @@ blocking decisions first. `blocking` filters to just those.
 it *before* doing anything else:
 
 ```bash
+SKILL=<path-to>/plugins/eregulations/skills/ereg-router
+CONTEXT=/tmp/ereg-context.json
 python3 "$SKILL/scripts/audit.py" \
   --gate unsupported_version \
   --reason "<the reason the user actually gave>" \
-  --context "$(cat /tmp/ereg-context.json)"
+  --context "$(cat "$CONTEXT")"
 ```
 
 It appends to `~/.ereg/audit.jsonl` (override with `--log`). A blank reason

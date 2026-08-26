@@ -200,7 +200,7 @@
       "id": "eregulations",
       "displayName": "Eregulations",
       "version": "0.1.0",
-      "description": "One front door for eRegulations work — /ereg routes a request to the right knowledge, resolves which instance and version it concerns, and blocks on unsafe hosts, mismatched Admin/Public branches, and unsupported versions before anything runs.",
+      "description": "One front door for eRegulations work — describe the problem in plain English, or run /eregulations:ereg, and the router sends the request to the right knowledge, resolves which instance and version it concerns, and blocks on unsafe hosts, mismatched Admin/Public branches, and unsupported versions before anything runs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
         "integration"

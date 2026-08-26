@@ -76,7 +76,8 @@ def _branch_pair(context):
         "branch_pair",
         BLOCK,
         "the Admin/Public pair could not be derived",
-        "verify both repos are checked out and WebAppCore.csproj is readable",
+        "check out both repos, then locate the Public web project's csproj by "
+        "discovery -- its filename is branch-dependent, so do not assume one",
     )
 
 
@@ -158,3 +159,29 @@ def evaluate(context):
 def blocking(decisions):
     """Return only the decisions that block."""
     return [d for d in decisions if d["status"] == BLOCK]
+
+
+def main(argv=None):
+    """Read a JSON context on stdin, print the decisions as JSON.
+
+    Exit status is the summary a caller can act on without parsing:
+    1 when any gate blocks, 0 when none does. The router still reads the
+    decisions -- the status code is a guard rail, not the report.
+    """
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate the /ereg safety gates against a JSON context on stdin."
+    )
+    parser.parse_args(argv)
+
+    context = json.load(sys.stdin)
+    decisions = evaluate(context)
+    print(json.dumps(decisions, indent=2, sort_keys=True))
+    return 1 if blocking(decisions) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

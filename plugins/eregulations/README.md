@@ -1,14 +1,18 @@
 # eregulations
 
-One front door for eRegulations work. The `/ereg` command routes a
-development, deployment, or bugfix request to the right knowledge, resolves
-which instance and version it concerns, and blocks on unsafe hosts,
-mismatched Admin/Public branches, and unsupported versions before anything
-runs.
+One front door for eRegulations work. Describe a development, deployment or
+bugfix problem in plain English and the router takes it to the right
+knowledge, resolves which instance and version it concerns, and blocks on
+unsafe hosts, mismatched Admin/Public branches, and unsupported versions
+before anything runs.
 
-## What `/ereg` does
+Plain English is the front door: plugin commands are namespaced
+`plugin:command`, so a bare `/ereg` is not available from a plugin. The
+explicit form is `/eregulations:ereg [--dry-run] <request>`.
 
-`/ereg` runs five steps before handing a request off to the work itself:
+## What the router does
+
+It runs five steps before handing a request off to the work itself:
 
 1. **Classify the request** — decide what kind of work this is (development,
    deployment, bugfix, or something else) so the right knowledge and skills

@@ -44,11 +44,21 @@ from a country, a host, or a repository name.
 
 **Which branches pair.** The line number does not live in the repository
 directory name: repositories named `4.0` carry branches belonging to later
-lines, so a checkout of `eRegulations-4.0-Admin` may well be 6.x. As recorded in
-the design spec, the two local clones at the time of writing were Admin
-`database-layer-update-NET8` (6.x) and Public `tradeportal` (5.x) — an invalid
-pair that the branch-pair gate rejects. Derive the pair from the code; never
-read it off a name.
+lines, so a checkout of `eRegulations-4.0-Admin` may well be 6.x, and a pair of
+checkouts that look like siblings may be a line apart. Do not read the pair off
+a name, a directory or a note — including this one. Ask the code, every time:
+
+```bash
+SKILL=<path-to>/plugins/eregulations/skills/ereg-router
+python3 "$SKILL/scripts/branch_pair.py" <public-csproj> <admin-root>
+```
+
+It prints the current `admin_branch` and `public_branch` alongside the verdict,
+so it answers "which branches am I on" and "do they pair" in one call. Nothing
+in this file records which branches are checked out anywhere: a snapshot of one
+machine's clones would be wrong within the week, and there is nothing that could
+correct it. Deriving the answer is the whole reason the pairing table was
+deleted from this design.
 
 ## Repositories
 
