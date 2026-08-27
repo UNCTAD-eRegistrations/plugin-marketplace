@@ -350,3 +350,79 @@ def test_legitimate_upgrade_exemption_still_granted():
 
     primary = _ctx(kind="upgrade", secondary_kinds=[], version_major="5")
     assert _by_gate(gates.evaluate(primary), "unsupported_version")["status"] == gates.PASS
+
+
+def test_malformed_media_mount_blocks_even_when_inapplicable():
+    """Malformed EVIDENCE must fail closed exactly like a malformed FLAG.
+
+    `"false"` and `0` carry the meaning of False without being the False
+    singleton, and a context templated through a shell or YAML produces
+    exactly those. Keying only on the singleton let them slip through
+    whenever the applicability flag was absent -- the same fail-open shape
+    as the original defect, one type away.
+    """
+    for bogus in ("false", "true", 0, 1, [], {}):
+        d = _by_gate(
+            gates.evaluate(_ctx_without("targets_admin_deploy", media_mount=bogus)),
+            "media_mount",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+        assert "media_mount" in d["reason"], bogus
+        assert type(bogus).__name__ in d["reason"], bogus
+        assert d["remedy"], bogus
+
+
+def test_malformed_branch_pair_valid_blocks_even_when_inapplicable():
+    for bogus in ("false", "true", 0, 1, [], {}):
+        d = _by_gate(
+            gates.evaluate(_ctx_without("touches_admin_public", branch_pair_valid=bogus)),
+            "branch_pair",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+        assert "branch_pair_valid" in d["reason"], bogus
+        assert type(bogus).__name__ in d["reason"], bogus
+        assert d["remedy"], bogus
+
+
+def test_malformed_evidence_does_not_leak_the_value_into_the_reason():
+    """The reason names the TYPE, not the payload.
+
+    A context can carry an instance name or a path; a reason is printed,
+    logged and pasted into tickets, so it reports the shape of what
+    arrived and never echoes it back.
+    """
+    d = _by_gate(
+        gates.evaluate(_ctx(media_mount="s3cr3t-instance-name")),
+        "media_mount",
+    )
+    assert d["status"] == gates.BLOCK
+    assert "s3cr3t-instance-name" not in d["reason"]
+    assert "s3cr3t-instance-name" not in d["remedy"]
+    assert "str" in d["reason"]
+
+
+def test_boolean_evidence_behaviour_is_unchanged():
+    """The three settled cases stay exactly as they are."""
+    applies = {"targets_admin_deploy": True}
+    assert _by_gate(
+        gates.evaluate(_ctx(media_mount=True, **applies)), "media_mount"
+    )["status"] == gates.PASS
+    assert _by_gate(
+        gates.evaluate(_ctx(media_mount=False, **applies)), "media_mount"
+    )["status"] == gates.BLOCK
+    assert _by_gate(
+        gates.evaluate(_ctx_without("targets_admin_deploy", media_mount=None)),
+        "media_mount",
+    )["status"] == gates.PASS
+
+    pair = {"touches_admin_public": True}
+    assert _by_gate(
+        gates.evaluate(_ctx(branch_pair_valid=True, **pair)), "branch_pair"
+    )["status"] == gates.PASS
+    assert _by_gate(
+        gates.evaluate(_ctx(branch_pair_valid=False, **pair)), "branch_pair"
+    )["status"] == gates.BLOCK
+    assert _by_gate(
+        gates.evaluate(_ctx_without("touches_admin_public", branch_pair_valid=None)),
+        "branch_pair",
+    )["status"] == gates.PASS

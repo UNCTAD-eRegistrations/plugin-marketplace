@@ -158,7 +158,12 @@ happily resolve a reference that `dotnet build` on Linux rejects.
 
 Map the result into the context as `branch_pair_valid`:
 `true` → `true`, `false` → `false`, and **`null` stays `null`** — "could not
-determine" is not "fine". Report `reason`, `admin_branch` and `public_branch`
+determine" is not "fine". Use real booleans, never the strings `"true"` /
+`"false"`: a non-boolean value blocks, because a value nobody can read is not
+an answer. As with `media_mount`, an explicit `branch_pair_valid: false` blocks
+on its own whether or not `touches_admin_public` is set — a pair derived and
+found incompatible is not made compatible by a flag saying the check does not
+apply. Report `reason`, `admin_branch` and `public_branch`
 to the user either way.
 
 ### 4b — Media mount, for any Admin deploy

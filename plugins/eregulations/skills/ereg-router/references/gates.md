@@ -56,7 +56,8 @@ the point.
 **Context key:** `branch_pair_valid` — from `branch_pair.py`'s `valid`.
 `touches_admin_public` gates it on the same three-way rule as `media_mount`
 above: `true` activates, `false`/absent deactivates, anything else blocks. And
-an explicit `branch_pair_valid: false` blocks regardless of that flag.
+an explicit `branch_pair_valid: false` blocks regardless of that flag, and a
+non-boolean `branch_pair_valid` blocks on the same rule as `media_mount`.
 
 **What it means.** Public's web project carries a `ProjectReference` to Admin's
 `Unctad.eRegulations.Library`. That reference has to resolve for the build to
@@ -89,7 +90,10 @@ must be discovered, never assumed.
 gate; `false` or an absent key deactivates it; **any other value blocks**,
 because a flag nobody can read must not be able to switch a safety gate off.
 An explicit `media_mount: false` blocks regardless of that flag — negative
-evidence is not withdrawn by a flag saying the check does not apply.
+evidence is not withdrawn by a flag saying the check does not apply. The value
+must be a real boolean: absent/`null` is "nobody looked", and anything else —
+a quoted `"false"`, a `0` — **blocks**, naming the key and the type received.
+Malformed evidence is treated no more kindly than a malformed flag.
 
 **What it means.** Admin crashes on startup when `/app/media` is not mounted.
 This gate asks whether the target instance's compose actually mounts it. `true`
@@ -122,8 +126,8 @@ hand, then retry.
 kinds**, in which case it passes: a request that is itself the migration to 7.x
 must not be blocked by the gate whose own remedy is "upgrade the instance to
 7.x". That exemption is shape-checked: `kind` must be the string `upgrade`, or
-`secondary_kinds` must be a **list** of strings containing it — a dict or a
-bare string does not qualify. Any other value, including unresolved, blocks.
+`secondary_kinds` must be a **list or tuple** of strings containing it — a
+dict, a set or a bare string does not qualify. Any other value, including unresolved, blocks.
 
 **Why that direction.** New work on a legacy line accumulates in a place the
 organisation has decided to leave, and the decision is only real if something

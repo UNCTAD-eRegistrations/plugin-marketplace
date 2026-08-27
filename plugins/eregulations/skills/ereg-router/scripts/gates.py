@@ -96,9 +96,60 @@ def _undetermined_applicability(gate, key):
     )
 
 
+AFFIRMED = "affirmed"
+DENIED = "denied"
+UNSET = "unset"
+
+
+def _evidence(context, key):
+    """Classify a gate's evidence value, by TYPE rather than by meaning.
+
+    An absent key or `None` is UNSET -- nobody looked -- and what that
+    earns depends on whether the gate applies. A real `bool` is the only
+    thing read as an answer.
+
+    Everything else is UNDETERMINED and blocks, whatever it may look like
+    it means. `"false"` and `0` carry the meaning of False without being
+    False, and the string `"true"` is truthy while meaning nothing this
+    module can rely on. JSON hands us real booleans, but this module is
+    driven from a markdown skill where a context may be templated through
+    a shell or YAML first, and those hand back strings. Malformed evidence
+    is treated no more kindly than a malformed applicability flag: both are
+    input nobody can read, and a safety gate fires on exactly that.
+    """
+    value = context.get(key)
+    if value is None:
+        return UNSET
+    if isinstance(value, bool):
+        return AFFIRMED if value else DENIED
+    return UNDETERMINED
+
+
+def _uninterpretable_evidence(gate, key, context):
+    """Name the key and the TYPE received -- never the value itself.
+
+    Reasons get printed, logged and pasted into tickets, and a context can
+    carry an instance name or a host path. The shape of what arrived is
+    what makes the error actionable; echoing the payload back only widens
+    where it ends up.
+    """
+    return _decision(
+        gate,
+        BLOCK,
+        "%s could not be interpreted: expected true or false, received a "
+        "value of type %s" % (key, type(context.get(key)).__name__),
+        "set %s to a JSON true or false -- a quoted \"false\" or a 0 is not a "
+        "boolean and is not read as one -- then retry" % key,
+    )
+
+
 def _branch_pair(context):
-    valid = context.get("branch_pair_valid")
-    if valid is False:
+    valid = _evidence(context, "branch_pair_valid")
+    if valid == UNDETERMINED:
+        return _uninterpretable_evidence(
+            "branch_pair", "branch_pair_valid", context
+        )
+    if valid == DENIED:
         # Negative evidence outranks the applicability flag. Somebody
         # derived the pair and it does not resolve; that finding stands on
         # its own and is not withdrawn by a flag saying "never mind".
@@ -114,7 +165,7 @@ def _branch_pair(context):
         return _undetermined_applicability("branch_pair", "touches_admin_public")
     if applicability == DOES_NOT_APPLY:
         return _decision("branch_pair", PASS, "request does not build Admin + Public")
-    if valid is True:
+    if valid == AFFIRMED:
         return _decision("branch_pair", PASS, "derived Admin/Public pair resolves")
     return _decision(
         "branch_pair",
@@ -126,8 +177,10 @@ def _branch_pair(context):
 
 
 def _media_mount(context):
-    mount = context.get("media_mount")
-    if mount is False:
+    mount = _evidence(context, "media_mount")
+    if mount == UNDETERMINED:
+        return _uninterpretable_evidence("media_mount", "media_mount", context)
+    if mount == DENIED:
         # As above: somebody read the compose and the mount is absent.
         # Discarding that because `targets_admin_deploy` was never set
         # would deploy an Admin that crashes on startup.
@@ -143,7 +196,7 @@ def _media_mount(context):
         return _undetermined_applicability("media_mount", "targets_admin_deploy")
     if applicability == DOES_NOT_APPLY:
         return _decision("media_mount", PASS, "request is not an Admin deploy")
-    if mount is True:
+    if mount == AFFIRMED:
         return _decision("media_mount", PASS, "/app/media is bind-mounted")
     return _decision(
         "media_mount",
