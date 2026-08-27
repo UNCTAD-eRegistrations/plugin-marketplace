@@ -1161,8 +1161,8 @@ Expected: PASS, 35 passed
 Run:
 ```bash
 uv run --python 3.12 python plugins/eregulations/skills/ereg-router/scripts/branch_pair.py \
-  "$(find /Users/melux/Work/UN/GIT/eRegulations-4.0-Public -name WebAppCore.csproj | head -1)" \
-  /Users/melux/Work/UN/GIT/eRegulations-4.0-Admin
+  "$(find <repos-root>/eRegulations-4.0-Public -name WebAppCore.csproj | head -1)" \
+  <repos-root>/eRegulations-4.0-Admin
 ```
 Expected: JSON reporting `admin_branch` and `public_branch`. This is a smoke check, not an assertion — record what it prints. The clones are on `database-layer-update-NET8` and `tradeportal`, which the spec identifies as an invalid pair; if `valid` comes back `true`, investigate before continuing, because either the checkouts moved or the derivation is too permissive.
 
@@ -1574,7 +1574,7 @@ Expected: `--check` reports nothing out of date; the validator reports the same 
 - [ ] **Step 4: Install the plugin from this working copy**
 
 ```
-/plugin marketplace add /Users/melux/Work/UN/GIT/plugin-marketplace
+/plugin marketplace add <repos-root>/plugin-marketplace
 /plugin install eregulations@unctad-digital-government
 ```
 

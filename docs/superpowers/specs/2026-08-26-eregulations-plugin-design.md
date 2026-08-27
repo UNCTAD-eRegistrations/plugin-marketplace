@@ -58,7 +58,7 @@ This table governs where every fact is allowed to live. It exists because the ma
 
 **Operator local overlay:** `~/.ereg/fleet.local.json` — JSON, not YAML: bundled plugin scripts are stdlib-only by CI policy (`.github/workflows/test-plugin-scripts.yml`) and PyYAML is third-party. Never in any repo, listed in the plugin README as an operator-created file. Holds addresses and any posture overrides Monitor cannot yet serve.
 
-> **Pre-existing exposure, out of scope but worth acting on:** `5.9.49.171` is already committed to this public repo. Every other address in `plugins/` is loopback or RFC1918. Worth a separate look; not fixed here.
+> **Pre-existing exposure, out of scope but worth acting on:** one real public address is already committed under `plugins/leaflets/` in this public repo. Every other address in `plugins/` is loopback or RFC1918. Worth a separate look; not fixed here.
 
 ## Architecture
 
@@ -343,7 +343,7 @@ Neither blocks A. **A is fully functional with fleet facts supplied by the opera
 - **C — Coolify/API control plane.** Deploys need VPN + SSH, which the terminal already has. The 4.x/5.x Windows fleet, where most instances still live, has no API to drive.
 - **Instance provisioning tools.** See Component 2.
 - **Credential rotation** for `RD Different accesses`. See Security.
-- **The `5.9.49.171` exposure** already committed to this public repo. See Data classification.
+- **The pre-existing public-IP exposure** already committed under `plugins/leaflets/` in this public repo. See Data classification.
 - **Fixing the 14 pre-existing validator errors** in other plugins.
 - **The seven repo `CLAUDE.md` PRs** as a blocking dependency. The plugin is fully functional if they never merge.
 

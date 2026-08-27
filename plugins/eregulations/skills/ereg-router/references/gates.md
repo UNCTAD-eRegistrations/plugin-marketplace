@@ -11,7 +11,7 @@ Every gate declares a **failure direction**:
   wherever proceeding on unverified data could damage a system or touch a
   compromised host. Unresolved input is treated exactly as harshly as
   confirmed-bad input. That is the design, not an oversight.
-- **Fail open** — if the input cannot be verified, the gate warns and proceeds.
+- **Fail open** — if the input cannot be verified, the gate does not block.
   Used only for advisory facts.
 
 | Gate | Fires when | Direction | Overridable |

@@ -16,6 +16,6 @@ Run a duplicate-username check first (`GROUP BY UserName HAVING COUNT(*) >
 case-insensitive, so `ahmed`/`Ahmed` collide. When you find a real
 duplicate (same email, two accounts), keep the one with the more recent
 `LastLogin` and/or broader `User_Role` footprint across instances, skip
-the other; check both accounts' Comoros-scoped role rows are identical
+the other; check both accounts' `<name>`-scoped role rows are identical
 first so you're not silently dropping a permission the stale account had
 that the kept one doesn't.

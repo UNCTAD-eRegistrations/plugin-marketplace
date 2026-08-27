@@ -65,3 +65,23 @@ def test_each_line_is_independently_parseable(tmp_path):
     lines = log.read_text().strip().splitlines()
     assert len(lines) == 2
     assert json.loads(lines[0])["reason"] == "one\nwith a newline"
+
+
+def test_cli_refuses_a_blank_reason_cleanly(capsys, tmp_path):
+    """A blank --reason is the one case that IS an execution failure.
+
+    It must not surface as a traceback: gates.py's CLI was already fixed to
+    print one clean line and exit 2 for "could not run" cases, and audit.py
+    must match rather than leaking a stack trace.
+    """
+    log = tmp_path / "audit.jsonl"
+
+    status = audit.main(["--gate", "unsupported_version", "--reason", "   ", "--log", str(log)])
+
+    assert status == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "audit.py:" in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.err.strip().count("\n") == 0  # one line, not a dump
+    assert not log.exists()

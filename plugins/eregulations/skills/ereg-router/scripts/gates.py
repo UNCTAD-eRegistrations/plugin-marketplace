@@ -9,7 +9,7 @@ Each gate declares a FAILURE DIRECTION:
   fail closed - if the input cannot be verified, BLOCK. Used wherever
                 proceeding on stale data could damage a system or touch a
                 compromised host.
-  fail open   - if the input cannot be verified, WARN and proceed. Used
+  fail open   - if the input cannot be verified, it does not block. Used
                 only for advisory facts.
 
 Unresolved input to a fail-closed gate is treated exactly as harshly as

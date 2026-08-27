@@ -48,6 +48,7 @@ def record_override(path, gate, reason, context, clock=_now):
 
 def main(argv=None):
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description="Record a gate override.")
     parser.add_argument("--gate", required=True)
@@ -55,7 +56,11 @@ def main(argv=None):
     parser.add_argument("--context", default="{}")
     parser.add_argument("--log", default=DEFAULT_LOG)
     args = parser.parse_args(argv)
-    record = record_override(args.log, args.gate, args.reason, json.loads(args.context))
+    try:
+        record = record_override(args.log, args.gate, args.reason, json.loads(args.context))
+    except ValueError as exc:
+        sys.stderr.write("audit.py: %s\n" % exc)
+        return 2
     print(json.dumps(record, sort_keys=True))
     return 0
 

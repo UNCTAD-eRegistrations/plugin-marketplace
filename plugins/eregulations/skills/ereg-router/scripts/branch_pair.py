@@ -1,6 +1,6 @@
 """Derive the Admin/Public branch pair from the csproj project reference.
 
-Public's WebAppCore.csproj carries a ProjectReference to Admin's
+Public's web project carries a ProjectReference to Admin's
 Unctad.eRegulations.Library. That reference has to resolve for the build to
 succeed, so resolving it is the same question as "are these two checkouts
 a compatible pair" — asked of the code rather than of a table someone has
