@@ -236,3 +236,117 @@ def test_cli_refuses_malformed_stdin_cleanly(capsys, monkeypatch):
     assert "gates.py:" in captured.err
     assert "Traceback" not in captured.err
     assert captured.err.strip().count("\n") == 0  # one line, not a dump
+
+
+def _ctx_without(key, **overrides):
+    """A passing context with `key` removed entirely, not just falsified.
+
+    An absent key and a `false` key are different statements: "nobody
+    looked" versus "somebody looked and said no". The fail-open defect
+    these tests pin down lived precisely in that gap.
+    """
+    ctx = _ctx(**overrides)
+    ctx.pop(key, None)
+    return ctx
+
+
+def test_explicit_media_mount_false_blocks_without_the_applicability_flag():
+    """Negative evidence outranks an absent applicability flag.
+
+    `media_mount: false` means somebody read the compose and the mount is
+    NOT there -- Admin crashes on startup. That finding must not be
+    discarded merely because `targets_admin_deploy` was never set.
+    """
+    d = _by_gate(
+        gates.evaluate(_ctx_without("targets_admin_deploy", media_mount=False)),
+        "media_mount",
+    )
+    assert d["status"] == gates.BLOCK
+    assert d["remedy"]
+
+
+def test_explicit_branch_pair_false_blocks_without_the_applicability_flag():
+    """Symmetric to media_mount: a pair confirmed incompatible still blocks."""
+    d = _by_gate(
+        gates.evaluate(_ctx_without("touches_admin_public", branch_pair_valid=False)),
+        "branch_pair",
+    )
+    assert d["status"] == gates.BLOCK
+    assert d["remedy"]
+
+
+def test_non_boolean_targets_admin_deploy_blocks():
+    """A malformed applicability value must not silently deactivate a gate.
+
+    The evidence is deliberately POSITIVE here (`media_mount: true`), so the
+    block can only come from the unreadable applicability value itself and
+    not from the underlying fact being unresolved.
+    """
+    for bogus in ("yes", 1, {"admin": True}, ["admin"]):
+        d = _by_gate(
+            gates.evaluate(_ctx(targets_admin_deploy=bogus, media_mount=True)),
+            "media_mount",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+        assert "targets_admin_deploy" in d["reason"], bogus
+        assert d["remedy"], bogus
+
+
+def test_non_boolean_touches_admin_public_blocks():
+    for bogus in ("yes", 1, {"admin": True}, ["admin"]):
+        d = _by_gate(
+            gates.evaluate(_ctx(touches_admin_public=bogus, branch_pair_valid=True)),
+            "branch_pair",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+        assert "touches_admin_public" in d["reason"], bogus
+        assert d["remedy"], bogus
+
+
+def test_dict_secondary_kinds_does_not_grant_the_upgrade_exemption():
+    """`in` matches a dict's KEYS, so a dict once bought the exemption.
+
+    A set is checked alongside it: `list()` flattens it into exactly the
+    same membership test, and only a list or tuple is an accepted shape.
+    """
+    for bogus in ({"upgrade": "x"}, {"upgrade"}):
+        d = _by_gate(
+            gates.evaluate(_ctx(secondary_kinds=bogus, version_major="5")),
+            "unsupported_version",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+
+
+def test_bare_string_secondary_kinds_does_not_grant_the_upgrade_exemption():
+    """`in` on a string matches SUBSTRINGS; only a list/tuple of strings counts."""
+    for bogus in ("upgrade", "upgrades and bugfixes", "xupgradex"):
+        d = _by_gate(
+            gates.evaluate(_ctx(secondary_kinds=bogus, version_major="5")),
+            "unsupported_version",
+        )
+        assert d["status"] == gates.BLOCK, bogus
+
+
+def test_applicability_false_or_absent_still_passes():
+    """The regression guard: ordinary requests must not start blocking."""
+    for ctx in (
+        _ctx(targets_admin_deploy=False),
+        _ctx_without("targets_admin_deploy"),
+    ):
+        assert _by_gate(gates.evaluate(ctx), "media_mount")["status"] == gates.PASS
+    for ctx in (
+        _ctx(touches_admin_public=False),
+        _ctx_without("touches_admin_public"),
+    ):
+        assert _by_gate(gates.evaluate(ctx), "branch_pair")["status"] == gates.PASS
+
+
+def test_legitimate_upgrade_exemption_still_granted():
+    listed = _ctx(kind="bugfix", secondary_kinds=["upgrade"], version_major="5")
+    assert _by_gate(gates.evaluate(listed), "unsupported_version")["status"] == gates.PASS
+
+    tupled = _ctx(kind="bugfix", secondary_kinds=("upgrade",), version_major="5")
+    assert _by_gate(gates.evaluate(tupled), "unsupported_version")["status"] == gates.PASS
+
+    primary = _ctx(kind="upgrade", secondary_kinds=[], version_major="5")
+    assert _by_gate(gates.evaluate(primary), "unsupported_version")["status"] == gates.PASS

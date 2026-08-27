@@ -54,7 +54,9 @@ the point.
 ## `branch_pair`
 
 **Context key:** `branch_pair_valid` — from `branch_pair.py`'s `valid`.
-Only consulted when `touches_admin_public` is true.
+`touches_admin_public` gates it on the same three-way rule as `media_mount`
+above: `true` activates, `false`/absent deactivates, anything else blocks. And
+an explicit `branch_pair_valid: false` blocks regardless of that flag.
 
 **What it means.** Public's web project carries a `ProjectReference` to Admin's
 `Unctad.eRegulations.Library`. That reference has to resolve for the build to
@@ -83,8 +85,11 @@ must be discovered, never assumed.
 
 ## `media_mount`
 
-**Context key:** `media_mount`. Only consulted when `targets_admin_deploy` is
-true.
+**Context key:** `media_mount`. `targets_admin_deploy: true` activates the
+gate; `false` or an absent key deactivates it; **any other value blocks**,
+because a flag nobody can read must not be able to switch a safety gate off.
+An explicit `media_mount: false` blocks regardless of that flag — negative
+evidence is not withdrawn by a flag saying the check does not apply.
 
 **What it means.** Admin crashes on startup when `/app/media` is not mounted.
 This gate asks whether the target instance's compose actually mounts it. `true`
@@ -116,7 +121,9 @@ hand, then retry.
 `7` passes. `4`, `5` or `6` blocks — **unless `upgrade` is among the request's
 kinds**, in which case it passes: a request that is itself the migration to 7.x
 must not be blocked by the gate whose own remedy is "upgrade the instance to
-7.x". Any other value, including unresolved, blocks.
+7.x". That exemption is shape-checked: `kind` must be the string `upgrade`, or
+`secondary_kinds` must be a **list** of strings containing it — a dict or a
+bare string does not qualify. Any other value, including unresolved, blocks.
 
 **Why that direction.** New work on a legacy line accumulates in a place the
 organisation has decided to leave, and the decision is only real if something

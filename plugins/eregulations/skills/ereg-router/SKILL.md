@@ -164,7 +164,10 @@ to the user either way.
 ### 4b — Media mount, for any Admin deploy
 
 Set `targets_admin_deploy: true`, then determine `media_mount` yourself — no
-script produces it, and leaving it out blocks every Admin deploy.
+script produces it. With `targets_admin_deploy: true` set, leaving `media_mount`
+out blocks the deploy, because unconfirmed is not confirmed. An explicit
+`media_mount: false` blocks on its own, whether or not `targets_admin_deploy`
+is set — a mount checked and found missing is not un-found by a flag.
 
 Read the **target instance's compose file** and look at the Admin service's
 volumes for a mount whose target is `/app/media`, in either form:

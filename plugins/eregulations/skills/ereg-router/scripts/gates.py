@@ -59,19 +59,63 @@ def _host_posture(context):
     )
 
 
+APPLIES = "applies"
+DOES_NOT_APPLY = "does-not-apply"
+UNDETERMINED = "undetermined"
+
+
+def _applicability(context, key):
+    """Classify an applicability flag three ways, never by truthiness.
+
+    Truthiness collapses three distinct statements -- "this gate applies",
+    "it does not", and "the flag is garbage" -- into two, and it lands the
+    garbage on the permissive side. That is backwards for a safety gate: a
+    value nobody can read is the one case where the gate must fire. So
+    only an exact `True` activates a gate, only an exact `False` or an
+    absent key deactivates it, and anything else is UNDETERMINED.
+
+    `is True` / `is False` rather than `==` on purpose: `1 == True` in
+    Python, and an integer 1 arriving in a JSON context is a malformed
+    flag, not an affirmation.
+    """
+    value = context.get(key)
+    if value is True:
+        return APPLIES
+    if value is False or value is None:
+        return DOES_NOT_APPLY
+    return UNDETERMINED
+
+
+def _undetermined_applicability(gate, key):
+    return _decision(
+        gate,
+        BLOCK,
+        "%s is neither true nor false, so whether this gate applies "
+        "cannot be determined" % key,
+        "set %s to a JSON true or false in the context, then retry" % key,
+    )
+
+
 def _branch_pair(context):
-    if not context.get("touches_admin_public"):
-        return _decision("branch_pair", PASS, "request does not build Admin + Public")
     valid = context.get("branch_pair_valid")
-    if valid is True:
-        return _decision("branch_pair", PASS, "derived Admin/Public pair resolves")
     if valid is False:
+        # Negative evidence outranks the applicability flag. Somebody
+        # derived the pair and it does not resolve; that finding stands on
+        # its own and is not withdrawn by a flag saying "never mind".
         return _decision(
             "branch_pair",
             BLOCK,
-            "the checked-out Admin and Public branches are not a compatible pair",
+            "the checked-out Admin and Public branches were derived and are "
+            "not a compatible pair",
             "check out a pair whose csproj project reference resolves, then retry",
         )
+    applicability = _applicability(context, "touches_admin_public")
+    if applicability == UNDETERMINED:
+        return _undetermined_applicability("branch_pair", "touches_admin_public")
+    if applicability == DOES_NOT_APPLY:
+        return _decision("branch_pair", PASS, "request does not build Admin + Public")
+    if valid is True:
+        return _decision("branch_pair", PASS, "derived Admin/Public pair resolves")
     return _decision(
         "branch_pair",
         BLOCK,
@@ -82,18 +126,25 @@ def _branch_pair(context):
 
 
 def _media_mount(context):
-    if not context.get("targets_admin_deploy"):
-        return _decision("media_mount", PASS, "request is not an Admin deploy")
     mount = context.get("media_mount")
-    if mount is True:
-        return _decision("media_mount", PASS, "/app/media is bind-mounted")
     if mount is False:
+        # As above: somebody read the compose and the mount is absent.
+        # Discarding that because `targets_admin_deploy` was never set
+        # would deploy an Admin that crashes on startup.
         return _decision(
             "media_mount",
             BLOCK,
-            "/app/media is not bind-mounted; Admin crashes on startup without it",
+            "the /app/media bind mount was checked and is absent; Admin "
+            "crashes on startup without it",
             "add the /app/media bind mount to the compose file before deploying",
         )
+    applicability = _applicability(context, "targets_admin_deploy")
+    if applicability == UNDETERMINED:
+        return _undetermined_applicability("media_mount", "targets_admin_deploy")
+    if applicability == DOES_NOT_APPLY:
+        return _decision("media_mount", PASS, "request is not an Admin deploy")
+    if mount is True:
+        return _decision("media_mount", PASS, "/app/media is bind-mounted")
     return _decision(
         "media_mount",
         BLOCK,
@@ -103,9 +154,23 @@ def _media_mount(context):
 
 
 def _is_upgrade_request(context):
-    kinds = list(context.get("secondary_kinds") or ())
-    kinds.append(context.get("kind"))
-    return "upgrade" in kinds
+    """Whether this request is itself the upgrade the version gate demands.
+
+    Type-checked, because this grants an EXEMPTION from a blocking gate and
+    so is the one place where a sloppy read buys a pass. A bare `in` test
+    is far too generous here: `"upgrade" in {"upgrade": ...}` matches a
+    dict's keys, and `"upgrade" in "upgrades"` matches a substring. Only a
+    list or tuple carrying the exact string counts.
+    """
+    if context.get("kind") == "upgrade":
+        return True
+    secondary = context.get("secondary_kinds")
+    if not isinstance(secondary, (list, tuple)):
+        return False
+    for entry in secondary:
+        if isinstance(entry, str) and entry == "upgrade":
+            return True
+    return False
 
 
 def _unsupported_version(context):
