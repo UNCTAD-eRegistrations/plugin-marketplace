@@ -56,32 +56,31 @@ Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
 2. **The drawing shows today's reality and the change. Nothing else.** No traces of abandoned ideas, no design history, no invented styles, no invented fields.
 3. **Done = the built service indistinguishable from the contract screens.** The check is mechanical: re-run the same rendering pipeline on the built service and put contract and reality side by side.
 4. **The shared document holds only what is agreed (Frank, 23-08-2026).** The current situation never moves: it is read from the live service. Every contract section carries two tabs, "Agreed contract" and "<name>'s try"; the agreed pane is always the default view. Everything a colleague sends about a section, his remarks (numbered J1, J2, his words verbatim, the answer under each, states open · answered · agreed · kept as is) and his own drawn version, lands under that section's try tab, never in the main body and never in a separate section. A try moves into the contract only when both agree, and the row records the move. Nothing is deleted.
-6. **The colleague never sees the plumbing (Frank, 27-08-2026).** He says what he wants to change and gets back one address where his proposal is readable, screens and all. He never clones, never sends anything up, never opens a pull request, never hears the words repository, working line or merge. The session does all of it silently. Frank accepts in the same language: "accept Julien's proposal on the end situation". Anything technical shown to a colleague is a fault of this skill, not of the colleague. How it works: §Proposing and accepting.
+6. **The colleague never sees the plumbing (Frank, 27-08-2026).** He says what he wants to change and his proposal appears in his own tab, in the section it concerns, inside the one document everybody reads. He never clones, never sends anything up, never opens a pull request, never hears the words repository, working line or merge. The session does all of it silently. Frank accepts in the same language: "accept Julien's proposal on the end situation". Anything technical shown to a colleague is a fault of this skill, not of the colleague. How it works: §Proposing and accepting.
 
 5. **Choices first, one door, no meta documents (Frank, 18-08-2026).** The review starts with ONE page presenting the open choices as lettered options (A, B, C), recommendation marked; the full proposal, evidence and any audience versions sit behind it, linked, never announced beside it. Deliver exactly one link: the door is an INDEX listing every document of the change in reading order, and every published document links back to it (no orphan pages). Never produce a "how we did it" / method-narration page unasked: a page that neither shows the change nor asks a choice is noise. Backstop: memory `feedback-choices-first-one-door.md`.
 
-## Proposing and accepting (the shared document, no technical words)
+## Proposing and accepting (one document, his tabs, no technical words)
 
-**Where the pages live.** Private repository `UNCTAD-eRegistrations/service-change-documents`, one folder per change (`lesotho-recover-not-on-dashboard/` is the first). A publisher on the server pulls it every two minutes: `main` is the agreed set at https://smartrules.ai/service-change-doc/, and every `proposal/<name>` line is published at https://smartrules.ai/service-change-doc/proposals/<name>/. Nothing else writes those pages.
+**One document, one address.** https://smartrules.ai/service-change-doc/change.html . Every section carries two tabs: the agreed contract, shown by default, and the colleague's try. His proposals live in his tabs, inside the same document everybody reads. There is no second address and no copy.
 
-**Local copy.** `~/Claude/3 - Projects/service-change-documents` on Frank's machine, `~/service-change-documents` elsewhere. If it is missing, clone it silently. If it exists, refresh it silently. Never ask the person about it.
+**Underneath, invisible to both.** The pages are held in the private repository `UNCTAD-eRegistrations/service-change-documents`, folder per change, and a publisher on the server carries `main` to that address every two minutes. Local copy: `~/Claude/3 - Projects/service-change-documents` on Frank's machine, `~/service-change-documents` elsewhere; clone or refresh it silently, never mention it.
 
-**When a colleague says he wants to propose or remark something** ("I have a remark on the end situation", "I would draw this differently", "here is my proposal for the phases"):
+**When a colleague says what he wants to change** ("I have a remark on the end situation", "I would draw the phases differently"):
 
 1. Refresh the local copy, silently.
-2. Open or reuse the line `proposal/<colleague>-<section-slug>` (example `proposal/julien-end-situation`).
-3. Write it INSIDE that section's try tab, per doctrine 4: a remark numbered `J1`, `J2`, his words verbatim, the answer under it when there is one, state `open`; a drawn version goes in the same pane as his own screens. Never in the agreed pane, never in a new section.
-4. Run the checkers on the page (`slop-check.py`, `vocabulary-check/check.py`) and drive them to zero.
-5. Save and send up, silently.
-6. Answer him with ONE address and one line: *"Your remark on the end situation is here, with the screens: https://smartrules.ai/service-change-doc/proposals/julien-end-situation/ . Frank sees it as soon as he opens it."* Nothing else.
+2. Write it into that section's try tab, per doctrine 4: a remark numbered `J1`, `J2`, his words verbatim, state `open`; a version he draws goes in the same pane, as his own screens. Never in the agreed pane, never in a new section.
+3. Run the checkers on the page (`slop-check.py`, `vocabulary-check/check.py`) to zero.
+4. Save and send up, silently. If the send is refused because somebody else wrote first, refresh and send again.
+5. Answer him in one line: *"It is in the document, End situation, your tab: https://smartrules.ai/service-change-doc/change.html . Frank sees it when he opens it."*
 
-**When Frank says "show me the proposals"**: list what is open, one line each, name, section, address. Nothing technical.
+**When Frank says "show me Julien's proposals"**: list them, one line each, section, what he asks, state. Nothing technical.
 
-**When Frank says "accept Julien's proposal on the end situation"**: move the try into the agreed pane, record the move in the row (state `agreed`, date), merge the line into `main`, delete the line, and confirm with the main address. When he refuses, write the answer under the remark and set the state (`answered` or `kept as is`), leaving the try where it is.
+**When Frank says "accept Julien's proposal on the end situation"**: move it into the agreed pane, record the move in his row (state `agreed`, date), keep the row visible in his tab, save and publish. When he refuses or answers, write the answer under the remark and set the state (`answered` or `kept as is`), leaving it in his tab.
 
-**Words to use with anyone**: propose, remark, look at it here, accept, the agreed document. **Words never to use with a colleague**: repository, clone, branch, commit, push, pull request, merge, deploy.
+**Words to use with anyone**: propose, remark, his tab, the agreed contract, accept. **Words never to use with a colleague**: repository, clone, branch, commit, push, pull request, merge, deploy, address of a copy.
 
-**One-time setup on a colleague's machine**, part of installing the kit, never explained again: he signs in to GitHub once (`gh auth login`) so his session can carry his proposals. If a send fails because he has no access, ask Frank to grant it, and say only *"Frank has to give you access, I have asked him."*
+**One-time setup on a colleague's machine**, part of installing the kit, never explained again: he signs in to GitHub once (`gh auth login`) so his session can carry his proposals into the document. If a send fails for lack of access, ask Frank to grant it and say only *"Frank has to give you access, I have asked him."*
 
 ## The knowledge, all of it (load before writing)
 
