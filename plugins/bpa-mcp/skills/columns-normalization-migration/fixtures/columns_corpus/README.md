@@ -12,7 +12,13 @@ null-width fail-loud path.
 - Pure JSON only: explicit numeric types (`rows` stays integer `3`, never
   `3.0`), no `NaN` / `Infinity`, no Python reprs.
 - Comparisons must be order-independent — do not rely on dict insertion order.
-- Every normalized `expected` set of column widths sums to exactly 12.
+- Every normalized `expected` set of column widths sums to exactly 12 — with
+  one deliberate exception: the `[12, 12]` **CSS-complete pair**
+  (TOBE-18030, `split_mixed_width12_pair.json`), a content-bearing width-12
+  column paired with an EMPTY width-12 filler. It sums to 24 by design: the
+  container is complete by the TOBE-18019 full-row CSS rule, not by the
+  12-sum rule. Ports must accept exactly this shape (two width-12 columns,
+  second one empty) and no other over-12 `expected` container.
 - Malformed fixtures declare a fail-loud expectation (`error` / `raises`) so
   ports assert the walker raises rather than emitting a corrupt plan.
 

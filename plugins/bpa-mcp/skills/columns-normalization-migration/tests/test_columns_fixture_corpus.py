@@ -47,6 +47,8 @@ _REQUIRED_SCENARIOS = [
     "adjust",  # adjust-columns customClass
     "over",  # over-12
     "malformed",  # missing-key / null-width fail-loud
+    "spacer",  # split track: over-12 row ending in empty spacer columns
+    "width12",  # split track: mixed width-12 row -> [12, empty-12] pair (TOBE-18030)
 ]
 
 

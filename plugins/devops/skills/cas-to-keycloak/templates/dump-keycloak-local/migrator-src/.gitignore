@@ -1,0 +1,8 @@
+# Never commit into the plugin (publish zips every file) or into a country repo:
+# installed deps, import reports, real user exports, and the credentials file.
+node_modules/
+out/
+.env
+.env.lomas*
+lomas-users.csv
+lomas-users.json

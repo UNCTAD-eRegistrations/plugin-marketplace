@@ -1,14 +1,20 @@
 ---
 name: columns-normalization-migration
-description: Scan-and-plan (read-only) workflow for normalizing Form.io column layouts to sum 12 across a service's forms, plus a gated apply, covering BOTH tracks — the under-12 PAD track (widen a short row's columns) and the over-12 SPLIT track (break a too-wide row into multiple sum-12 containers). The APPLY half (any form_patch write) is ENABLED but gated on per-instance deployment of the platform precondition (TOBE-18004 / DS-Frontend#173, DS >= 2.18.326 on the 2.18 line / >= 2.19.188 on develop) AND the instance allowlist — apply only on an allowlisted instance where the DS empty-column exemption is deployed. Use when preparing a columns normalization migration.
+description: Scan-and-plan (read-only) workflow for normalizing Form.io column layouts to sum 12 across a service's forms, plus a gated apply, covering BOTH tracks — the under-12 PAD track (widen a short row's columns) and the over-12 SPLIT track (break a too-wide row into multiple sum-12 containers; width-12 columns ship as [12, empty-12] CSS-complete pairs, the one sanctioned non-12 sum). The APPLY half (any form_patch write) is ENABLED but gated on per-instance deployment of the platform precondition (TOBE-18004 / DS-Frontend#173, DS >= 2.18.326 on the 2.18 line / >= 2.19.188 on develop) AND the instance allowlist — apply only on an allowlisted instance where the DS empty-column exemption is deployed. Use when preparing a columns normalization migration.
 argument-hint: "[instance] [service_id]"
 license: UNCTAD-Internal
 compatibility: Requires an active BPA MCP connection for form_get / form_patch; the scan scripts are stdlib-only Python 3.9+ and run with no install step.
 allowed-tools: Read, Write, Grep, Glob, Bash(python3 *), Bash(mkdir -p *), Bash(cat *), Bash(date *), mcp__BPA__form_get, mcp__BPA__form_patch, mcp__BPA__componentbehaviour_generate_newkeys, mcp__BPA__instance_list, mcp__BPA__connection_status
 metadata:
-  version: "1.1.2"
-  version-date: "2026-07-28"
+  version: "1.4.0"
+  version-date: "2026-08-03"
   changelog:
+    - "1.4.0 (2026-08-03): TOBE-18030 — mixed width-12 rows whose non-12 remainder itself overflows (e.g. [12,8,8]) are now SPLIT instead of flagged; the `mixed_width12_remainder_over12` review reason is RETIRED. Option C per Erick's decision on the ticket, render-tested composed against the deployed 2.18.329 CSS before build (desktop 1172: BEFORE squeezes the [8,8] remainder 582/582 on one line; AFTER restores each 8 to its authored 768px row; narrow: the remainder fillers hide under cols-stacked while the pair's filler simply collapses to zero width — readColumnBoxes skips col-empty, so a one-box pair row never stamps cols-stacked (#68 review, Erick); the [12, empty-12] pair measures byte-identical to the accepted cuba Bitácora control). Review round (#68, Erick): a mixed row whose overflowing remainder is ENTIRELY spacers (e.g. [12, empty-8, empty-8], the '100' shape) now stays CSS-handled instead of splitting — the empty columns collapse to zero width on the content line, so the split was pure churn (a form_patch + behaviour re-key + publish for zero visual change — churn is the whole justification; spacer preservation is deliberately not part of it, see round 3); a row with no content anywhere still falls through to the all_columns_empty review, and the '110' shape (one content-bearing remainder column) still splits, since that one is a real improvement (50/50 flex-grow -> authored 2/3). Corpus README's sum-12 convention now carries the pair exception (the width guard cannot see documentation-shaped expected blocks), and the two flat 'sum to 12' claims (body intro + frontmatter description) are qualified. Mechanism: `_group_columns` never groups ACROSS a width-12 column — each 12 closes into its own group, preserving column order ([8,12,8] -> [8,e4]+[12,e12]+[8,e4], never a reordering merge of the 8s) — and a new pad rule pairs a lone-12 group with an EMPTY width-12 filler (the ordinary rule computes 12-12=0, i.e. no filler; a single-column [12] container is the defaultsDeep back-fill trap). The pair deliberately sums to 24: it is complete by the TOBE-18019 CSS rule (content column takes its own full row, filler is col-empty), not by the 12-sum rule — the test invariant is renamed accordingly (`_assert_all_containers_render_complete`), and PHASE 4's width check documents the exception. Interactions: an empty-spacer 12 column forms a content-less group and is dropped by the #58 filter (no [e12,e12] junk pair); an all-empty mixed row stays review/all_columns_empty (content classification wins); nested-in-grid mixed rows split as ordinary rows tagged grid_context (TOBE-18041); emitted output is stable under re-scan ([12,e12] has non-12 remainder 0 -> CSS-handled None; padded remainders sum 12). Apply side needed ZERO changes — the >= 2-column and content guards pass, determinant carry stays copy-to-all-N, and the structural revert round-trips — covered by new apply tests, not by inspection. The reverse lockstep caught the orphaned vocabulary row on cue (3rd real catch); PHASE 1 prose swept per the retirement checklist. Round 3 (#68 adversarial review, Erick): the FORWARD lockstep hole is closed — a PHASE 1 retirement note used to satisfy the documented-check for the very reason it declares dead (re-emitting a retired reason kept the guard green because a sentence said it no longer exists; proven by reverting the scanner: the guard was NOT among the failures). Lines carrying the word 'retired' are now excluded from the documented-search, with the convention that a retirement note keeps the token and the marker on one line; the same revert now fails the guard itself. The retirement checklist gains the scan modules' own docstrings (two stale spots still described mixed as a live review verdict). The '100' rationale stands on churn alone (spacer preservation was incoherent next to the [empty-12,8,8] asymmetry — both asymmetries now documented together, including the leading-spacer-run position shift [e12,e8,8c] -> [[8,4]], pinned). The pair-artifact version-dependence is documented (the first migration output that is version-dependent: a pre-2.18.326 DS re-floors the filler and halves the content column — bites only on service export/import to a non-upgraded instance or a DS rollback). The corpus fixture is now executed against the real scanner (its documentation-shaped expected cannot be walked by the corpus width guard) and pinned in _REQUIRED_SCENARIOS ('width12')."
+    - "1.3.0 (2026-07-30): TOBE-18041 — the APPLY half for editgrid-nested rows; the 18037 freeze is lifted. Nested rows (panel-in-grid etc.) are now ORDINARY rows on both tracks: the pad scan emits real append/resize plans and the split scan emits full runnable split plans, each tagged `grid_context: nested` (the `in_grid_nested` reason is retired -- nested rows report ordinary reasons; the reverse lockstep guard caught its orphaned vocabulary row, which is exactly the drift it exists to catch). The split apply's ancestry guard is narrowed: a datagrid/editgrid ancestor no longer poisons its whole subtree -- a panel inside the grid resolves as an ordinary container parent -- but a DIRECT child of the grid stays refused (defense-in-depth; the DS grid rule lays those out correctly and a forged plan row must not degrade one), and tabs/table/unknown ancestors keep their blanket rule including inside grids. The pad apply's live re-verification now passes `grid_context` (the legacy `inside_grid` boolean path remains for API stability but has no caller in these scripts), so a live direct child refuses with `grid_direct_child` while a live nested row pads normally. Malformed-width handling is refined: a NESTED row fails loud exactly like a top-level row (it is actionable, and silently skipping it is the corrupt-plan path the raise exists to prevent); only a malformed DIRECT child keeps the swallow + `base_sum: null`. PHASE 3 gains the in-grid canary rule: the first grid-nested apply ever must run on els-dev and verify grid-subtree placement, saved-entry survival (entry data is keyed by field keys, which the split preserves -- verified, not assumed), and the revert round-trip. Tests cover in-grid position arithmetic across rows sharing a panel, the forged-direct-child refusal, tabs-inside-grid staying unsupported, and the grid-nested revert. Review follow-up (#66, Erick): the retirement had left the PHASE 1 prose stale -- the `in_grid_nested` review bullet and the classification paragraph still described the 18037 freeze (an editing mishap: the rewrite was authored but its patch script crashed before writing, and the verification grep checked the pre-1.2.2 spelling). The reverse lockstep initially could not see prose (it scraped markdown table rows only); CLOSED in round 2 per Erick's structural handle: DEFINITION BULLETS (a bullet leading with a bold code span, the prose analogue of a table row) are now scraped into the same orphan check against the ast-collected emitted set -- no curated list, positive-controlled against the exact pre-fix tree (the stale in_grid_nested bullet fails it) and against a bogus table row. Identifiers in running prose (base_sum, grid_context) are inline code spans, never bullet-leading bold definitions, so they are not grabbed. Residual, recorded: a retired reason in FREE prose is still uncaught -- retiring a reason keeps a human PHASE 1 prose sweep in its checklist. Also aligned three annotations from the same rename: the `inside_grid` vocabulary row no longer claims the pad apply calls the boolean API, `_search_descendants`'s docstring now states the two-class grid rule, and the live-index tuple type is `str` (grid_context), not `bool`."
+    - "1.2.2 (2026-07-30): Two follow-ups from the #61 review. (1) `base_sum` for an in-grid skip is now None when any width is malformed (null / bool / non-int / outside 1..12): the 1.2.0 raw sum filtered to valid ints, so a nested `[4, null, 4]` row reported a confident-looking 8 and would have passed for an ordinary sub-12 row in the very inventory TOBE-18037 exists to produce, quietly never entering TOBE-18041's scope. The swallowing itself is unchanged and deliberate -- in-grid rows return before the fail-loud width checks so a malformed row inside a grid never aborts a whole-form scan; only the number stopped lying. (2) The pad track's `inside_grid_nested` is renamed `in_grid_nested`, matching the split track: one concept, one spelling in one inventory. The direction is deliberate -- `inside_grid` / `inside_grid_nested` differ only by suffix, the exact substring hazard the 1.2.1 token-bounded check defused, while `in_grid_nested` shares no token boundary with the legacy reason. Vocabulary is one day old and in no report yet, so no migration concern."
+    - "1.2.1 (2026-07-30): Closed the scan-reason lockstep gap found reviewing #61. The 1.1.3 contract test only read `columns_split.py` and only matched `\"reason\": \"...\"` dict literals, so it could not see the pad track at all: `columns_logic.py` emits 14 reasons, 11 of which were undocumented in PHASE 1, and TOBE-18037's two new ones arrive as `reason = (\"grid_direct_child\" if ... else \"inside_grid_nested\")` -- a form the regex never matched. Redacting both from PHASE 1 left all 203 tests green, i.e. the guard built to stop this drift class could not stop it on the other track. Three fixes: (a) the guard reads BOTH scan modules -- and deliberately NOT the apply modules, whose skip reasons (`row_not_found`, `modified_since_apply`, ...) are PHASE 3 vocabulary and would be wrong to demand in PHASE 1; (b) reasons are collected by parsing the module with `ast` instead of grepping, covering dict literal / `reason=` keyword / plain and conditional assignment, and no longer matching reason names quoted inside docstrings -- the IfExp handling reads only the branches, since walking the whole subtree also harvests `\"direct_child\"` out of the CONDITION and invents a reason that is really a comparison operand; (c) the documented-check is token-bounded, because the old bare substring test let `inside_grid` count as documented purely because `inside_grid_nested` appears, so the shorter reason could vanish from the runbook without failing anything. PHASE 1 gains a full scan-reason vocabulary table for all 17 reasons -- no curated exclusion set, since a second list is itself a drift vector -- including the two fail-loud ones (`null_width`, `invalid_width`) and the note that an in-grid row returns BEFORE those checks, so a malformed row inside a grid surfaces as a grid skip carrying a sum over only its valid widths. Controls: redacting a pad reason fails; removing the `inside_grid` row while keeping `inside_grid_nested` fails; a new reason added via conditional assignment fails; renaming the PHASE 1 heading raises rather than passing vacuously; and a new APPLY-only reason correctly does NOT fail."
+    - "1.2.0 (2026-07-30): Two-class in-grid scan (TOBE-18037, scan half only). The old sticky `inside_grid` boolean skipped every columns row anywhere under an editgrid/datagrid, on the premise that grid rows keep their own CSS grid — true only for DIRECT children of the editing entry (the DS rule uses a `>` combinator plus per-width `grid-column: span N`, so 9 x col-md-4 wraps into the authored 3x3 by construction; render-confirmed live on test.kenya, TOBE-18037 comment 103432). Rows nested deeper (panel-in-editgrid, the kenya-test DOSH 'Workplace physical location' case) fall through to the #171 fluid flex model and render all-on-one-line exactly like top-level over-12 rows — invisible to every scan until now. The walker now classifies `grid_context` as none/direct_child/nested: direct children skip permanently (pad reason `grid_direct_child`; split scan never emits them — splitting one would degrade a working row); nested rows enter the scan but the APPLY STAYS FROZEN for both classes until TOBE-18041 (grid-subtree insertion and editgrid submission-data survival unproven) — the pad scan reports them skip `inside_grid_nested`, the split scan surfaces would-be splits as review `in_grid_nested` with base_widths and NO containers (flag-not-transform). Both in-grid pad skips now carry a RAW width sum (spacers included, matching the split boundary semantics) where the old single skip reported base_sum None, so the all-form-type inventory can size them. Effect-level freeze pinned by test: a forged plan row claiming an actionable pad for a live in-grid row is refused by the pad apply's live re-verification, which still runs the unchanged legacy `inside_grid` path — zero apply-side changes. Top-level rows keep their exact prior output shape; nested rows that #58/TOBE-18030 already classify (all_columns_empty / mixed width-12) keep those more specific reasons, annotated `grid_context: nested`."
+    - "1.1.3 (2026-07-29): Over-12 rows ending in empty spacer columns no longer split into a container holding no fields (marketplace #58, found on the kenya-test DOSH guide form `guidecolumns2` -- 10 x width-4 with two trailing spacers, which emitted a 4th container of nothing but empties). The greedy 12-boundary walk can close a group made entirely of spacers, and NO existing gate caught the result: widths still summed to 12, every container still had >= 2 columns, the post-apply assertions still passed and the re-scan still converged, so an applied split would have left a junk component behind on a clean-looking run. Route 1 per Erick's decision on #58: filter the groups AFTER grouping, immediately before the pad loop, so padding / `_split{n}` numbering / the >= 2-column guard stay downstream and unmodified. The over-12 boundary does NOT move -- it keeps counting raw widths with spacers included and keeps diverging from `columns_logic` on purpose; only the grouping output is filtered. A spacer sharing a group with real content is KEPT, so any row without a wholly-empty group produces byte-identical output to before (the existing 39 split tests and the whole corpus stayed green unchanged). Three cases handled explicitly: (a) if EVERY group is content-less the row returns `{action: review, reason: all_columns_empty}` rather than an empty container list -- apply is `remove` original + `add` N, so emitting zero containers would SILENTLY DELETE an authored component; (b) a drop can leave a single surviving container (a 1->1 rewrite), verified tolerated by `plan_to_split_operations` and by the revert round-trip; (c) a dropped group need not be trailing -- with content in the 1st and 3rd groups the MIDDLE group goes and the survivors renumber from 1, a visible reordering now documented. Added a runtime defense-in-depth guard mirroring the < 2-columns one, a `_assert_no_content_less_container` test invariant, and the corpus's first split-track fixture with empty source columns (`split_spacer_group.json`; `over_12.json` is a `columns_logic` pad-track fixture and blesses nothing here). Root cause of the gap: `_col()` in `tests/test_columns_split.py` unconditionally inserted a textfield, making every empty-source-column case unreachable from the suite -- it now takes `empty=True`. Review follow-up (#59, Erick): the new reason is also documented in the PHASE 1 review-row enumeration -- the operator-facing surface, where a flagged row actually becomes visible to a human -- with its own disposition (debris or deliberate spacer block; human decides; no TOBE-18030 pointer, that ticket covers only the mixed-width-12 case). Locked in by a contract test that reads the emitted reason list from columns_split.py and requires each one in the PHASE 1 SECTION specifically, so a changelog mention cannot mask the gap again."
     - "1.1.2 (2026-07-28): Fixed a Python 3.9 incompatibility that broke the columns split REVERT path, found by the first live els-dev canary (TOBE-18009). `revert_split_operations` used `zip(container_keys, written_containers, strict=True)`, which is Python 3.10+ only, so on stock macOS -- where `python3` is still 3.9 and this skill explicitly promises operators can run the bundled scripts with plain `python3` and no virtualenv -- the entire revert died with `zip() takes no keyword arguments`. The forward apply was unaffected (sole 3.10+ construct, and only in the revert function), so an operator could APPLY but not ROLL BACK: the recovery path was the broken one. Replaced with an explicit length-equality check that raises ValueError, preserving the safety intent the `strict=True` carried -- a prefix-only zip would leave `pristine` True while later containers went unverified, emitting a blind restore over unchecked state. Also de-`strict`ed two test helpers where the lists are equal by construction, and added a 3.9 leg to the CI matrix plus a whole-tree `compileall` (previously a single 3.13 job, which is why this was invisible). Declared the 3.9 floor in `compatibility`. On 3.10+ the guard is STRONGER than the `strict=True` it replaces, not merely equivalent: the verification loop breaks on the first non-pristine container and `strict=` only fires when zip advances past an exhausted iterator, so a corrupt row whose first container was already non-pristine used to break out before `strict` ran and was silently downgraded to a `modified_since_apply` skip. It is now reported as the error it is, as a pre-pass naming every corrupt row at once."
     - "1.1.1 (2026-07-28): Fixed a self-contradiction (TOBE-18009, Erick review 102772): the 'Instance allowlist — the operator's checklist' section still said writes may target only els-dev and aborted on anything else, predating the #54 pinned instance-identifiers table that marks cuba and kenya-test as migration targets — followed literally, the skill would abort on the instances the rollout targets. Reconciled the checklist's permitted-set language and abort rule to name the same pinned set as the table: permit {elsalvador-dev (canary), cuba, kenya-test}, never write {vucecuba, cuba-test, jamaica, lesotho2}. No change to the pinned table, the AUTOPILOT_MODE-is-a-no-op reframe, the vucecuba never-write pin, the canary-states-its-target rule, or any LWW/hash/Envers/publish-gate content."
     - "1.1.0 (2026-07-27): Restored two safety guardrails that fell through the seam when this skill was relocated from the MCP repo (this skill predates MCP_eRegistrations#470, still open, which added them to the pre-move SKILL.md). Added the pinned instance-identifiers table (cuba -> cuba.eregistrations.org is the migration target; vucecuba -> vucecuba.mincex.gob.cu is sovereign production and NEVER a write target; kenya-test, elsalvador-dev, cuba-test also pinned) under the instance-allowlist checklist. Required the first-use canary to print the resolved target instance and intended change BEFORE its write, so a wrong target is caught before the batch, not after."
@@ -16,7 +22,9 @@ metadata:
 
 # Columns Normalization Migration (scan + plan + gated apply)
 
-Normalize Form.io `columns` layouts so each row's widths sum to 12. This skill
+Normalize Form.io `columns` layouts so each row's widths sum to 12 (the one
+sanctioned exception: the `[12, empty-12]` CSS-complete pair — see the split
+track). This skill
 drives **two parallel tracks** under **one shared safety model** (allowlist,
 LWW re-verify, canary, off-hours, per-service human-gated publish):
 
@@ -25,7 +33,8 @@ LWW re-verify, canary, off-hours, per-service human-gated publish):
   apply via `columns_apply` (`plan_to_operations` → `form_patch` SET-ops on the
   same component's `columns`).
 - **Over-12 SPLIT track** — a row whose widths sum to **more than 12** is
-  broken into multiple sum-12 container rows: scan via `columns_split`
+  broken into multiple sum-12 container rows (width-12 columns ship as
+  `[12, empty-12]` CSS-complete pairs — TOBE-18030): scan via `columns_split`
   (`scan_form_for_splits`), apply via `columns_split_apply`
   (`plan_to_split_operations` → one atomic `form_patch` `remove`+`add` batch),
   including managed rows that carry a BPA behaviour (their visibility pointer is
@@ -171,11 +180,74 @@ Use these exact names/hosts; do not guess or substitute a look-alike:
      to get the split worklist. Its rows are of two kinds:
      - **`action:"split"`** — the runnable split worklist; each such row is a
        full split plan (`containers`, etc.) applied by the over-12 sub-track in
-       PHASE 3.
-     - **`action:"review"`** (reason `mixed_width12_remainder_over12`) — a
-       mixed row whose split is ambiguous. These are **DEFERRED to TOBE-18030**
-       and are **NOT applied here** (flag-not-transform): record them in the
-       plan for a human, and do **not** feed them to the split apply.
+       PHASE 3. This includes **mixed width-12 rows** whose non-12 remainder
+       itself overflows 12 (e.g. `[12,8,8]` — TOBE-18030): every width-12
+       column ships as its own **`[12, empty-12]` CSS-complete pair** (column
+       order preserved — the scan never groups across a 12), and the non-12
+       remainder splits and pads like any other row. The pair container
+       deliberately sums to 24, not 12: under the TOBE-18019 rule the content
+       column takes its own full row, the empty filler renders as `col-empty`
+       (width-floor exempt; it collapses to zero width on the content column's
+       line rather than being hidden — the stacked-hide path never applies to
+       a pair, since readColumnBoxes skips col-empty and a one-box row never
+       stamps cols-stacked — render-tested against the
+       deployed 2.18.329 CSS), and a re-scan of the pair yields no plan
+       (CSS-handled), so the output is stable. A pair is **never** emitted as
+       a lone `[12]` — the BPA editor back-fills single-column containers to
+       `[12,6]` (the `defaultsDeep` trap). A mixed row whose overflowing
+       remainder is **entirely spacers** (e.g. `[12, empty-8, empty-8]`) is
+       NOT split: the empty columns collapse to zero width on the content
+       line already, so a split would be pure churn — a form_patch, a
+       behaviour re-key and a publish for zero visual change; the row stays
+       CSS-handled (no plan). **The scan's
+       CSS-handled verdicts are DS-version-dependent**: they assume the
+       TOBE-18004 empty-column exemption and the TOBE-18019 full-row rule
+       are deployed (2.18 line ≥ 2.18.326, which carries both halves).
+       On an OLDER instance such a row genuinely renders ragged — the empty
+       columns still carry the `--columns-fluid-min` floor — and the scan
+       will no longer report it. The apply is version-gated (PHASE 3);
+       broad read-only inventory runs (TOBE-18037) on undeployed instances
+       must account for this blind spot. **The pair artifact itself is also
+       version-dependent** — the first migration output that is: every other
+       split emits sum-12 containers that render correctly on any DS
+       version, but on a pre-2.18.326 DS the pair's empty filler regains the
+       `--columns-fluid-min` floor with a proportional grow, halving the
+       content column. Apply is version-gated, so this bites only on a
+       service export/import into a non-upgraded instance, or a DS rollback.
+       Two accepted asymmetries, for the record, both riding empty-column
+       inertness: a mixed row whose width-12 column is itself an empty
+       spacer (`[empty-12, 8, 8]`) IS split, and the split deletes that
+       authored full-width spacer — defensible because a componentless 12 is
+       `col-empty` (basis 0, min-width 0, excluded from the full-row rule)
+       and renders nothing today, while the remainder's split is a real
+       improvement. And a LEADING spacer run moves content horizontally:
+       `[empty-12, empty-8, 8]` collapses to a single `[8, empty-4]`
+       container, shifting the field from the right of its line to the
+       left — documented #58 drop semantics, newly reachable through mixed
+       rows.
+     - **`action:"review"`** — a row the scan flags but never transforms
+       (flag-not-transform): record it in the plan for a human, and do **not**
+       feed it to the split apply. One reason:
+       - **`all_columns_empty`** — every column in the row is an empty spacer,
+         so a split would either emit containers holding no fields or (with
+         zero containers) silently delete the authored component. The row is
+         either debris or a deliberate spacer block, and the tool must not
+         decide which — a human disposes of it per row. This also covers a
+         mixed width-12 row that is empty throughout: the content
+         classification wins over the width shape.
+
+     In-grid classification (TOBE-18037/18041): a row whose schema parent IS
+     the editgrid/datagrid is a **direct child** — the DS grid rule lays it
+     out correctly by construction, so both scanners skip it permanently
+     (pad skip reason `grid_direct_child`; the split scan never emits it,
+     and both applies refuse a forged plan row for one). A row nested deeper
+     (panel-in-grid etc.) is an **ordinary row on both tracks**: real pad
+     plans, real runnable split plans, tagged `grid_context: "nested"`. That
+     tag is load-bearing for PHASE 3 — the first grid-nested apply of a
+     session is its own canary class, and the first ever runs on els-dev
+     (see the in-grid canary rule there). A malformed nested row fails loud
+     like any top-level row; only a malformed DIRECT child keeps the swallow
+     (skip + `base_sum: null`), since the scan will never act on it.
 3. Persist the plan to a **plan** file. Each **plan row addresses exactly one
    component**: keyless or duplicated component paths are **skipped and
    reported**, never applied to a first/arbitrary match. The scan **routes**
@@ -185,6 +257,59 @@ Use these exact names/hosts; do not guess or substitute a look-alike:
 
 The scan/plan output is safe to produce on any instance because it performs no
 writes.
+
+### Scan reason vocabulary — every `reason` the two scanners can emit
+
+This is the complete set for the **scan**. The apply modules carry their own
+separate skip reasons (`row_not_found`, `modified_since_apply`, …), documented
+in PHASE 3 — do not mix the two vocabularies when reading a plan.
+
+A contract test reads these names straight out of `columns_logic.py` and
+`columns_split.py` and fails if any one of them is missing from this section,
+so the table cannot drift out of step with the code.
+
+**Pad track (`columns_logic.py`)** — `action` is `skip` for every reason except
+`under_12`:
+
+| `reason` | Meaning |
+|---|---|
+| `under_12` | **Actionable.** The row's body sums under 12; the plan appends a filler (`action:"append"`) or resizes/merges existing trailing empties into one (`action:"resize"`). |
+| `complete` | Body already sums to exactly 12. Nothing to do; trailing empties are left untouched. |
+| `over_12` | Body sums past 12 — this row belongs to the split track, not the pad apply. |
+| `already_normalized` | The computed padding would be a no-op, so it is reported instead of proposed as a change. |
+| `all_empty` | Every column is an empty spacer, so there is no body to size. |
+| `no_columns` | The component has no `columns` array at all. |
+| `no_key` | The component has no key, so it cannot be addressed unambiguously — skipped and reported, never applied to an arbitrary match. |
+| `excluded_key` | The key is in the module's `EXCLUDED_KEYS` pin. |
+| `adjust_columns` | The row carries the `adjust-columns` customClass — the author's explicit opt-out. |
+| `grid_direct_child` | Direct child of an editgrid/datagrid: the DS grid rule owns its layout, so it is skipped **permanently** (TOBE-18037). Carries a raw width sum for the inventory — or `base_sum: null` when any width is malformed. Rows nested DEEPER inside a grid do not appear here: since TOBE-18041 they are ordinary rows reporting ordinary reasons, tagged `grid_context: "nested"`. |
+| `inside_grid` | Legacy pre-TOBE-18037 classification. No script in this skill calls the boolean API any more (the pad apply passes `grid_context=` since TOBE-18041); the parameter and this reason remain for API stability, so an external caller still gets the historic skip. |
+| `null_width` | A width is not an integer (null, float, bool). **`build_plan` raises** — a malformed layout is never silently skipped. |
+| `invalid_width` | An integer width outside 1–12. **`build_plan` raises**, as above. |
+
+Two things that trip people reading a plan:
+
+- The pad track's `base_sum` is the **body** sum, with trailing empty spacers
+  stripped; the split track counts **raw** widths including spacers. The same
+  row legitimately reports two different sums — see the divergence note in the
+  `columns_split.py` module docstring.
+- `null_width` / `invalid_width` fail loud for every row the scan could act
+  on — top-level AND grid-nested alike (TOBE-18041). Only a malformed DIRECT
+  child of a grid is swallowed (skip `grid_direct_child` with
+  `base_sum: null`): the scan will never act on that row, so it must not
+  abort a whole-form scan, and the null keeps "unknown" from reading as a
+  confident healthy sum.
+
+**Split track (`columns_split.py`)** — `all_columns_empty`, `action:"review"`,
+described under step 2 above.
+
+(`mixed_width12_remainder_over12` was **retired** in 1.4.0 — TOBE-18030:
+mixed width-12 rows are split with the `[12, empty-12]` pairing rule.
+Retirement notes like this one live in their own paragraph and carry the
+word "retired" — the lockstep guard excludes whole retired-marked
+paragraphs from its documented-check, so a retired reason's mention can
+never vacuously satisfy it, and a reflow inside the paragraph cannot
+separate the token from the marker.)
 
 ## PHASE 2 — Analyst plan review (procedural)
 
@@ -260,6 +385,16 @@ wrong target (e.g. `vucecuba` instead of `cuba`) is visible **before the
 write**, and before the rest of the batch, not discovered after. Abort if the
 printed target instance does not match the operator's intended instance.
 
+**In-grid canary (TOBE-18041):** the first GRID-NESTED row a session applies
+(`grid_context: "nested"` on the plan row) is a canary of its own class, and
+the first one EVER must run on **els-dev** before any real instance: verify
+the split lands inside the grid subtree (containers under the same panel
+parent, correct positions), that an editgrid holding SAVED ENTRIES still
+loads and renders its entries afterwards (entry data is keyed by FIELD keys,
+which the split preserves — verify it, do not assume it), and that
+`revert_split_operations` round-trips. A DIRECT child of a grid must never
+be applied — the scan does not emit them and the apply refuses them.
+
 After the canary write, record its **post-write hash**. The **canary
 rollback** is itself a **whole-form LWW write**, so it is scoped narrowly:
 
@@ -295,7 +430,8 @@ live_components)` — via the script's CLI above — it re-verifies each row
 against the **live** form and returns `{"operations", "applied_rows",
 "skipped"}` — then apply the structural batch via a **single atomic
 `form_patch`**: per split row it is one `remove` (the original component)
-**+ N `add`** (the N new sum-12 containers). Because `form_patch` is one LWW
+**+ N `add`** (the N new containers — each sum-12, or a `[12, empty-12]`
+CSS-complete pair). Because `form_patch` is one LWW
 whole-form overwrite, emit the whole structural batch as **one** `form_patch`
 call inside the off-hours window, guarded by the same whole-form-hash re-verify
 and canary as the pad sub-track.
@@ -385,8 +521,9 @@ step** for each such row:
 ## PHASE 4 — Verify
 
 After each row, re-read the form with **form_get**
-(fresh, not cached) and confirm the widths now sum to 12 and no unrelated
-component changed.
+(fresh, not cached) and confirm the widths now sum to 12 — a `[12, empty-12]`
+CSS-complete pair is complete at 24 by design (verify the filler column is
+empty instead) — and no unrelated component changed.
 
 ## PHASE 5 — Publish (per-service serialized, human-gated)
 

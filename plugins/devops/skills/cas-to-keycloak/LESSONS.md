@@ -189,6 +189,14 @@ The current `fetch-dumps.sh` runs `xzcat "$outfile" | awk … { exit }'` to row-
 
 **Patch:** none yet (deferred). Operator-side workaround that worked on elsalvador: a one-off split script that `scp + psql`s on the DB host then `ssh + docker service update`s on the swarm host. For a longer-term fix the skill should accept `DB_SSH_HOST` and `SWARM_SSH_HOST` separately. The `docker service update` step also needs `sudo` on the swarm host because the SSH user typically isn't in the `docker` group on production hosts; `sudo -n docker …` is the right call.
 
+## v2 (mano) source instances: no CAS, no migratable passwords
+
+Lomas de Zamora (`elomas.gob.ar`, LOM-21) runs the pre-CAS eRegistrations v2 / mano stack. Three things differ from every CAS run above:
+
+- **Passwords cannot move.** `mano-auth` stores `bcrypt(sha256(email + password))` — a client-side prehash bound to the email — which Keycloak cannot verify. Import accounts without credentials and with `emailVerified=true` (v2 only exports activated accounts), and let users reset via "Forgot password"; check `resetPasswordAllowed` + SMTP on the realm first.
+- **The stock v2 user export misses officials.** `generate-users-list.js` filters on role `user`; Part B officials often lack it. Export across every `mano-auth` `Role.members` value instead (the v2 repo's `generate-users-migration-export`) and derive institution from `Role.meta` — v2 has no trustworthy per-user institution data.
+- **Admin auth is realm-scoped.** `keycloak-mcp` and the importer authenticate against the *instance* realm, not `master`. A master-realm admin fails with `Invalid user credentials` (also Keycloak's message for "no such user in this realm") and no role change fixes it; use a confidential client in the instance realm with `realm-management → realm-admin` service-account roles and `client_credentials`. Such a client cannot create realms, so rehearse with a pilot batch inside the real realm (skip-on-409 makes that safe) instead of a throwaway realm.
+
 ## Quick reference — where each lesson landed
 
 | # | Lesson | Patch landing site |
@@ -217,6 +225,7 @@ The current `fetch-dumps.sh` runs `xzcat "$outfile" | awk … { exit }'` to row-
 | 23 | Long-running backfill outlives admin token | `backfill.js` re-auths every 100 users |
 | 24 | `fetch-dumps.sh` SIGPIPE crash from awk sanity check + pipefail | wrap sanity check in `set +o pipefail` |
 | 25 | Split-host topology not supported by `deploy-keycloak-dump.sh` | docs only — manual scp+ssh workaround; future: `DB_SSH_HOST` + `SWARM_SSH_HOST` |
+| 26 | v2/mano source: unmigratable passwords, officials missing from stock export, realm-scoped admin auth | new `migrator-src/migrate-lomas.js` + SKILL.md "Variant: eRegistrations v2 (mano) source" |
 
 (Item 8 — browser-side cache nuke via Clear-Site-Data — deliberately out of scope; operator workflow, not skill responsibility.)
 

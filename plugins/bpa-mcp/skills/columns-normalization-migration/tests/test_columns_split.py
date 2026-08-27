@@ -37,7 +37,21 @@ _LOCAL_MODULES = {
 }
 
 
-def _col(width: int, *, key: str | None = None, size: str = "md") -> dict[str, Any]:
+def _col(
+    width: int,
+    *,
+    key: str | None = None,
+    size: str = "md",
+    empty: bool = False,
+) -> dict[str, Any]:
+    """A source column. ``empty=True`` builds a spacer column — one carrying no
+    components at all.
+
+    Until the content-less-group fix (marketplace #58) this helper always
+    inserted a textfield, which made every empty-source-column case structurally
+    unreachable from this suite. That is why a row whose grouping produced a
+    wholly-empty group shipped emitting a container holding no fields.
+    """
     col: dict[str, Any] = {
         "size": size,
         "width": width,
@@ -45,10 +59,28 @@ def _col(width: int, *, key: str | None = None, size: str = "md") -> dict[str, A
         "push": 0,
         "pull": 0,
         "components": (
-            [{"key": key or f"f{width}", "type": "textfield", "label": "x"}]
+            []
+            if empty
+            else [{"key": key or f"f{width}", "type": "textfield", "label": "x"}]
         ),
     }
     return col
+
+
+def _columns_with_content_flags(
+    key: str, widths: list[int], flags: str
+) -> dict[str, Any]:
+    """Columns component from ``widths`` where ``flags`` is a same-length string
+    of ``1`` (column carries a field) / ``0`` (empty spacer column)."""
+    assert len(widths) == len(flags), "widths and flags must be the same length"
+    return {
+        "key": key,
+        "type": "columns",
+        "columns": [
+            _col(w, key=f"{key}_f{i}", empty=flags[i] == "0")
+            for i, w in enumerate(widths)
+        ],
+    }
 
 
 def _columns_component(
@@ -64,12 +96,42 @@ def _columns_component(
     return comp
 
 
-def _assert_all_containers_sum_to_twelve(plan: dict[str, Any]) -> None:
+def _is_css_complete_pair(container: dict[str, Any]) -> bool:
+    """The TOBE-18030 normal form for a lone width-12 column: exactly two
+    width-12 columns of which the SECOND is an empty filler. The pair does not
+    sum to 12 by design — the TOBE-18019 CSS rule gives the content column its
+    own full row, and the empty filler exists only to keep the container at
+    >= 2 columns (the defaultsDeep back-fill trap)."""
+    cols = container["columns"]
+    return (
+        container["widths"] == [12, 12]
+        and len(cols) == 2
+        and bool(cols[0].get("components"))
+        and not cols[1].get("components")
+    )
+
+
+def _assert_all_containers_render_complete(plan: dict[str, Any]) -> None:
     """Invariant the padding logic must uphold: EVERY container in a split
-    plan sums to exactly 12, not just the trailing one."""
+    plan either sums to exactly 12 (not just the trailing one), or is the
+    [12, empty-12] CSS-complete pair a lone width-12 column normalizes to."""
     for container in plan["containers"]:
+        if _is_css_complete_pair(container):
+            continue
         assert sum(container["widths"]) == 12
         assert sum(c["width"] for c in container["columns"]) == 12
+
+
+def _assert_no_content_less_container(plan: dict[str, Any]) -> None:
+    """Invariant (marketplace #58): every emitted container must hold at least
+    one content-bearing column. A container of nothing but spacers is a junk
+    component added to the form that no other gate catches — widths still sum
+    to 12, every container still has >= 2 columns, the post-apply assertions
+    still pass and the re-scan still converges."""
+    for container in plan["containers"]:
+        assert any(c.get("components") for c in container["columns"]), (
+            f"container {container['key']!r} holds no content-bearing column"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +219,7 @@ def test_plan_split_nine_width_four_yields_three_clean_containers() -> None:
         assert container["widths"] == [4, 4, 4]
         assert container["padded"] is False
         assert sum(c["width"] for c in container["columns"]) == 12
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +247,7 @@ def test_plan_split_five_width_four_pads_trailing_group() -> None:
     assert filler["push"] == 0
     assert filler["pull"] == 0
     assert "hideIfEmpty" not in filler
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +271,7 @@ def test_plan_split_six_six_three_closes_at_twelve_then_pads_remainder() -> None
     filler = second["columns"][-1]
     assert filler["width"] == 9
     assert filler["components"] == []
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -253,43 +315,265 @@ def test_plan_split_lone_twelve_returns_none_via_sum_check() -> None:
 
 
 # ---------------------------------------------------------------------------
-# autopilot BLOCKING finding (PR #441): a width-12 row whose non-12
-# remainder ITSELF overflows 12 is NOT fixed by the TOBE-18019 CSS rule (the
-# 12 breaks to its own line, but the ragged over-12 remainder still
-# overflows). plan_split must surface this as a "review" entry, NOT return
-# None (silently dropping real overflow) and NOT emit a "split" plan
-# (auto-splitting a row with a width-12 column risks the defaultsDeep
-# back-fill trap / has an open determinant-carry question).
+# TOBE-18030 (option C, render-tested 2026-08-03): a width-12 row whose
+# non-12 remainder ITSELF overflows 12 is NOT fixed by the TOBE-18019 CSS
+# rule alone (the 12 breaks to its own line, but the ragged over-12 remainder
+# still overflows). It is now SPLIT: each width-12 column becomes its own
+# [12, empty-12] CSS-complete pair (never a lone [12] — the defaultsDeep
+# back-fill trap), and the non-12 remainder splits and pads normally. Every
+# piece stays a columns container, so determinant carry is the settled
+# copy-to-all-N rule. The former "review"/"mixed_width12_remainder_over12"
+# flag is RETIRED.
 # ---------------------------------------------------------------------------
-def test_plan_split_mixed_row_with_overflowing_remainder_returns_review() -> None:
-    """[12,8,8] (sum 28, non-12 remainder 8+8=16 > 12): the CSS rule breaks
-    the 12 to its own line but the [8,8] pair still overflows. This is the
-    autopilot's BLOCKING case: must be a review flag, not None, not a split."""
+def test_plan_split_mixed_row_splits_with_css_complete_pair() -> None:
+    """[12,8,8] (sum 28, non-12 remainder 8+8=16 > 12) now splits:
+    [12, empty-12] + [8, empty-4] + [8, empty-4]."""
     from columns_split import plan_split
 
     comp = _columns_component("row", [12, 8, 8])
     plan = plan_split(comp)
     assert plan is not None
-    assert plan["action"] == "review"
-    assert plan["reason"] == "mixed_width12_remainder_over12"
+    assert plan["action"] == "split"
     assert plan["original_key"] == "row"
     assert plan["base_widths"] == [12, 8, 8]
     assert plan["determinant_carry"] == "all"
-    assert "containers" not in plan
+    assert [c["widths"] for c in plan["containers"]] == [[12, 12], [8, 4], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][0])
+    _assert_all_containers_render_complete(plan)
+    _assert_no_content_less_container(plan)
+    # the pair's filler carries the group's dominant size, like every filler
+    assert plan["containers"][0]["columns"][1]["size"] == "md"
+    assert plan["containers"][0]["padded"] is True
 
 
-def test_plan_split_two_twelves_with_overflowing_remainder_returns_review() -> None:
-    """[12,12,8,8] (sum 40, non-12 remainder 8+8=16 > 12): two width-12
-    columns still leave an overflowing [8,8] remainder — same review flag."""
+def test_plan_split_two_twelves_each_get_their_own_pair() -> None:
+    """[12,12,8,8]: each width-12 column normalizes to its own pair —
+    [12, empty-12] + [12, empty-12] + [8, empty-4] + [8, empty-4]."""
     from columns_split import plan_split
 
     comp = _columns_component("row", [12, 12, 8, 8])
     plan = plan_split(comp)
     assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [
+        [12, 12],
+        [12, 12],
+        [8, 4],
+        [8, 4],
+    ]
+    assert _is_css_complete_pair(plan["containers"][0])
+    assert _is_css_complete_pair(plan["containers"][1])
+    _assert_all_containers_render_complete(plan)
+
+
+def test_plan_split_mixed_row_preserves_column_order_across_the_twelve() -> None:
+    """[8,12,8]: the columns before and after the 12 must NOT be merged into
+    one group across it — that would visibly reorder fields around the
+    full-width one. Expected [8, empty-4] + [12, empty-12] + [8, empty-4]."""
+    from columns_split import plan_split
+
+    comp = _columns_component("row", [8, 12, 8])
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[8, 4], [12, 12], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][1])
+
+
+def test_plan_split_mixed_row_with_empty_twelve_drops_the_spacer_group() -> None:
+    """A mixed row whose width-12 column is itself an empty SPACER: the lone-12
+    group is content-less, so the #58 filter drops it instead of emitting a
+    [empty-12, empty-12] junk pair. Only the remainder ships."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "011")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[8, 4], [8, 4]]
+    _assert_no_content_less_container(plan)
+
+
+def test_plan_split_mixed_row_with_all_spacer_remainder_stays_css_handled() -> None:
+    """"100" — only the 12 carries content, the overflowing remainder is
+    entirely spacers ([12, empty-8, empty-8]): the empty columns render
+    `col-empty` (flex-basis 0, min-width 0) and collapse to zero width on the
+    content column's line, so the row ALREADY renders identically to the
+    [12, empty-12] pair. Splitting it would be pure churn (a form_patch, a
+    behaviour re-key and a publish for zero visual change) that deletes
+    authored spacer columns — it must stay CSS-handled (#68 review)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "100")
+    assert plan_split(comp) is None
+
+
+def test_plan_split_mixed_row_with_partly_empty_remainder_still_splits() -> None:
+    """"110" — the contrast case to "100": one remainder column carries
+    content, so the split IS a real improvement (the content 8 currently
+    shares its line 50/50 with the empty 8's flex-grow; after the split it
+    gets its authored 2/3 next to a width-4 filler)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "110")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[12, 12], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][0])
+    _assert_no_content_less_container(plan)
+
+
+def test_plan_split_mixed_row_with_spacer_inside_remainder_drops_it() -> None:
+    """"101" — a spacer INSIDE a content-bearing remainder: [12c, e8, 8c].
+    The remainder overflows with content present, so the row splits; the e8
+    closes its own greedy group ([e8] then [8c]), which is content-less and
+    dropped by the #58 filter — same class as the pinned "011" case."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "101")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[12, 12], [8, 4]]
+    assert _is_css_complete_pair(plan["containers"][0])
+    _assert_no_content_less_container(plan)
+
+
+def test_plan_split_two_content_twelves_with_all_spacer_remainder_none() -> None:
+    """[12c, 12c, e8, e8] — the all-spacer-remainder guard with TWO
+    content-bearing 12s: still CSS-handled (each 12 takes its own full row,
+    the empties collapse), no plan."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 12, 8, 8], "1100")
+    assert plan_split(comp) is None
+
+
+def test_pair_filler_carries_the_full_filler_contract() -> None:
+    """The pair's empty width-12 filler is a filler like any other: empty
+    components, offset/push/pull 0, and never hideIfEmpty (a hidden filler
+    would resurrect the TOBE-18004 stacking artefact)."""
+    from columns_split import plan_split
+
+    plan = plan_split(_columns_component("row", [12, 8, 8]))
+    assert plan is not None
+    filler = plan["containers"][0]["columns"][1]
+    assert filler["width"] == 12
+    assert filler["components"] == []
+    assert filler["offset"] == 0
+    assert filler["push"] == 0
+    assert filler["pull"] == 0
+    assert "hideIfEmpty" not in filler
+
+
+def test_emitted_pair_reads_complete_on_the_pad_track() -> None:
+    """Cross-module invariant that keeps the two tracks from oscillating:
+    the pad track must read the emitted [12, empty-12] pair as
+    skip/complete (body sum 12 after its trailing-empty strip), never as
+    actionable — otherwise the split's output would become the pad apply's
+    input and the migration would churn forever."""
+    from columns_logic import analyze_columns_component
+    from columns_split import plan_split
+
+    plan = plan_split(_columns_component("row", [12, 8, 8]))
+    assert plan is not None
+    pair = plan["containers"][0]
+    verdict = analyze_columns_component(
+        {"key": pair["key"], "type": "columns", "columns": pair["columns"]}
+    )
+    assert verdict.action == "skip"
+    assert verdict.reason == "complete"
+    assert verdict.base_sum == 12  # body sum after the trailing-empty strip
+
+
+def test_plan_split_leading_spacer_run_collapses_and_shifts_content() -> None:
+    """"001" — [e12, e8, 8c]: the empty 12 and the empty 8 both fall to the
+    #58 content-less-group filter, leaving a single [8c, empty-4] container.
+    The field moves from the right of its authored line to the left — a
+    POSITION change, documented #58 drop semantics newly reachable through
+    mixed rows (#68 review, observation 8)."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "001")
+    plan = plan_split(comp)
+    assert plan is not None
+    assert plan["action"] == "split"
+    assert [c["widths"] for c in plan["containers"]] == [[8, 4]]
+    _assert_no_content_less_container(plan)
+
+
+def test_corpus_mixed_width12_fixture_matches_real_scanner_output() -> None:
+    """The corpus fixture is a cross-language contract for the TOBE-18006/
+    18007 ports, but its expected block is documentation-shaped (no
+    type:"columns" nodes), so the corpus width guard cannot execute it.
+    This test does: the fixture's input run through the real scanner must
+    produce exactly the containers the fixture promises (#68 review)."""
+    from columns_split import scan_form_for_splits
+
+    fixture_path = (
+        Path(__file__).resolve().parent.parent
+        / "fixtures"
+        / "columns_corpus"
+        / "split_mixed_width12_pair.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    rows = scan_form_for_splits(fixture["input"])
+    assert len(rows) == 1
+    row = rows[0]
+    expected = fixture["expected"]
+    assert row["action"] == expected["action"]
+    assert row["original_key"] == expected["original_key"]
+    assert row["base_widths"] == expected["base_widths"]
+    got = [
+        {
+            "key": c["key"],
+            "widths": c["widths"],
+            "padded": c["padded"],
+            "field_keys": [
+                f["key"] for col in c["columns"] for f in (col.get("components") or [])
+            ],
+        }
+        for c in row["containers"]
+    ]
+    want = [
+        {k: c[k] for k in ("key", "widths", "padded", "field_keys")}
+        for c in expected["containers"]
+    ]
+    assert got == want
+
+
+def test_plan_split_all_empty_mixed_row_is_all_columns_empty_review() -> None:
+    """A mixed row with NO content anywhere is the #58 case first: every group
+    is content-less, so it surfaces as review/all_columns_empty (deleting an
+    authored spacer block is a human decision), not as a mixed split."""
+    from columns_split import plan_split
+
+    comp = _columns_with_content_flags("row", [12, 8, 8], "000")
+    plan = plan_split(comp)
+    assert plan is not None
     assert plan["action"] == "review"
-    assert plan["reason"] == "mixed_width12_remainder_over12"
-    assert plan["base_widths"] == [12, 12, 8, 8]
+    assert plan["reason"] == "all_columns_empty"
     assert "containers" not in plan
+
+
+def test_plan_split_mixed_output_is_stable_under_rescan() -> None:
+    """Idempotency: every container the mixed split emits must itself scan as
+    NOT actionable — the [12, empty-12] pair is CSS-handled (non-12 remainder
+    is 0) and the padded remainder rows sum to 12."""
+    from columns_split import plan_split
+
+    plan = plan_split(_columns_component("row", [12, 8, 8]))
+    assert plan is not None and plan["action"] == "split"
+    for container in plan["containers"]:
+        rescanned = plan_split(
+            {"key": container["key"], "type": "columns", "columns": container["columns"]}
+        )
+        assert rescanned is None, (
+            f"container {container['key']!r} {container['widths']} must be "
+            f"stable under a re-scan, got {rescanned!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +603,7 @@ def test_plan_split_pads_every_group_not_just_trailing_eight_eight_eight() -> No
         assert filler["push"] == 0
         assert filler["pull"] == 0
         assert "hideIfEmpty" not in filler
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 def test_plan_split_pads_middle_group_eight_eight_three() -> None:
@@ -340,7 +624,7 @@ def test_plan_split_pads_middle_group_eight_eight_three() -> None:
 
     assert second["widths"] == [8, 3, 1]
     assert second["padded"] is True
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 def test_plan_split_six_threes_splits_and_pads_trailing_group() -> None:
@@ -363,7 +647,7 @@ def test_plan_split_six_threes_splits_and_pads_trailing_group() -> None:
     filler = second["columns"][-1]
     assert filler["width"] == 6
     assert filler["components"] == []
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 def test_plan_split_pads_both_groups_ten_ten() -> None:
@@ -382,7 +666,7 @@ def test_plan_split_pads_both_groups_ten_ten() -> None:
         filler = container["columns"][-1]
         assert filler["width"] == 2
         assert filler["components"] == []
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +708,7 @@ def test_plan_split_non_string_custom_class_does_not_crash() -> None:
     comp["customClass"] = ["x"]
     plan = plan_split(comp)
     assert plan is not None
-    _assert_all_containers_sum_to_twelve(plan)
+    _assert_all_containers_render_complete(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -580,10 +864,10 @@ def test_scan_form_for_splits_surfaces_mixed_overflow_review_entry() -> None:
     results = scan_form_for_splits(form)
     assert len(results) == 1
     entry = results[0]
-    assert entry["action"] == "review"
-    assert entry["reason"] == "mixed_width12_remainder_over12"
+    assert entry["action"] == "split"
     assert entry["original_key"] == "overflow"
     assert "panel1" in entry["path"]
+    assert [c["widths"] for c in entry["containers"]] == [[12, 12], [8, 4], [8, 4]]
 
 
 def test_scan_form_for_splits_skips_over_twelve_inside_editgrid() -> None:
@@ -672,3 +956,306 @@ def test_cli_main_callable_rejects_non_json() -> None:
         main(["--stdin"], stdin_text="not json")
     if isinstance(exc_info.value, SystemExit):
         assert exc_info.value.code not in (0, None)
+
+
+# ---------------------------------------------------------------------------
+# content-less groups (marketplace #58)
+# ---------------------------------------------------------------------------
+class TestContentLessGroupDrop:
+    """A group in which no column carries content must not become a container.
+
+    The greedy 12-boundary walk can close a group made entirely of spacer
+    columns — an ordinary shape, since a trailing spacer is the sanctioned way
+    to pad a row to 12 (TOBE-18004 makes them visually free, TOBE-18006 has the
+    builder append them). Padding it to 12 and emitting it added a `columns`
+    component holding no fields at all, and every existing gate passed on it.
+
+    Route 1 (Erick's decision on #58): filter the groups AFTER grouping. The
+    over-12 boundary keeps counting raw widths, spacers included, and keeps
+    diverging from `columns_logic` on purpose; only the grouping output is
+    filtered. A spacer sharing a group with real content is kept.
+    """
+
+    def test_dosh_shape_drops_the_trailing_spacer_group(self):
+        """Live case: kenya-test DOSH guide form, `guidecolumns2`."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 10, "1111111100")
+
+        plan = plan_split(comp)
+
+        assert plan["action"] == "split"
+        assert len(plan["containers"]) == 3
+        _assert_all_containers_render_complete(plan)
+        _assert_no_content_less_container(plan)
+        assert [c["key"] for c in plan["containers"]] == [
+            "row1_split1",
+            "row1_split2",
+            "row1_split3",
+        ]
+
+    def test_spacer_sharing_a_group_with_content_is_kept(self):
+        """Route 1 is a post-filter, not a pre-trim: `split3` keeps its spacer."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 10, "1111111100")
+
+        plan = plan_split(comp)
+
+        third = plan["containers"][2]
+        assert third["widths"] == [4, 4, 4]
+        assert [bool(c.get("components")) for c in third["columns"]] == [
+            True,
+            True,
+            False,
+        ]
+
+    def test_erick_six_by_four_half_empty(self):
+        """`6x4` with `111000` — reported on #58, not in the original probe."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 6, "111000")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 1
+        _assert_no_content_less_container(plan)
+
+    def test_a_drop_may_legitimately_leave_a_single_container(self):
+        """Case 2: the survivor set can be one container — a 1->1 rewrite.
+
+        Structurally sound (2 columns, sums to 12) and the apply side must
+        tolerate it, so this is not an error path.
+        """
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6], "110")
+
+        plan = plan_split(comp)
+
+        assert plan["action"] == "split"
+        assert len(plan["containers"]) == 1
+        assert plan["containers"][0]["widths"] == [6, 6]
+        _assert_no_content_less_container(plan)
+
+    def test_all_groups_content_less_is_surfaced_not_emitted(self):
+        """Case 1, the correctness requirement: never reduce a row to zero
+        containers. Apply is REMOVE original + ADD N, so an empty container
+        list would silently DELETE an authored component."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [8, 8], "00")
+
+        plan = plan_split(comp)
+
+        assert plan is not None
+        assert plan["action"] == "review"
+        assert plan["reason"] == "all_columns_empty"
+        assert not plan.get("containers")
+
+    def test_dropped_group_may_be_in_the_middle_and_survivors_renumber(self):
+        """Case 3: the dropped group is not always trailing. The two content
+        columns become adjacent and `_split{n}` re-closes from 1."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [8, 8, 8], "101")
+
+        plan = plan_split(comp)
+
+        assert [c["key"] for c in plan["containers"]] == ["row1_split1", "row1_split2"]
+        assert [c["widths"] for c in plan["containers"]] == [[8, 4], [8, 4]]
+        _assert_no_content_less_container(plan)
+
+    def test_leading_spacer_changes_nothing(self):
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4, 4, 4, 4], "0111")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 2
+        _assert_all_containers_render_complete(plan)
+        _assert_no_content_less_container(plan)
+
+    def test_interleaved_spacers_change_nothing(self):
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6, 6], "1010")
+
+        plan = plan_split(comp)
+
+        assert len(plan["containers"]) == 2
+        _assert_all_containers_render_complete(plan)
+        _assert_no_content_less_container(plan)
+
+    def test_all_content_row_is_byte_identical_to_today(self):
+        """Control: a row with no wholly-empty group must be untouched by the
+        filter — this is what keeps the existing corpus and 39 tests green."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [4] * 9, "111111111")
+
+        plan = plan_split(comp)
+
+        assert [c["widths"] for c in plan["containers"]] == [[4, 4, 4]] * 3
+        _assert_no_content_less_container(plan)
+
+    def test_over_12_boundary_still_counts_spacer_widths(self):
+        """The boundary must NOT move: [6,6,{6 empty}] is raw-sum 18, so it is
+        still an over-12 row that splits — it does not become a 12 that skips."""
+        from columns_split import plan_split
+
+        comp = _columns_with_content_flags("row1", [6, 6, 6], "110")
+
+        plan = plan_split(comp)
+
+        assert plan is not None
+        assert plan["base_widths"] == [6, 6, 6]
+        assert plan["action"] == "split"
+
+
+# ---------------------------------------------------------------------------
+# two-class in-grid rule (TOBE-18037 — scan half only)
+# ---------------------------------------------------------------------------
+class TestInGridTwoClassScan:
+    """Panel-nested in-grid rows enter the scan; direct children never do.
+
+    Direct children of an editgrid/datagrid are laid out by the DS grid rule
+    (12 tracks + `span N` per col-md-N) and wrap correctly by construction —
+    splitting one would degrade a working row. Panel-nested rows fall through
+    to the #171 fluid flex model and suffer the ordinary over-12 raggedness
+    (task zero, TOBE-18037 comment 103432). The APPLY stays frozen for both
+    classes until TOBE-18041, so a nested over-12 row surfaces as a REVIEW
+    row, not a runnable split plan.
+    """
+
+    @staticmethod
+    def _editgrid(children: list[dict]) -> dict:
+        return {"key": "grid", "type": "editgrid", "components": children}
+
+    @staticmethod
+    def _panel(key: str, children: list[dict]) -> dict:
+        return {"key": key, "type": "panel", "components": children}
+
+    def test_nested_over_12_row_is_a_runnable_split(self):
+        """TOBE-18041: the 18037 freeze is lifted — a nested over-12 row gets
+        a full split plan (containers and all), annotated with its grid
+        context so the runbook's in-grid canary gate can see it."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [4] * 9)])]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["action"] == "split"
+        assert row["original_key"] == "row1"
+        assert row["base_widths"] == [4] * 9
+        assert row["grid_context"] == "nested"
+        assert [c["widths"] for c in row["containers"]] == [[4, 4, 4]] * 3
+
+    def test_dosh_workplace_physical_location_shape(self):
+        """The live case: editgrid > panel > panel > [4]x9."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [
+                        self._panel(
+                            "outer",
+                            [self._panel("inner", [_columns_component("row1", [4] * 9)])],
+                        )
+                    ]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["action"], r.get("grid_context")) for r in rows] == [
+            ("split", "nested")
+        ]
+
+    def test_direct_child_over_12_row_is_still_never_emitted(self):
+        """The CSS grid rule owns direct children — splitting one would
+        degrade a row that renders correctly today."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [self._editgrid([_columns_component("row1", [4] * 9)])]
+        }
+        assert scan_form_for_splits(form) == []
+
+    def test_nested_css_handled_width12_row_is_not_emitted(self):
+        """[12,6] nested: the TOBE-18019 col-md-12 rule is global and matches
+        nested rows too, so plan_split's None (CSS-handled) verdict holds."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [12, 6])])]
+                )
+            ]
+        }
+        assert scan_form_for_splits(form) == []
+
+    def test_nested_mixed_width12_row_splits_with_grid_context(self):
+        """[12,8,8] nested in a panel inside a grid is an ordinary mixed row
+        since TOBE-18041 made nested rows ordinary on both tracks — it splits
+        with the CSS-complete pair, annotated with its grid context."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [self._panel("p", [_columns_component("row1", [12, 8, 8])])]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["action"], r.get("grid_context")) for r in rows] == [
+            ("split", "nested")
+        ]
+        assert [c["widths"] for c in rows[0]["containers"]] == [
+            [12, 12],
+            [8, 4],
+            [8, 4],
+        ]
+
+    def test_nested_all_empty_row_keeps_all_columns_empty_reason(self):
+        """#58's content classification is orthogonal to grid context and
+        more specific — it wins, annotated."""
+        from columns_split import scan_form_for_splits
+
+        form = {
+            "components": [
+                self._editgrid(
+                    [
+                        self._panel(
+                            "p", [_columns_with_content_flags("row1", [8, 8], "00")]
+                        )
+                    ]
+                )
+            ]
+        }
+        rows = scan_form_for_splits(form)
+        assert [(r["reason"], r.get("grid_context")) for r in rows] == [
+            ("all_columns_empty", "nested")
+        ]
+
+    def test_top_level_rows_keep_their_exact_output_shape(self):
+        """Control: rows outside any grid must be byte-identical to before —
+        in particular NO grid_context key appears on them."""
+        from columns_split import scan_form_for_splits
+
+        form = {"components": [_columns_component("row1", [4] * 9)]}
+        rows = scan_form_for_splits(form)
+        assert len(rows) == 1
+        assert rows[0]["action"] == "split"
+        assert "grid_context" not in rows[0]

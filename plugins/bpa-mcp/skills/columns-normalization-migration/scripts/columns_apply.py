@@ -64,23 +64,23 @@ def _require_live_components_list(live_components: Any) -> None:
 
 def _build_live_index(
     live_components: list[dict[str, Any]],
-) -> dict[str, list[tuple[dict[str, Any], bool]]]:
+) -> dict[str, list[tuple[dict[str, Any], str]]]:
     """Index every live columns hit by walker path, built ONCE per call.
 
     Walker paths are not guaranteed unique (e.g. two sibling panels sharing
     a key, each containing a same-keyed columns component, both resolve to
     the same path) — so each path maps to a LIST of ``(component,
-    inside_grid)`` hits. Callers must treat more than one hit for a path as
+    grid_context)`` hits. Callers must treat more than one hit for a path as
     ambiguous and skip it (``duplicate_path``) rather than guessing.
     """
-    index: dict[str, list[tuple[dict[str, Any], bool]]] = {}
+    index: dict[str, list[tuple[dict[str, Any], str]]] = {}
     for hit in iter_columns_components(live_components):
-        index.setdefault(hit.path, []).append((hit.component, hit.inside_grid))
+        index.setdefault(hit.path, []).append((hit.component, hit.grid_context))
     return index
 
 
 def _live_key_counts(
-    live_index: dict[str, list[tuple[dict[str, Any], bool]]],
+    live_index: dict[str, list[tuple[dict[str, Any], str]]],
 ) -> dict[str, int]:
     """Count how many live columns components carry each non-empty ``key``.
 
@@ -94,7 +94,7 @@ def _live_key_counts(
     """
     counts: dict[str, int] = {}
     for hits in live_index.values():
-        for component, _inside_grid in hits:
+        for component, _grid_context in hits:
             key = component.get("key") or ""
             if key:
                 counts[key] = counts.get(key, 0) + 1
@@ -160,7 +160,7 @@ def plan_to_operations(
         if len(hits) > 1:
             skipped.append({"path": path, "reason": "duplicate_path"})
             continue
-        live_component, live_inside_grid = hits[0]
+        live_component, live_grid_context = hits[0]
 
         live_key = live_component.get("key") or ""
         if key_counts.get(live_key, 0) > 1:
@@ -168,7 +168,7 @@ def plan_to_operations(
             continue
 
         verdict = analyze_columns_component(
-            live_component, inside_grid=live_inside_grid
+            live_component, grid_context=live_grid_context
         )
 
         if verdict.action == "skip":
@@ -255,7 +255,7 @@ def revert_operations(
         if len(hits) > 1:
             skipped.append({"path": path, "reason": "duplicate_path"})
             continue
-        live_component, _inside_grid = hits[0]
+        live_component, _grid_context = hits[0]
 
         live_key = live_component.get("key") or ""
         if key_counts.get(live_key, 0) > 1:

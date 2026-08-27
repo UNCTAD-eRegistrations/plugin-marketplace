@@ -16,10 +16,11 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.5.0"
-  version-date: "2026-05-10"
+  version: "3.6.0"
+  version-date: "2026-07-31"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "3.6.0 (2026-07-31): Added Step 5.5e — Atomicity. One ticket, one observable behavior change: count the distinct observable changes in Requested Outcome and offer to file N linked tickets when there is more than one. Deliberately a scope-SHAPE rule, not a length rule — measured evidence shows ticket length does not predict how much work a ticket becomes (of six oversized plans on record the smallest originating ticket was 60% below median length, and one was already a split-off child). New Atomicity confidence dimension, a Step 9b blocking condition, a Step 5.5f checklist row, and an explicit note in the Requested Outcome template. Subsumes the weaker 'conflating two issues' line in Step 6, which asked about merged bugs rather than merged asks."
     - "3.5.0 (2026-05-10): Feature requests are now filable when they pass the same evidence bar as bugs. Replaced the blanket 'no feature requests' gate in Step 9b with three evidence-specific sub-conditions: cited backend capability, Hard-typed evidence, and observable-behavior phrasing. Resolves the internal contradiction between the 'Missing capability' category (Step 3) and the old gate (Step 9b). TRIGGER description and Guidelines updated to match. Per-server wrapper command descriptions broadened from 'issue or unexpected behavior' to 'issue or feature request'."
     - "3.4.1 (2026-04-14): Clarified consumer-project routing — consumers (e.g. SmartRules / SR) may integrate with eRegistrations directly via REST (not via MCP). The earlier wording 'a consumer project that calls the MCP' wrongly excluded SR, which is the actual origin of #58/#68/#69. Added the SR alias everywhere, listed SR's concrete internal surfaces (procedures-api, gdb-sync.js, hash files) as examples."
     - "3.4.0 (2026-04-14): Added the 'Production repositories (routing reference)' table listing the exact GitHub repo names under `UNCTAD-eRegistrations` for MCP, the BPA/DS/GDB/Keycloak backends, and consumer projects (SmartRules). Step 5.5c now references these by exact name instead of asking the user to recall them. The rule 'do not invent a repo name; verify with `gh repo view` and do not fall back to the MCP repo' is explicit."
@@ -242,10 +243,41 @@ Same file/line, different legitimacy, depending on (a) whether it's framed as ev
 
 **Applied to the currently-open examples (#58, #68, #69):** all three ask for Django-layer changes (new metadata column, server-side dedup, new `created_at`/`created_by_user_id` exposure). None of them can be satisfied by changing MCP tool code alone. The correct destination for all three is the backend repository that owns GDB — they are mis-filed today and should be re-opened there (with the sanitization from 5.5a and 5.5b applied in the process).
 
-### 5.5d — Scope checklist (must all pass before Step 6)
+### 5.5e — Atomicity: one ticket, one observable behavior change
+
+A ticket that asks for several things at once cannot be reviewed, estimated, or shipped as one unit. It also loses the reporter's leverage: a maintainer who disagrees with *one* of the three asks has to reject or renegotiate the whole ticket.
+
+**This is a scope-shape rule, not a length rule.** Do not gate on how long the report is. Short tickets are routinely the broadest ones — a single sentence can name a change that touches thirty files, while a long report is often long because it is thoroughly *evidenced* about one narrow thing. Length tells you nothing; the count of requested behavior changes tells you a lot.
+
+**How to count.** Read only the **Requested Outcome** section and count the distinct *observable* changes — each one a thing a user or caller could see happen differently afterwards. Ignore the supporting narrative; evidence, reproduction, and analysis do not count.
+
+| Requested Outcome | Count | Why |
+|---|---|---|
+| "`service_publish` should return a publish id instead of an empty body." | 1 | One observable change. **File it.** |
+| "Hold the page while writing, **and** refuse the write when a human holds it." | 2 | Two behaviors, independently shippable and independently arguable. **Split.** |
+| "Expose `created_at` on the read tools, **and** add a `--since` filter, **and** fix the timezone." | 3 | Three. **Split.** |
+| "Return the audit id, so callers can correlate the write with the audit log." | 1 | The clause after "so" is *motivation*, not a second change. **File it.** |
+
+Two traps in counting:
+
+- **"and" is not the signal — a second verifiable outcome is.** "Validate the payload and return 400" is one change described in two clauses. "Validate the payload and add a retry" is two.
+- **A conjunction hidden in the title still counts.** Read the title as part of the Requested Outcome.
+
+**If the count is > 1:** do not file one ticket. Tell the user:
+
+> This report asks for {N} separate changes: {list them}. Filed as one ticket they can't be reviewed or shipped independently — and if the maintainer disagrees with one, the others stall with it. I'd file {N} linked tickets instead, each with the evidence that belongs to it. Want me to split it that way? (Say "file as one" if they genuinely must ship together — e.g. the change is meaningless in halves.)
+
+If the user says they must ship together, file one ticket and say so explicitly in the Requested Outcome: *"These {N} changes are inseparable because …"*. A stated reason is reviewable; an unstated merge is not.
+
+**What this does and does not buy you.** It makes tickets reviewable and independently shippable. It does **not** guarantee the resulting work is small: a single-behavior ticket can still require a large change, and measured evidence says so plainly — of six oversized plans on record, the *smallest* originating ticket was 60% below the median ticket length, and one was itself already a split-off child of an earlier split. Size is decided by how much code the change touches, which the reporter cannot see. Split for reviewability; do not promise smallness.
+
+This subsumes the weaker "Am I conflating two different issues into one?" line in Step 6's hallucination table — that one asks whether you merged two *bugs*; this one asks whether you merged two *asks*, which is the more common failure.
+
+### 5.5f — Scope checklist (must all pass before Step 6)
 
 Run through this list explicitly. Answer each one:
 
+- [ ] **Requested Outcome names exactly ONE observable behavior change** (5.5e) — or the user explicitly chose to keep them together and the reason is written into the ticket.
 - [ ] **Filing destination is decided and written into the draft** (MCP repo, specific backend repo, or specific consumer repo).
 - [ ] If destination is MCP repo: the fix is plausibly implementable by changing MCP tool code alone (no backend model/endpoint change required).
 - [ ] No path beginning with `/Users/`, `/home/`, `~/`, `C:\` anywhere in the draft.
@@ -326,6 +358,7 @@ Assign a percentage (0–100%) to every dimension that applies. For each row, th
 | User intent | Do I actually understand what the user was trying to do? |
 | Server/instance identification | Am I sure which MCP server and which instance are involved? |
 | Scope hygiene | Is the report free of local filesystem paths, consumer-project context, and backend-code prescriptions? (Step 5.5) |
+| Atomicity | Does the Requested Outcome name exactly ONE observable behavior change? (Step 5.5e) |
 
 Only include dimensions that apply. Add case-specific rows if the situation demands it (e.g., "classification field mapping" for a GDB issue, "token claim interpretation" for a Keycloak issue).
 
@@ -342,6 +375,7 @@ Only include dimensions that apply. Add case-specific rows if the situation dema
 | Category assignment           |       80%  | Likely "wrong API call" but could also be "data transformation"  |
 | Severity assessment           |       75%  | User said "wrong data returned silently" → high                  |
 | User intent                   |       85%  | User explained clearly and confirmed                             |
+| Atomicity                     |       60%  | Outcome asks for a new field AND a new filter — 2 changes        |
 ```
 
 **Hard rules:**
@@ -502,7 +536,9 @@ in the MCP server if you can identify them.>
 
 ## Requested Outcome
 
-<Describe the observable behavior that should change, phrased for the chosen destination:
+<ONE observable behavior change (Step 5.5e). If several were deliberately kept together, say so here and state why they are inseparable.
+
+Describe the observable behavior that should change, phrased for the chosen destination:
 
 - **If MCP repo:** describe the tool's input/output/behavior that needs to change. The backend capability needed must already exist — if it doesn't, this ticket belongs in the backend repo instead.
 - **If backend repo:** describe the capability the backend should expose (field, endpoint, guard, response shape). File and line references are welcome as evidence; the backend team owns the implementation choice.
@@ -561,6 +597,7 @@ Never auto-select the MCP repo as a fallback.
     - The "Filing Destination" is the MCP repo but the backend capability that the request relies on is NOT cited as **Hard** evidence in the Claim Classification table
     - The "Requested Outcome" is phrased as a preference ("would be nice", "should consider", "ideally") rather than an observable behavior the maintainer can verify against
 - The **Scope hygiene** confidence dimension is below 90%
+- The **Requested Outcome names more than one observable behavior change** (Step 5.5e) and the user has not explicitly chosen to keep them together with a stated reason
 - The filing destination is unresolved, or the target repo is not the one the routing decision selected
 
 If any gate fails, tell the user exactly what's blocking it and what evidence would unblock it:

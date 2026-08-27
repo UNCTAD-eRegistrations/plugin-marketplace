@@ -1,18 +1,33 @@
 {
-  "input": {
-    "components": [
-      {"key": "grid", "type": "editgrid", "components": [
-        {"key": "innerRow", "type": "columns", "columns": [
-          {"width": 4, "components": []},
-          {"width": 4, "components": []}
-        ]}
-      ]}
-    ]
-  },
-  "expected": {
-    "action": "skip",
-    "reason": "inside_grid",
-    "inside_grid": true,
-    "note": "columns inside an editgrid/datagrid row template are skipped — per-row layout is not normalized"
-  }
+    "input": {
+        "components": [
+            {
+                "key": "grid",
+                "type": "editgrid",
+                "components": [
+                    {
+                        "key": "innerRow",
+                        "type": "columns",
+                        "columns": [
+                            {
+                                "width": 4,
+                                "components": []
+                            },
+                            {
+                                "width": 4,
+                                "components": []
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "expected": {
+        "action": "skip",
+        "reason": "grid_direct_child",
+        "inside_grid": true,
+        "note": "a columns row whose schema parent IS the editgrid/datagrid is laid out by the DS grid rule (12 tracks + per-width span) and wraps correctly by construction - permanently skipped, never normalized (TOBE-18037)",
+        "grid_context": "direct_child"
+    }
 }

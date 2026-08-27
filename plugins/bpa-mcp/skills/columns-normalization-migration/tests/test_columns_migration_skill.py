@@ -42,6 +42,8 @@ locator fails with a clear assertion (not a bare FileNotFoundError).
 
 from __future__ import annotations
 
+import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -411,4 +413,204 @@ def test_skill_handles_stale_cache_and_network_partition() -> None:
             "idempot",
         ],
         "skill must define ambiguous-state detection instead of blind retry",
+    )
+
+
+# The two SCAN modules, whose reasons are PHASE 1 vocabulary. The apply modules
+# are deliberately NOT here: they emit their own skip reasons (row_not_found,
+# modified_since_apply, ...) which belong to PHASE 3, and requiring those in
+# PHASE 1 would be wrong, not merely stricter.
+_SCAN_SCRIPTS = ("columns_logic.py", "columns_split.py")
+
+
+def _literal_choices(node: ast.AST) -> set[str]:
+    """The str literals a value expression can evaluate TO.
+
+    Deliberately NOT ``ast.walk``: walking the whole subtree of
+
+        reason = ("grid_direct_child"
+                  if grid_context == "direct_child"
+                  else "inside_grid_nested")
+
+    also harvests ``"direct_child"`` out of the CONDITION, which is a
+    comparison operand and not a reason the module can emit. Only the branches
+    of a conditional are values.
+
+    Anything non-literal (a Name, Attribute, Call) yields nothing, which is
+    correct: ``{"reason": verdict.reason}`` is a passthrough whose value is
+    already covered where the literal was assigned.
+    """
+    if isinstance(node, ast.Constant):
+        return {node.value} if isinstance(node.value, str) else set()
+    if isinstance(node, ast.IfExp):
+        return _literal_choices(node.body) | _literal_choices(node.orelse)
+    if isinstance(node, ast.BoolOp):  # e.g. `reason or "fallback"`
+        return set().union(*(_literal_choices(v) for v in node.values))
+    return set()
+
+
+def _emitted_scan_reasons() -> dict[str, set[str]]:
+    """Collect every literal ``reason`` the two scan modules can emit.
+
+    Parsed with ``ast``, NOT grepped. The regex predecessor matched only
+    ``"reason": "..."`` dict literals, so when TOBE-18037 added the pad track's
+    ``reason = ("grid_direct_child" if ... else "inside_grid_nested")`` the
+    guard could not see it at all (marketplace #61 review). An AST walk covers
+    every form this codebase uses -- dict literal, ``reason=`` keyword, and
+    plain or conditional assignment -- and as a bonus stops matching reason
+    names that merely appear quoted inside a docstring.
+
+    Known limitation, recorded rather than silently accepted: a reason passed
+    POSITIONALLY (``Verdict("skip", "x")``) would still be missed. Every call
+    site here uses keywords, and `Verdict` has 7 fields, so positional use is
+    not a realistic style for this module.
+    """
+    collected: dict[str, set[str]] = {}
+    for name in _SCAN_SCRIPTS:
+        source = (SKILL_DIR / "scripts" / name).read_text(encoding="utf-8")
+        found: set[str] = set()
+        for node in ast.walk(ast.parse(source, filename=name)):
+            # Verdict(action="skip", reason="no_key")
+            if isinstance(node, ast.Call):
+                for kw in node.keywords:
+                    if kw.arg == "reason":
+                        found |= _literal_choices(kw.value)
+            # {"action": "review", "reason": "all_columns_empty"}
+            elif isinstance(node, ast.Dict):
+                # NB: a `{**spread}` entry has key None, hence the isinstance.
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == "reason":
+                        found |= _literal_choices(value)
+            # reason = "complete" if base_sum == TARGET_SUM else "over_12"
+            elif isinstance(node, ast.Assign):
+                if any(
+                    isinstance(t, ast.Name) and t.id == "reason" for t in node.targets
+                ):
+                    found |= _literal_choices(node.value)
+        collected[name] = found
+    return collected
+
+
+def _documents(phase1: str, reason: str) -> bool:
+    """Is ``reason`` present in ``phase1`` as a whole token?
+
+    A bare substring test is not enough: it let `inside_grid` count as
+    documented purely because `inside_grid_nested` appears, so the shorter
+    reason could vanish from the runbook without failing anything.
+
+    The REVERSE assertion covers two structural shapes (#66 review, round 2):
+    markdown TABLE ROWS (first-column code span) and DEFINITION BULLETS — a
+    bullet whose leading element is a bold code span (`- **\`reason\`**`),
+    the prose analogue of a table row. The bullet shape is what caught the
+    `in_grid_nested` retirement gap: the reason's bullet survived in PHASE 1
+    prose after the scripts stopped emitting it, and table-row scraping alone
+    passed green. Scraping every backticked token instead would
+    false-positive on non-reason identifiers (`base_sum`, `grid_context`,
+    ...) — the two structural shapes carry definition intent; running prose
+    does not. Residual, recorded: a retired reason mentioned in FREE prose
+    (neither shape) is still uncaught, so retiring a reason keeps a human
+    sweep of PHASE 1 prose AND of the scan modules' own docstrings in its
+    checklist (#68 review round 3 found two stale docstring spots the PHASE 1
+    sweep missed).
+
+    FORWARD-direction hole closed (#68 review rounds 3-4): a retirement note
+    in PHASE 1 ("`reason` was retired in ...") used to satisfy this
+    documented-check for the very reason it declares dead — so re-emitting a
+    retired reason kept the guard green because a sentence said it no longer
+    exists. The exclusion is PARAGRAPH-based (split on blank lines), not
+    line-based: round 4 demonstrated that a line filter silently re-opens
+    the hole under a mere reflow of the hard-wrapped note (token and marker
+    drifting onto different lines — an editor or formatter away). The
+    convention is therefore "a retirement note is its own paragraph", and a
+    reflow inside that paragraph cannot separate the token from the marker.
+    NB the exclusion does not *detect* a broken convention — it fails safe
+    instead: a reason mentioned only inside a retired-marked paragraph is
+    treated as undocumented, which is the failing (loud) direction.
+    Positive controls: reverting columns_split.py to the pre-TOBE-18030
+    emitter fails this guard, and still fails it after reflowing the
+    retirement note.
+    """
+    blocks = [
+        block
+        for block in re.split(r"\n\s*\n", phase1)
+        if not re.search(r"(?<![a-z0-9_])retired(?![a-z0-9_])", block)
+    ]
+    haystack = "\n\n".join(blocks)
+    return (
+        re.search(rf"(?<![a-z0-9_]){re.escape(reason)}(?![a-z0-9_])", haystack)
+        is not None
+    )
+
+
+def test_skill_documents_every_scan_reason_the_scanners_can_emit() -> None:
+    """Lockstep guard (marketplace #59, widened per the #61 review).
+
+    The PHASE 1 runbook is the only place a scanned row becomes visible to a
+    human: the apply side skips any row it does not own, silently. So every
+    reason either scanner can emit must be documented there, or rows sit
+    unnormalized with nobody aware a decision is pending. Third occurrence of
+    the drift class #55 paid down for the allowlist checklist -- which is why
+    this is a test and not a review checklist item.
+
+    Both scan modules are read, and the reason names come out of the source, so
+    adding one without documenting it fails HERE rather than in a later review.
+    """
+    text = _skill_text()  # NB: _skill_text() lowercases the file
+    # A missing anchor must raise, not silently yield an empty slice that makes
+    # every assertion below vacuously true.
+    start = text.index("## phase 1")
+    end = text.index("## phase 2")
+    phase1 = text[start:end]
+
+    # Scoping to the section is load-bearing: a mention in the changelog is not
+    # operator-facing documentation, and satisfying the guard from the changelog
+    # is exactly the false positive the #59 review caught.
+    assert "## phase 3" not in phase1, "PHASE 1 slice must stop before PHASE 3"
+
+    by_script = _emitted_scan_reasons()
+    undocumented: dict[str, list[str]] = {}
+    for script, reasons in sorted(by_script.items()):
+        assert reasons, f"expected {script} to emit at least one reason"
+        missing = sorted(r for r in reasons if not _documents(phase1, r))
+        if missing:
+            undocumented[script] = missing
+
+    assert not undocumented, (
+        "SKILL.md PHASE 1 must document every reason the scanners can emit "
+        f"(as a whole token); missing from the PHASE 1 section: {undocumented}"
+    )
+
+    # Reverse direction (#64 review, Erick). The forward assertion alone
+    # enforces emitted -> documented only; a vocabulary row describing a
+    # reason nothing emits fails nothing (`totally_bogus_orphan` passed all
+    # 205 tests). So a rename or removal in code could strand its doc row in
+    # PHASE 1 forever, and operators would look for a reason that can never
+    # appear in a plan. Every reason-shaped token documented as a
+    # first-column code span in a PHASE 1 table must be in the emitted set.
+    #
+    # The header row (| `reason` | Meaning |) is excluded structurally — the
+    # line after it is the |---| separator — rather than via a hardcoded
+    # token list, which would itself be a small drift vector.
+    emitted_all: set[str] = set().union(*by_script.values())
+    lines = phase1.splitlines()
+    claimed: set[str] = set()
+    for i, line in enumerate(lines):
+        m = re.match(r"^\|\s*`([a-z0-9_]+)`\s*\|", line)
+        if not m:
+            continue
+        if i + 1 < len(lines) and re.match(r"^\|\s*-", lines[i + 1]):
+            continue  # header row
+        claimed.add(m.group(1))
+    assert claimed, "expected the PHASE 1 vocabulary table to have rows"
+
+    # Definition bullets: `- **\`reason\`**` — the prose shape PHASE 1 uses
+    # to define a reason outside the table. `[a-z0-9_]+` must span the WHOLE
+    # code span, so `action:"review"` bullets are not grabbed; identifiers in
+    # running prose (`base_sum`, `grid_context`) are inline code spans, never
+    # bullet-leading bold definitions.
+    claimed |= set(re.findall(r"^\s*-\s*\*\*`([a-z0-9_]+)`\*\*", phase1, re.M))
+    orphaned = sorted(claimed - emitted_all)
+    assert not orphaned, (
+        "PHASE 1 documents reasons no scan module emits (orphaned vocabulary "
+        f"rows — rename or remove them): {orphaned}"
     )

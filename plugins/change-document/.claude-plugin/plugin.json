@@ -1,0 +1,9 @@
+{
+  "name": "change-document",
+  "description": "Write a change document for an eRegistrations service the way the house does it: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance. Bundles the method, the BPA drawing kit, the screen-truth extractor and the three checkers.",
+  "version": "1.0.0",
+  "author": {
+    "name": "UNCTAD Trade Facilitation Section"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

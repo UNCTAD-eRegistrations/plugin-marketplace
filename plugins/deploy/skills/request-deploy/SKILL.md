@@ -7,11 +7,13 @@ description: >
   defaults, asks only what's needed, posts via `gh`.
 license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
-allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
+allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
 metadata:
-  version: "1.9.0"
-  version-date: "2026-06-03"
+  version: "1.10.0"
+  version-date: "2026-08-18"
   author: "UNCTAD Trade Facilitation Section"
+  changelog:
+    - "1.10.0 (2026-08-18): Added pre-flight Gate 3 — Runner toolchain compatibility (Rule F auto-fix). Incident (designstudio): local Gates 1–2 passed on the dev laptop's newer Node, but the nixpacks runner built with Node 22.11.0 while vite 8/rolldown require ^20.19.0 || >=22.12.0 — and npm on Node <22.12 silently skips optional deps with unsatisfied engines (npm/cli#4828), so `npm ci` exited 0 without installing @rolldown/binding-linux-x64-gnu and `vite build` died with 'Cannot find native binding'. Detection scans installed packages' engines against the runner's Node; fix pins a newer nixpkgsArchive in nixpacks.toml (repo-side, no Coolify change). Documents the NIXPACKS_NODE_VERSION=24/23 traps."
 ---
 
 # Request-Deploy — Open a Deployment Issue
@@ -179,7 +181,7 @@ This path modifies the **user's app repo** — move carefully:
 - **Never edit without showing the diff first** and getting explicit Apply from the user. No silent modifications.
 - **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
 - **Never ask the user about branches.** The user's current `HEAD` is their branch choice — commit and push there. Pushing to `main` is fine when the user is on `main`; the push-failure rollback path handles the protected-branch case without ever exposing the word "branch" to the user.
-- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D run `docker compose config -q` (or a YAML parse fallback). If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
+- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D run `docker compose config -q` (or a YAML parse fallback); Rule F re-runs Gates 1–2 and uses a nixpkgs pin verified server-side against the actual helper image. If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
 - If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
 
 4. Propose defaults, but treat **domain** as special — it's the public URL, user-facing forever, and deserves its own focused question:
@@ -201,7 +203,7 @@ This path modifies the **user's app repo** — move carefully:
      If the user picks "Let me type a custom one," prompt for the subdomain with a second question, validate it matches `^[a-z0-9][a-z0-9.-]*[a-z0-9]\.eregistrations\.dev$`, and retry the prompt on invalid input with a plain-language hint about lowercase letters/digits/hyphens. **The `Name` field in the deploy issue is independent of the domain** — derive `Name` from the slug the onboarder will use internally (repo-slug by default, or user's explicit choice if they override Name too), and set `Domain` from the user's domain answer. The two can differ without confusion: `Name` is a Coolify-internal identifier, `Domain` is the public URL.
 5. Show the user what you'll submit and ask for confirmation.
 6. Ask about env vars (optional — "none" is fine).
-7. **Run the pre-flight build gate** (see "## Pre-flight build gate" below) — `npm ci` then `npm run build` for Node `auto-detect`/`static` repos, plus the large-file & `.dockerignore` checks for all build types. This runs **even when no auto-fix path fired** — a correctly-configured repo still needs its lockfile and build verified. If a gate fails and can't be auto-fixed, bail to a help issue rather than filing a deploy that will fail server-side.
+7. **Run the pre-flight build gate** (see "## Pre-flight build gate" below) — `npm ci` then `npm run build` for Node `auto-detect`/`static` repos, the runner-toolchain check (Gate 3), plus the large-file & `.dockerignore` checks for all build types. This runs **even when no auto-fix path fired** — a correctly-configured repo still needs its lockfile, build, and toolchain compatibility verified. If a gate fails and can't be auto-fixed, bail to a help issue rather than filing a deploy that will fail server-side.
 8. Post the issue. Show the URL. Done.
 
 The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override — **except** for the domain, which is user-facing forever and should never be auto-accepted via a checkbox-style "recommended" nudge.
@@ -282,9 +284,9 @@ This gate runs for **every Node/buildable repo**, regardless of build type and *
 
 **Incident that motivated this (2026-06-03, SW-Comores):** the repo had a valid `start` script, so Rule E was skipped. Its `package-lock.json` carried wrong SRI `integrity` hashes (off by one base64 char) for several packages. Nixpacks runs `npm ci`, which strictly verifies every tarball against the lockfile and rejected the *genuinely-correct* registry tarballs as "corrupted" — the deploy died with `EINTEGRITY` after minutes of retries. A local `npm ci` would have caught it in seconds.
 
-**When to run:** after build-type detection (and any auto-fix), before "## Building the issue body". Run **Gates 1–2** when `build type` is `auto-detect` or `static` **and** a `package.json` with a `build` script exists. Skip Gates 1–2 for `dockerfile`/`dockercompose` (the image build happens server-side; Rules A–D already pre-flight compose) — but always run the **Large-file & context checks** below, for every build type.
+**When to run:** after build-type detection (and any auto-fix), before "## Building the issue body". Run **Gates 1–3** when `build type` is `auto-detect` or `static` **and** a `package.json` with a `build` script exists. Skip Gates 1–3 for `dockerfile`/`dockercompose` (the image build happens server-side with a repo-controlled base image; Rules A–D already pre-flight compose) — but always run the **Large-file & context checks** below, for every build type.
 
-**Pre-check:** `command -v npm` must succeed. If npm is missing, skip Gates 1–2 with a one-line note (can't verify without it) and continue — do not block the deploy.
+**Pre-check:** `command -v npm` must succeed. If npm is missing, skip Gates 1–3 with a one-line note (can't verify without it) and continue — do not block the deploy.
 
 ### Gate 1 — Clean install (catches corrupt / out-of-sync lockfile)
 
@@ -314,6 +316,72 @@ npm run build
 ```
 
 This is the same command Nixpacks runs. On failure, **do not file the issue** — show the plain-language message Rule E uses (*"I tried to prepare your project for deployment, but the build failed on my end. This means the deploy would fail too. No changes were committed."*), surface the last 20 lines of output, and offer only "Open a help issue" or "Cancel." Then confirm the expected output dir exists (e.g. `dist/` for Vite) — if not, bail the same way.
+
+### Gate 3 — Runner toolchain compatibility (catches engine-gated optional deps)
+
+Gates 1–2 run on the **user's laptop**, whose Node is usually newer than the deploy runner's. That gap hides a nasty failure class:
+
+**Incident that motivated this (2026-08-18, designstudio):** Coolify's nixpacks (helper ≤ 1.0.15, nixpacks 1.41) builds with **Node 22.11.0** from its pinned nixpkgs snapshot. The repo used vite 8, which is rolldown-based and declares `engines: node ^20.19.0 || >=22.12.0`. On Node < 22.12, npm **silently skips optional dependencies whose engines aren't satisfied** ([npm/cli#4828](https://github.com/npm/cli/issues/4828)) — `npm ci` exited 0 but never installed `@rolldown/binding-linux-x64-gnu`, and `vite build` died with `Cannot find native binding`. Gates 1–2 passed locally (laptop Node 22.22); the lockfile was correct; `--force` and upgrading npm don't help. Only the runner's Node version matters.
+
+**Detection** (run after Gate 1, while `node_modules` is populated). Heads-up signal: if `vite` major ≥ 8 or `rolldown` is present in `node_modules`, expect the gate to fire. Generic check — scan installed packages' `engines.node` for minimums above the runner's Node (assumes an npm-installed `node_modules`; pnpm symlink stores aren't scanned):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path");
+const [rMaj,rMin]=[22,11]; // nixpacks runner Node (helper <=1.0.15, nixpacks 1.41)
+const bad=[];
+(function scan(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+  if(e.name.startsWith("."))continue;
+  const p=path.join(dir,e.name);
+  if(!e.isDirectory())continue;
+  if(e.name.startsWith("@")){scan(p);continue;}
+  const pj=path.join(p,"package.json");
+  if(!fs.existsSync(pj))continue;
+  const eng=((JSON.parse(fs.readFileSync(pj,"utf8")).engines)||{}).node||"";
+  for(const m of eng.matchAll(/>=\s*(\d+)\.(\d+)|\^(\d+)\.(\d+)/g)){
+    const maj=+(m[1]||m[3]),min=+(m[2]||m[4]);
+    if(maj>rMaj||(maj===rMaj&&min>rMin)){bad.push(e.name+" (engines.node: "+eng+")");break;}
+  }
+}})("node_modules");
+if(bad.length){console.log("RUNNER-INCOMPATIBLE:");bad.forEach(b=>console.log("  "+b));process.exit(1);}
+console.log("runner-compatible");
+'
+```
+
+Heuristic, not a full semver solver — it targets the observed failure class (`>=22.12`-style minimums). If it exits 0, continue. If it flags packages, apply **Rule F**.
+
+**Rule F — Runner Node too old for the toolchain** (BLOCKER, auto-fixable, repo-side).
+Pin a newer nixpkgs snapshot in the repo's `nixpacks.toml` so the runner's `nodejs_22` resolves to ≥ 22.12. No Coolify UI change needed — Coolify's `NIXPACKS_NODE_VERSION=22` maps to `nodejs_22`, and the archive pin controls which nixpkgs provides it.
+
+- *Fix:* create `nixpacks.toml` if absent (preserve and extend it if present — never clobber existing `[phases.*]` or `[start]` blocks) with:
+
+  ```toml
+  [phases.setup]
+  nixpkgsArchive = "4684fd6b0c01e4b7d99027a34c93c2e09ecafee2"
+  ```
+
+  This revision (nixpkgs-unstable, 2025-05-24) provides `nodejs_22` = **22.14.0** — verified 2026-08-18 on the deploy server via `nixpacks build` inside `ghcr.io/coollabsio/coolify-helper:1.0.15`. If the repo already has `[phases.setup]`, add/replace only the `nixpkgsArchive` line. If `nixpkgsArchive` is already pinned to a snapshot with nodejs_22 ≥ 22.12, the gate passes — do nothing.
+- *Verify:* re-run Gates 1–2 (must still pass), then `git add nixpacks.toml`, commit `fix(deploy): pin newer nixpkgs for Node >=22.12 toolchain`, push — using the **same guardrails and push/rollback flow as the compose auto-fix** (clean tree, upstream branch, graceful help-issue fallback on push failure).
+- *Skip Rule F entirely* for `dockerfile`/`dockercompose` build types — those control their own base image.
+
+**Traps — do NOT "fix" this any of these ways:**
+- `NIXPACKS_NODE_VERSION=24` → nix-env fails: the pinned nixpkgs snapshot has no `nodejs_24`.
+- `NIXPACKS_NODE_VERSION=23` → nixpacks 1.41 **silently falls back to `nodejs_18`** in the generated plan. Worse than 22.
+- Upgrading the Coolify helper → doesn't help: helper 1.0.15 still ships nixpacks 1.41 with the same snapshot.
+- `npm ci --force` / upgrading npm in the install phase → the engine-gating of optional deps follows the **Node** version, not the npm version.
+
+Plain-language question (same shape as Rule E):
+
+```
+question: "Your app's build tools need a newer version of Node.js than the deploy server uses by default. Can I add a small config file (nixpacks.toml) that tells it to use a newer one?"
+header: "Quick setup"
+multiSelect: false
+options:
+  - label: "Yes, add it and deploy (recommended)"
+    description: "I'll add a nixpacks.toml that pins a newer Node for the build servers. Standard configuration — safe to ignore once added."
+  - label: "No — open a help issue instead"
+    description: "Abort. A maintainer will help you deploy this app manually."
+```
 
 ### Large-file & context checks (all build types, advisory — never block)
 

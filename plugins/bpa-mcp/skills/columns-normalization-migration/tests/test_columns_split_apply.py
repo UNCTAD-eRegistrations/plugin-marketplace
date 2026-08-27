@@ -1482,3 +1482,273 @@ def test_revert_split_operations_still_raises_when_first_container_not_pristine(
 
     with pytest.raises(ValueError, match="corrupt"):
         revert_split_operations(corrupt, post_split_live)
+
+
+# ---------------------------------------------------------------------------
+# single-container plans + review rows (marketplace #58)
+# ---------------------------------------------------------------------------
+def _col_maybe_empty(width: int, key: str | None) -> dict[str, Any]:
+    """A source column; ``key=None`` builds an empty spacer column."""
+    return _col(width, key=key)
+
+
+def _columns_with_content_flags(
+    key: str, widths: list[int], flags: str
+) -> dict[str, Any]:
+    """Columns component where ``flags`` marks each column ``1`` (has a field)
+    or ``0`` (empty spacer)."""
+    assert len(widths) == len(flags)
+    return {
+        "key": key,
+        "type": "columns",
+        "columns": [
+            _col_maybe_empty(w, None if flags[i] == "0" else f"{key}_f{i}")
+            for i, w in enumerate(widths)
+        ],
+    }
+
+
+def test_apply_tolerates_a_single_container_plan() -> None:
+    """Erick's case 2 on #58: dropping a content-less group can legitimately
+    leave ONE surviving container, i.e. a 1->1 rewrite. The apply side must
+    emit `remove` + a single `add` rather than assuming N > 1 anywhere."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [6, 6, 6], "110")]
+    plan_rows = _plan_rows(live)
+
+    assert len(plan_rows) == 1
+    assert len(plan_rows[0]["containers"]) == 1
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    ops = result["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add"]
+    assert ops[0]["key"] == "row1"
+    assert ops[1]["component"]["key"] == "row1_split1"
+    assert [c["width"] for c in ops[1]["component"]["columns"]] == [6, 6]
+    assert len(result["applied_rows"]) == 1
+    assert result["applied_rows"][0]["container_keys"] == ["row1_split1"]
+
+
+def test_apply_round_trips_a_single_container_plan() -> None:
+    """The revert path must survive the 1->1 shape too — it is the recovery
+    story for exactly the rows this fix newly makes applicable."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [6, 6, 6], "110")]
+    result = plan_to_split_operations(_plan_rows(live), live)
+
+    written = [op["component"] for op in result["operations"] if op["op"] == "add"]
+    reverted = revert_split_operations(result["applied_rows"], written)
+
+    assert reverted["skipped"] == []
+    assert [op["op"] for op in reverted["operations"]] == ["remove", "add"]
+
+
+def test_apply_skips_an_all_columns_empty_review_row() -> None:
+    """A row whose every group is content-less is surfaced as `review`, never
+    split. The apply side must skip it — emitting nothing for it, and above all
+    never emitting the bare `remove` that would delete the component."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_with_content_flags("row1", [8, 8], "00")]
+    plan_rows = _plan_rows(live)
+
+    assert len(plan_rows) == 1
+    assert plan_rows[0]["action"] == "review"
+    assert plan_rows[0]["reason"] == "all_columns_empty"
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["operations"] == []
+    assert result["applied_rows"] == []
+
+
+# ---------------------------------------------------------------------------
+# grid-nested apply (TOBE-18041)
+# ---------------------------------------------------------------------------
+def _editgrid(key: str, children: "list[dict[str, Any]]") -> "dict[str, Any]":
+    return {"key": key, "type": "editgrid", "components": children}
+
+
+def _panel(key: str, children: "list[dict[str, Any]]") -> "dict[str, Any]":
+    return {"key": key, "type": "panel", "components": children}
+
+
+def test_split_applies_inside_a_grid_nested_panel() -> None:
+    """TOBE-18041 acceptance 1: add + remove resolve inside a grid subtree.
+    The panel parent sits inside an editgrid; the ops must address the PANEL
+    (parent_key=p), never the grid, and never re-root."""
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [_panel("p", [target])])]
+    plan_rows = _plan_rows(live)
+
+    assert [r["action"] for r in plan_rows] == ["split"]
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    ops = result["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add", "add", "add"]
+    for n, op in enumerate(ops[1:]):
+        assert op["parent_key"] == "p", "must address the panel inside the grid"
+        assert "column_index" not in op
+        assert op["position"] == n
+    assert result["applied_rows"][0]["container_keys"] == [
+        "row1_split1",
+        "row1_split2",
+        "row1_split3",
+    ]
+
+
+def test_two_split_rows_sharing_a_panel_inside_a_grid_keep_position_arithmetic() -> None:
+    """TOBE-18041 acceptance 1, the position-drift case: two rows in the SAME
+    panel inside a grid — the second row's adds must be offset by the net
+    growth from the first (each split is -1 original +N containers)."""
+    from columns_split_apply import plan_to_split_operations
+
+    row_a = _columns_component("rowA", [4] * 9)   # -> 3 containers (net +2)
+    row_b = _columns_component("rowB", [6] * 3)   # -> 2 containers
+    live = [_editgrid("grid", [_panel("p", [row_a, row_b])])]
+    plan_rows = _plan_rows(live)
+    assert [r["original_key"] for r in plan_rows] == ["rowA", "rowB"]
+
+    result = plan_to_split_operations(plan_rows, live)
+
+    assert result["skipped"] == []
+    adds = [op for op in result["operations"] if op["op"] == "add"]
+    by_key = {op["component"]["key"]: op["position"] for op in adds}
+    assert by_key == {
+        "rowA_split1": 0,
+        "rowA_split2": 1,
+        "rowA_split3": 2,
+        # rowB sat at base position 1; rowA grew the panel by +2 -> 3
+        "rowB_split1": 3,
+        "rowB_split2": 4,
+    }
+
+
+def test_direct_child_of_grid_is_still_refused_by_the_apply() -> None:
+    """TOBE-18041 acceptance 6, defense-in-depth: the scan never emits a
+    direct child, but a FORGED plan row targeting one must still be skipped —
+    the DS grid rule owns that row and a split would degrade it."""
+    from columns_split import plan_split
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [target])]
+    forged = dict(plan_split(target) or {})
+    forged["path"] = "grid/row1"
+
+    result = plan_to_split_operations([forged], live)
+
+    assert result["operations"] == []
+    assert result["applied_rows"] == []
+    assert [sk["reason"] for sk in result["skipped"]] == ["unsupported_parent_context"]
+
+
+def test_tabs_inside_a_grid_are_still_unsupported() -> None:
+    """Narrowing the grid guard must not weaken the tabs/table rule: a row
+    inside a tabs pane inside a grid stays unsupported."""
+    from columns_split import plan_split
+    from columns_split_apply import plan_to_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    tabs = {
+        "key": "tabs1",
+        "type": "tabs",
+        "tabs": [{"key": "pane1", "components": [target]}],
+    }
+    live = [_editgrid("grid", [tabs])]
+    forged = dict(plan_split(target) or {})
+    forged["path"] = "grid/tabs1/row1"
+
+    result = plan_to_split_operations([forged], live)
+
+    assert result["operations"] == []
+    assert [sk["reason"] for sk in result["skipped"]] == ["unsupported_parent_context"]
+
+
+def test_grid_nested_split_reverts_cleanly() -> None:
+    """TOBE-18041 acceptance 3: the revert path works for a grid-nested row —
+    remove the containers, re-add the original into the panel inside the
+    grid, pristine check passing."""
+    from columns_split_apply import plan_to_split_operations, revert_split_operations
+
+    target = _columns_component("row1", [4] * 9)
+    live = [_editgrid("grid", [_panel("p", [target])])]
+    result = plan_to_split_operations(_plan_rows(live), live)
+    assert result["skipped"] == []
+
+    written = [op["component"] for op in result["operations"] if op["op"] == "add"]
+    reverted = revert_split_operations(result["applied_rows"], written)
+
+    assert reverted["skipped"] == []
+    ops = reverted["operations"]
+    assert [op["op"] for op in ops] == ["remove", "remove", "remove", "add"]
+    assert ops[-1]["component"]["key"] == "row1"
+    assert ops[-1].get("parent_key") == "p"
+
+
+# ---------------------------------------------------------------------------
+# TOBE-18030: mixed width-12 rows flow through the apply pipeline
+# ---------------------------------------------------------------------------
+def test_plan_to_split_operations_mixed_row_emits_pair_and_remainder() -> None:
+    """[12,8,8] (TOBE-18030 option C): the apply consumes the mixed split plan
+    like any other — 1 remove + 3 adds, where the first added container is the
+    [12, empty-12] CSS-complete pair (>= 2 columns, content in the first)."""
+    from columns_split_apply import plan_to_split_operations
+
+    live = [_columns_component("row1", [12, 8, 8])]
+    plan_rows = _plan_rows(live)
+    assert plan_rows and plan_rows[0]["action"] == "split"
+
+    applied = plan_to_split_operations(plan_rows, live)
+    assert applied["skipped"] == []
+    ops = applied["operations"]
+    assert [op["op"] for op in ops] == ["remove", "add", "add", "add"]
+
+    pair = ops[1]["component"]
+    pair_widths = [c["width"] for c in pair["columns"]]
+    assert pair_widths == [12, 12]
+    assert pair["columns"][0]["components"], "pair content column must keep its field"
+    assert not pair["columns"][1]["components"], "pair filler must be empty"
+
+    for add_op in ops[2:]:
+        widths = [c["width"] for c in add_op["component"]["columns"]]
+        assert sum(widths) == 12 and widths[0] == 8
+
+
+def test_plan_to_split_operations_mixed_row_reverts_cleanly() -> None:
+    """The mixed split's applied entry round-trips through the structural
+    revert: 3 removes + 1 add restoring the original [12,8,8] component."""
+    from columns_split_apply import (
+        plan_to_split_operations,
+        revert_split_operations,
+    )
+
+    live = [_columns_component("row1", [12, 8, 8])]
+    plan_rows = _plan_rows(live)
+    applied = plan_to_split_operations(plan_rows, live)
+
+    post_split_live = _post_split_live(live, applied)
+    revert = revert_split_operations(applied["applied_rows"], post_split_live)
+
+    assert revert["skipped"] == []
+    ops = revert["operations"]
+    assert [op["op"] for op in ops] == ["remove", "remove", "remove", "add"]
+    restored = ops[-1]["component"]
+    assert restored["key"] == "row1"
+    assert [c["width"] for c in restored["columns"]] == [12, 8, 8]

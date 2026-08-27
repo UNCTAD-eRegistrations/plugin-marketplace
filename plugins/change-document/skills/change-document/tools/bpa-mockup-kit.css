@@ -1,0 +1,223 @@
+/* ============================================================================
+   BPA MOCKUP KIT: canvas-true CSS for rendering an eRegistrations service
+   mockup straight from that service's own JSON.
+
+   READ THIS FIRST, 2026-08-21.
+   TAKE THE KIT FROM HERE. NEVER COPY A STYLE BLOCK OUT OF AN EXISTING PLAN.
+   A finished plan freezes at delivery, so it keeps whatever was true the day
+   it shipped, including rules this kit has since corrected. On 21-08-2026 a
+   new change document copied the capital-shares plan's <style data-specimen>
+   block and so reintroduced the invented fieldset left bar that was dropped
+   here on 22-07-2026. Frank caught it on the screen. One line, four weeks
+   after it was fixed, because the copy source outranked the authority.
+   If a plan and this kit disagree, this kit is right and the plan is old.
+
+   SOURCE: capital-shares-proposal.html, <details id="why"> embedded style
+   (Register a Business, Lesotho, the "where we stand" canvas-true pass).
+   Cross-checked against its two precursor fragments in the same service
+   folder, specs/rendering-a-canvas-true.html and specs/capital-shares-real-
+   look.html, and against the same proposal file's own top-level style
+   (source of the end-situation chip overlay, section id="screen").
+   Canonized 2026-07-22. Method to use this kit: guides for AI/bpa-mockup-
+   rendering.md. Doctrine: skill er-implementation-plan, memory feedback-
+   er-implementation-plan-style.md.
+
+   MEASURED vs APPROXIMATED.
+   Measured against live BPA screenshots and VISUAL-DICTIONARY.md "Spec
+   visual verificada" pass (2026-07-04, BPA-cuba 2.18) plus the 2026-07-22
+   Lesotho canvas-true correction pass: panel/header/label/input geometry,
+   the E and A badge colors (computed-style dump 2026-07-04), the editgrid
+   dashed salmon border, the datagrid header band, the hideLabel strike
+   plus eye-slash, the hidden:true stripes, background-blue/background-red
+   boxes (no left bar on either, verified 2026-07-22).
+   Approximated: verified against live BPA screenshots Frank shared
+   2026-07-22, but not yet against a computed-style DOM dump the way E/A/C
+   were on 2026-07-04, the V and F badge colors. Not yet observed at all:
+   B (behaviour) and D (determinant) badges; no class defined here, add
+   one when seen.
+   Not BPA's own UI, drawn by us only: .chip.new / .chip.modified (the
+   end-situation change overlay) and the small italic .bpa-note annotation.
+
+   HOW TO USE. Paste the whole file, or the sections needed, into the
+   <style> of the drawing's own <details> block, not the document's outer
+   house <style>. Several class names are intentionally plain (.req,
+   .help-text) because this kit is meant to live scoped to one drawing;
+   if a page's outer house CSS defines a class of the same name, whichever
+   style block loads later wins, so keep this kit inside its own <details>.
+   ============================================================================ */
+
+
+/* ----------------------------------------------------------------------------
+   A. MEASURED BASE
+   Panel/header/body, plain content text, the 12-col grid, labels (including
+   the hideLabel ghost-label plus eye-slash pair), inputs plus computed
+   grey, radio dots, fieldsets (no left bar, canvas-true correction, see
+   section B for how a fieldset is actually marked), help text, and the
+   legend swatches used to explain the grammar above a drawing.
+   ---------------------------------------------------------------------------- */
+
+.bpa-panel { background:#fff; border:1px solid rgb(209,213,219); border-radius:8px; box-shadow:none; position:relative; }
+.bpa-panel .panel-header, .panel-header { background:rgb(209,213,219); color:rgb(31,41,55); padding:8px 20px; font-weight:600; font-size:16px; border-radius:8px 8px 0 0; display:flex; align-items:center; gap:8px; }
+.chev { width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid rgb(31,41,55); display:inline-block; }
+.bpa-panel .panel-body, .panel-body { padding:20px; }
+
+/* plain content (type:"content", no customClass): no box, no left bar */
+.bpa-content-text { font-size:14px; line-height:1.5; color:rgb(55,65,81); margin:0 0 10px; }
+.bpa-content-text.heading { font-size:18px; font-weight:700; color:rgb(31,41,55); margin:14px 0 6px; }
+
+/* 12-column grid, widths taken from the JSON columns[].width */
+.bpa-cols { display:flex; flex-wrap:wrap; gap:14px; margin:0 0 14px; }
+.bpa-cols.top-space-05 { margin-top:6px; }
+.bpa-cols.margin-top-zero { margin-top:0; }
+.c3 { flex:0 0 calc(25% - 11px); max-width:calc(25% - 11px); position:relative; }
+.c6 { flex:0 0 calc(50% - 7px); max-width:calc(50% - 7px); position:relative; }
+@media (max-width:720px){ .c3{ flex-basis:calc(50% - 11px); max-width:calc(50% - 11px); } }
+
+/* label = JSON label/workingLabel; ghost-label = the same field when
+   hideLabel:true, still drawn, same size and weight, struck through, with
+   an eye-slash icon. "Hidden fields are rendered too" (Frank, 2026-07-22):
+   never omit a ghost-label. */
+.field-wrap { position:relative; margin-bottom:16px; min-width:0; }
+.control-label, .ghost-label { display:block; font-size:15px; font-weight:600; color:rgb(75,85,99); line-height:18px; padding:0 0 7px; }
+.ghost-label { text-decoration:line-through; }
+.req { color:rgb(255,0,0); } /* validate.required:true */
+.eye-slash { width:15px; height:15px; margin-left:6px; vertical-align:-2px; }
+
+/* input; .computed = disabled:true fed by a formula (grey fill, bold text) */
+.bpa-input { border:1px solid rgb(156,164,176); border-radius:4px; height:40px; min-height:40px; background:#fff; display:flex; align-items:center; padding:0 12px; font-size:16px; color:rgb(31,41,55); width:100%; box-sizing:border-box; }
+.bpa-input.computed { background:rgb(243,244,246); font-weight:600; }
+.bpa-row-inline { display:flex; align-items:center; gap:8px; min-width:0; }
+.bpa-row-inline .bpa-input { flex:1; min-width:0; }
+.bpa-suffix { font-size:13px; color:rgb(107,114,128); white-space:nowrap; flex:none; } /* JSON suffix, e.g. "LSL", "shares" */
+
+/* radio dots */
+.bpa-radio-row { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+.bpa-opt { display:inline-flex; align-items:center; gap:6px; font-size:14px; color:rgb(31,41,55); white-space:nowrap; }
+.bpa-dot { width:14px; height:14px; border-radius:50%; border:2px solid rgb(156,164,176); display:inline-block; }
+.bpa-dot.sel { border-color:rgb(59,130,246); background:radial-gradient(circle, rgb(59,130,246) 0 5px, transparent 6px); }
+
+/* fieldset: canvas-true correction, no invented left bar (an earlier draft
+   drew border-left:4px solid rgb(191,197,206); dropped 2026-07-22). What the
+   canvas actually draws around a fieldset is the dashed .bpa-outline below. */
+.bpa-fieldset { padding:14px; margin:0 0 16px; position:relative; }
+.fieldset-legend { font-size:15px; font-weight:700; color:rgb(31,41,55); margin:0 0 10px; }
+
+/* help text under a field: BPA's own help, or our "Was ..." explanatory
+   line on a modified field in the end-situation screen (see section F) */
+.help-text { font-size:13px; color:rgb(107,114,128); margin-top:4px; line-height:1.4; }
+
+/* small italic note flagging a JSON attribute the mockup surfaces rather
+   than silently resolving (e.g. "hidden:true in JSON, not shown in this
+   path"), an AI-facing annotation, not part of BPA's own canvas */
+.bpa-note { font-size:11px; color:rgb(107,114,128); font-style:italic; margin-left:8px; }
+
+/* legend swatches: explain the grammar once at the top of a drawing */
+.mock-legend { display:flex; flex-wrap:wrap; gap:18px; font-size:13px; color:rgb(75,85,99); margin-bottom:16px; align-items:center; }
+.mock-legend .chip { position:static; } /* chip shown flat in the legend key, not corner-anchored */
+.sw { display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+.sw.white { background:#fff; border:1px solid rgb(156,164,176); }
+.sw.grey { background:rgb(243,244,246); border:1px solid rgb(156,164,176); }
+
+
+/* ----------------------------------------------------------------------------
+   B. CANVAS STATES
+   What the live BPA canvas actually draws around a component and behind a
+   hidden one. "Canvas-true, logic included, full complexity" (Frank,
+   2026-07-22): dashed outline on every component, striped fill on anything
+   hidden:true. Apply .bpa-outline to the same element that would otherwise
+   look like a bare .field-wrap / .bpa-fieldset / .bpa-cols row; it is a
+   modifier, not a replacement.
+   ---------------------------------------------------------------------------- */
+
+.bpa-outline { border:1px dashed rgba(107,114,128,0.5); border-radius:6px; padding:10px; position:relative; margin-bottom:10px; }
+.bpa-outline:last-child { margin-bottom:0; }
+.bpa-fieldset.bpa-outline { padding:14px; }
+
+/* hidden:true: striped fill; pair with a title="hidden: true, hidden by
+   default until the effect shows it" for a mouse-over explanation */
+.bpa-hidden-stripes { background-image:repeating-linear-gradient(45deg, rgba(107,114,128,0.16) 0 6px, transparent 6px 14px); }
+
+/* swatches for the legend, matching the two canvas states above */
+.sw.dashed { background:#fff; border:1px dashed rgba(107,114,128,0.7); }
+.sw.stripes { border:1px solid rgb(156,164,176); background-image:repeating-linear-gradient(45deg, rgba(107,114,128,0.28) 0 4px, transparent 4px 8px); }
+
+
+/* ----------------------------------------------------------------------------
+   C. REAL LOGIC BADGES
+   One badge per logic id attached to a component, stacked top-right of that
+   component's own outline, never inline after the label. Every badge
+   carries a plain-English title= tooltip AND a data-logic= attribute
+   holding the actual ids, so both a human hovering and an AI reading the
+   markup get the same fact. E and A colors are computed-style verified
+   (2026-07-04, BPA-cuba 2.18); V and F are screenshot-verified (2026-07-22,
+   Lesotho), see the header note.
+   ---------------------------------------------------------------------------- */
+
+.bpa-badges { position:absolute; top:-9px; right:12px; display:flex; gap:4px; z-index:2; }
+.bpa-badge { width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:700; color:#fff; line-height:1; box-shadow:0 0 0 1.5px #fff; cursor:default; }
+.bpa-badge.e { background:rgb(94,135,197); }  /* Effect: effectsIds / behaviourId */
+.bpa-badge.v { background:rgb(219,112,147); } /* Validation: componentValidationId / validationRowIds */
+.bpa-badge.f { background:rgb(125,178,222); } /* Formula: componentFormulaId / formulaRowIds */
+.bpa-badge.a { background:rgb(75,195,148); }  /* Action: componentActionId */
+
+/* swatch for the legend key */
+.sw.badgeswatch { border-radius:50%; background:rgb(94,135,197); }
+
+/* Legacy / optional: a single generic circle badge (always blue, one
+   letter, no data-logic) seen anchored to a whole PANEL in the end-
+   situation overlay of the same exemplar (capital-shares-proposal.html,
+   section id="screen": an "A" marking "Activate effect on this panel,
+   carried over unchanged"). Kept for reference only; prefer .bpa-badges/
+   .bpa-badge for any new drawing, since it carries the tooltip plus
+   data-logic the doctrine requires. Do not mix the two systems on the
+   same component. */
+.badge-corner { position:absolute; top:-9px; right:12px; width:20px; height:20px; border-radius:50%; background:#fff; border:1.5px solid rgb(37,99,235); color:rgb(37,99,235); font-size:11px; font-weight:700; text-align:center; line-height:17px; }
+
+
+/* ----------------------------------------------------------------------------
+   D. EDITGRID / DATAGRID
+   The repeating-row component. Salmon dashed wrapper around the whole grid;
+   a flat grey band for the column-header row (text never struck, even when
+   the grid itself is hidden/deactivated; only the field rows below it
+   carry the struck ghost-labels).
+   ---------------------------------------------------------------------------- */
+
+.bpa-editgrid { border:2px dashed rgba(244,67,49,0.25); border-radius:6px; padding:12px; margin:8px 0 16px; position:relative; }
+
+.bpa-dg-header { background:rgb(233,236,239); border-radius:4px; margin:10px 0 10px; font-weight:600; font-size:13px; color:rgb(55,65,81); }
+.bpa-dg-header .c3 { padding:6px 10px; border-right:1px solid rgba(209,213,219,0.9); text-decoration:none; }
+.bpa-dg-header .c3:last-child { border-right:none; }
+
+.bpa-divider { border:none; border-top:1px solid rgb(229,231,235); margin:14px 0; }
+
+
+/* ----------------------------------------------------------------------------
+   E. CONTENT BOXES
+   Three looks for a type:"content" component, keyed by customClasses. Plain
+   content is in section A (.bpa-content-text, no box at all). The other
+   two both render as a flat tinted box: neither carries a left bar. A left
+   bar belongs to a separate "notice" class this kit does not draw (Frank,
+   2026-07-22); do not invent one for background-blue or background-red.
+   ---------------------------------------------------------------------------- */
+
+/* customClasses:["background-blue"] */
+.bpa-info { background:rgb(238,240,243); border-radius:4px; padding:12px 16px; margin-bottom:16px; font-size:14px; color:rgb(55,65,81); }
+
+/* customClasses:["background-red"]: plain red-tinted box, no left bar */
+.bpa-alert { position:relative; background:rgba(220,38,38,0.06); border-radius:6px; padding:12px 16px; }
+.bpa-alert h4 { margin:0 0 6px; font-size:15px; color:rgb(153,27,27); }
+.bpa-alert p { margin:0; font-size:14px; line-height:1.5; color:rgb(55,65,81); }
+
+
+/* ----------------------------------------------------------------------------
+   F. OVERLAY CHIPS: OURS, NOT BPA's
+   The only non-BPA marks on a drawing. Used exclusively on an end-situation
+   ("the contract") screen to flag what a proposal changes. Anchored to the
+   same top-right corner a real badge would use. "new" = added by this
+   change; "modified" absorbs renamed and repurposed (its help line opens
+   with "Was ..."). Never used as a stand-in for a field-type tag.
+   ---------------------------------------------------------------------------- */
+
+.chip { position:absolute; top:-9px; right:-6px; background:#fff; font-size:11px; font-weight:700; line-height:1; padding:2px 8px; border-radius:999px; white-space:nowrap; z-index:1; }
+.chip.new { color:rgb(37,99,235); border:1.5px solid rgb(37,99,235); }
+.chip.modified { color:rgb(107,114,128); border:1.5px solid rgb(107,114,128); }
