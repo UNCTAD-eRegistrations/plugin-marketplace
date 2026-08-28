@@ -32,9 +32,23 @@ def build_record(gate, reason, context, clock=_now):
 
 
 def append(path, record):
+    """Write one JSON line to `path`, creating parent directories as needed.
+
+    This performs no validation of `record` -- it is a plain low-level
+    writer, not the audit contract. `record_override` below is the one
+    entry point this module exposes for recording an override, and it
+    validates (a blank/whitespace reason raises) before ever calling this.
+    A caller that imports `append` directly and skips `build_record` /
+    `record_override` can write a reason-less or otherwise malformed
+    record; that is on the caller, not a bug in this function.
+    """
     parent = os.path.dirname(os.path.abspath(path))
     if parent and not os.path.isdir(parent):
         os.makedirs(parent)
+    # utf-8 for cross-platform/tooling consistency, not to dodge a
+    # locale-dependent failure: json.dumps defaults to ensure_ascii=True,
+    # so every byte written here is already plain ASCII regardless of the
+    # encoding named on this open() call.
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
 
