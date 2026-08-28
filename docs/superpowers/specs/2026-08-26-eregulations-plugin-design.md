@@ -19,7 +19,7 @@ Today the operational knowledge for ~90 eRegulations country instances lives in 
 2. Three complete `SKILL.md` files parked in a Drive folder, installed nowhere
 3. `eRegulations-deploy/docs/*` (8 files) plus `HANDOVER-2026-06-08.md`
 
-Seven of the eight `eRegulations-*` repos have no `CLAUDE.md`. Only `eRegulations-5.0-Admin-SPA` does.
+Six of the eight `eRegulations-*` repos have no `CLAUDE.md`. Two already do: `eRegulations-5.0-Admin-SPA` and `eRegulations-4.0-Public`. (An earlier draft of this spec said seven and named only the SPA — that was wrong, and the follow-up count below is corrected to match.)
 
 The eRegistrations side of the house already solves this with the `unctad-digital-government` marketplace (18 plugins, 7 enabled). This spec applies that proven pattern to eRegulations.
 
@@ -239,8 +239,8 @@ This produces four hard requirements:
 
 These are changes to `eRegulations-Monitor`, a different repo with its own review and deploy:
 
-- **A `viewer` service account** for the MCP server. Monitor has no service-account concept today — this is a feature request, not an admin action.
-- **A `posture` field** on the server record (`ok` / `degraded` / `compromised` / `unknown`), so the host gate can resolve posture from live state instead of an operator overlay. Until it exists, the overlay is the only source and the gate blocks on anything not listed — correct, but noisier.
+- **A `viewer` account** for the MCP server. Corrected after reading the schema: Monitor's `users` table already carries `role: text('role').notNull().default('viewer')`, and `requireRole` enforces the `viewer < operator < admin` hierarchy, so this is **creating an account, not building service-account support**. An earlier draft of this spec called it a feature request; it is closer to an admin action, with the caveat that the account is a real user row rather than a first-class service identity.
+- **A `posture` field** on the server record (`ok` / `degraded` / `compromised` / `unknown`), so the host gate can resolve posture from live state instead of an operator overlay. Confirmed genuinely absent: `servers` carries `name`, `hostname`, `location`, `winrmPort`, `active` and timestamps, with no safety column — so this one is a real schema change plus migration, unlike the account above. Until it exists, the overlay is the only source and the gate blocks on anything not listed — correct, but noisier.
 
 ### Tool surface — seven tools, all read-only
 
@@ -319,7 +319,7 @@ A ships first, complete and working. B follows.
 | --- | --- | --- |
 | **A** | 1 router skill · 4 reference files · 1 fixture fleet · derived branch-pair check · dry-run mode · audit-log writer · 3 Drive skills migrated (one split) · 1 marketplace entry · 8 acceptance runs | **6–9 h** |
 | **B** | 1 Python package (~7 modules) · 7 tools · auth + refresh lifecycle · lockout-safe login path · shape probe · fixtures + unit tests · pyproject entry point + wheel manifest · `.mcp.json` · 1 PyPI release · router seam swap | **12–16 h** |
-| **Follow-up** | 7 repo `CLAUDE.md` pointers | 7 PRs, review-paced |
+| **Follow-up** | 6 repo `CLAUDE.md` pointers | 6 PRs, review-paced |
 
 **Total for A+B: ≈ 18–25 hours of agent execution**, up from the first draft's 12–18. The increase is almost entirely the auth lifecycle, the fail-closed logic, and the larger acceptance set — all of which the review showed were missing rather than optional.
 
@@ -345,7 +345,7 @@ Neither blocks A. **A is fully functional with fleet facts supplied by the opera
 - **Credential rotation** for `RD Different accesses`. See Security.
 - **The pre-existing public-IP exposure** already committed under `plugins/leaflets/` in this public repo. See Data classification.
 - **Fixing the 14 pre-existing validator errors** in other plugins.
-- **The seven repo `CLAUDE.md` PRs** as a blocking dependency. The plugin is fully functional if they never merge.
+- **The six repo `CLAUDE.md` PRs** as a blocking dependency. The plugin is fully functional if they never merge.
 
 ## Appendix A — Adversarial review findings and disposition
 

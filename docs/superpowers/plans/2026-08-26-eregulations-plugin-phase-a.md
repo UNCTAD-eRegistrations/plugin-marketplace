@@ -1664,7 +1664,7 @@ Neither blocks Phase A. When both land, write `docs/superpowers/plans/<date>-ere
 
 ## Follow-up — not in this plan
 
-**Seven repo `CLAUDE.md` pointers.** The spec scopes these as non-blocking: the canonical facts live in the plugin, so Phase A is fully functional if these never merge. Each is a five-line file in a repo outside this one, pointing at the plugin — seven PRs, review-paced, in `eRegulations-4.0-Admin`, `-4.0-API`, `-4.0-Public`, `-CR-Alerts`, `-Monitor`, `-Statistics`, `-deploy`. (`eRegulations-5.0-Admin-SPA` already has one.) Land them at whatever pace review allows.
+**Six repo `CLAUDE.md` pointers.** The spec scopes these as non-blocking: the canonical facts live in the plugin, so Phase A is fully functional if these never merge. Each is a five-line file in a repo outside this one, pointing at the plugin — six PRs, review-paced, in `eRegulations-4.0-Admin`, `-4.0-API`, `-CR-Alerts`, `-Monitor`, `-Statistics`, `-deploy`. Both `eRegulations-5.0-Admin-SPA` and `eRegulations-4.0-Public` already have one; an earlier draft counted seven and missed Public. Land them at whatever pace review allows.
 
 ## Deliberately untested
 
