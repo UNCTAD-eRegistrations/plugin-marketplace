@@ -68,15 +68,17 @@ Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
 
 **When a colleague says what he wants to change** ("I have a remark on the end situation", "I would draw the phases differently"):
 
-1. Refresh the local copy, silently.
-2. Write it into that section's try tab, per doctrine 4: a remark numbered `J1`, `J2`, his words verbatim, state `open`; a version he draws goes in the same pane, as his own screens. Never in the agreed pane, never in a new section.
-3. Run the checkers on the page (`slop-check.py`, `vocabulary-check/check.py`) to zero.
-4. Save and send up, silently. If the send is refused because somebody else wrote first, refresh and send again.
-5. Answer him in one line: *"It is in the document, End situation, your tab: https://smartrules.ai/service-change-doc/change.html . Frank sees it when he opens it."*
+1. Refresh the local copy, silently. If it is not there, clone it: `git clone git@github.com:UNCTAD-eRegistrations/service-change-documents.git`.
+2. Run the tool that does the writing, never edit the page by hand:
+   `python3 tools/remark.py add --doc lesotho-recover-not-on-dashboard/change.html --section <band id> --author <name> --text "his words, verbatim"`
+   It writes the numbered remark into that section's try tab with its state, runs both checkers, and publishes. A wrong section id makes it print every id.
+3. A version he draws himself goes in the same pane, as his own screens, written by hand after the tool has opened the pane.
+4. Answer him in one line: *"It is in the document, End situation, your tab: https://smartrules.ai/service-change-doc/change.html . Frank sees it when he opens it."*
+5. If nothing can be sent because he has no access, say only *"Frank has to give you access, I have asked him"*, and tell Frank.
 
 **When Frank says "show me Julien's proposals"**: list them, one line each, section, what he asks, state. Nothing technical.
 
-**When Frank says "accept Julien's proposal on the end situation"**: move it into the agreed pane, record the move in his row (state `agreed`, date), keep the row visible in his tab, save and publish. When he refuses or answers, write the answer under the remark and set the state (`answered` or `kept as is`), leaving it in his tab.
+**When Frank says "accept Julien's proposal on the end situation"**: `python3 tools/remark.py answer --doc <the document> --id J1 --state agreed --text "<Frank's words>"`, then carry what he accepted into the agreed pane by hand and publish. When he refuses or only answers, the same call with `--state answered` or `--state "kept as is"`, and the try stays in his tab.
 
 **Words to use with anyone**: propose, remark, his tab, the agreed contract, accept. **Words never to use with a colleague**: repository, clone, branch, commit, push, pull request, merge, deploy, address of a copy.
 
