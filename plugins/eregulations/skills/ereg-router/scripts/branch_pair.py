@@ -65,7 +65,16 @@ def _case_divergent_segment(path):
 
 
 def git_branch(root):
-    """Current branch of a checkout, or None if it is not a repo."""
+    """Current branch of a checkout, or None if it is not a repo.
+
+    `git rev-parse --abbrev-ref HEAD` returns the literal string "HEAD"
+    when the checkout is in a detached-HEAD state. Returned as-is that is
+    indistinguishable from a real branch named "HEAD", so a caller reading
+    this value could mistake "not on a branch" for "on a branch called
+    HEAD". Normalise that one case to None -- the same value already used
+    for "not a repo at all" -- so a detached checkout is never reported as
+    if it were a branch.
+    """
     try:
         out = subprocess.check_output(
             ["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
@@ -73,7 +82,30 @@ def git_branch(root):
         )
     except (subprocess.CalledProcessError, OSError):
         return None
-    return out.decode("utf-8").strip()
+    branch = out.decode("utf-8").strip()
+    if branch == "HEAD":
+        return None
+    return branch
+
+
+def _find_repo_root(start_dir):
+    """Walk upward from `start_dir` looking for `.git`, the way git itself
+    resolves a worktree root -- so the caller never has to assume how many
+    directories separate a project file from its repo root.
+
+    `os.path.exists` (not `isdir`) because a git worktree's `.git` is a
+    file, not a directory. Falls back to `start_dir` itself if no `.git`
+    is found anywhere above it (e.g. the checkout is not a git repo, as in
+    a test fixture), rather than guessing a fixed depth.
+    """
+    current = os.path.abspath(start_dir)
+    while True:
+        if os.path.exists(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return os.path.abspath(start_dir)
+        current = parent
 
 
 def derive(public_csproj, admin_root, branch_reader=git_branch):
@@ -93,7 +125,7 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         result["reason"] = "could not read %s" % public_csproj
         return result
 
-    public_root = os.path.dirname(os.path.dirname(os.path.abspath(public_csproj)))
+    public_root = _find_repo_root(os.path.dirname(os.path.abspath(public_csproj)))
     result["public_branch"] = branch_reader(public_root)
 
     reference = extract_library_reference(text)

@@ -244,16 +244,30 @@ def _unsupported_version(context):
             "upgrade the instance to 7.x as part of this change",
             overridable=True,
         )
+    if major is None:
+        return _decision(
+            "unsupported_version",
+            BLOCK,
+            "target version is unresolved",
+            "resolve the instance version before proceeding",
+        )
     return _decision(
         "unsupported_version",
         BLOCK,
-        "target version is unresolved",
-        "resolve the instance version before proceeding",
+        "target version %r is not a recognised major -- expected the "
+        "string %r (supported) or one of %r (unsupported, needs the "
+        "upgrade exemption); a present-but-unrecognised value is treated "
+        "no more kindly than a missing one"
+        % (major, SUPPORTED_MAJOR, UNSUPPORTED_MAJORS),
+        "confirm version_major is a plain string major (e.g. \"7\"), not "
+        "an int or an unlisted value; if this is genuinely a new major, "
+        "this gate's policy table needs updating before it can pass",
     )
 
 
 def _windows_target(context):
-    if context.get("platform") == "windows":
+    platform = context.get("platform")
+    if isinstance(platform, str) and platform.lower() == "windows":
         return _decision(
             "windows_target",
             WARN,

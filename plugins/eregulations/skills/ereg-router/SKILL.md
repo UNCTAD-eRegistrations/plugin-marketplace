@@ -87,15 +87,21 @@ resolves from the overlay alone, which is the mode the plugin ships in.
 
 The JSON it prints is the base of the gate context: `instance`, `host`,
 `version`, `platform`, `posture`, `version_major`, plus `source`, `drift` and
-`unresolved`.
+`unresolved`. It also carries two resolution-metadata keys that are not part
+of the gate context: `known_instance` (whether the slug was found in Monitor
+or in the overlay's `instances` at all) and `known_slugs` (the full sorted
+roster of slugs the overlay knows about).
 
 - **Report every `drift` entry to the user.** Monitor won; the overlay is wrong
   and only a human can correct it.
 - **Never fill an `unresolved` field by inference.** Not from the country name,
   not from a sibling instance, not from a previous conversation. Unresolved is a
   real outcome the fail-closed gates act on — see `references/resolution.md`.
-- If the slug is not recognised, offer the nearest matches from the overlay and
-  ask. Never guess which country was meant.
+- If `known_instance` is `false`, the slug is not recognised — this is
+  different from a recognised instance that is merely missing data,
+  which resolves with `known_instance: true` and its fields `unresolved`
+  instead. Offer the nearest matches from `known_slugs` in the same output
+  and ask. Never guess which country was meant.
 
 ## Step 3 — Detect lane
 
@@ -211,7 +217,8 @@ The context is one flat JSON object. Every key has exactly one producer:
 | `branch_pair_valid` | Step 4a, `branch_pair.py` → `valid` |
 | `media_mount` | Step 4b, reading the instance compose |
 
-Write it to a file, then evaluate. `gates.py` reads the context on stdin:
+Write it to a file with the `Write` tool (the JSON object assembled above,
+nothing else), then evaluate. `gates.py` reads the context on stdin:
 
 ```bash
 SKILL=<path-to>/plugins/eregulations/skills/ereg-router

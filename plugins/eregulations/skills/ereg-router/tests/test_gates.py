@@ -147,11 +147,30 @@ def test_unresolved_version_blocks_and_is_not_overridable():
 
 
 def test_unrecognised_version_value_blocks():
-    """Fail-closed: any value other than '7' or a known unsupported major is
-    treated as unresolved, not silently let through."""
+    """Fail-closed: any value other than '7' or a known unsupported major
+    still blocks, not silently let through."""
     d = _by_gate(gates.evaluate(_ctx(version_major="banana")), "unsupported_version")
     assert d["status"] == gates.BLOCK
     assert d["overridable"] is False
+
+
+def test_unrecognised_version_reason_is_distinct_from_unresolved():
+    """A present-but-unrecognised major (a future "8", or an int 7 that
+    fails the string comparison) must BLOCK exactly like a missing
+    version_major -- but the reason must say so, not claim the version is
+    unresolved when something was actually read."""
+    missing = _by_gate(gates.evaluate(_ctx(version_major=None)), "unsupported_version")
+    assert missing["status"] == gates.BLOCK
+    assert "unresolved" in missing["reason"]
+
+    for present_but_unrecognised in ("8", 7, "banana"):
+        d = _by_gate(
+            gates.evaluate(_ctx(version_major=present_but_unrecognised)),
+            "unsupported_version",
+        )
+        assert d["status"] == gates.BLOCK, present_but_unrecognised
+        assert d["overridable"] is False, present_but_unrecognised
+        assert "unresolved" not in d["reason"], present_but_unrecognised
 
 
 def test_windows_target_warns_and_fails_open():
@@ -159,6 +178,24 @@ def test_windows_target_warns_and_fails_open():
     assert d["status"] == gates.WARN
     unresolved = _by_gate(gates.evaluate(_ctx(platform=None)), "windows_target")
     assert unresolved["status"] != gates.BLOCK
+
+
+def test_windows_target_warns_regardless_of_casing():
+    """The gate is advisory and must never block -- but an exact-match
+    comparison silently PASSed "Windows" / "WINDOWS" instead of warning,
+    which is the wrong failure direction for a gate that is supposed to
+    fire whenever the target is Windows, spelled however."""
+    for platform in ("Windows", "WINDOWS", "WinDows"):
+        d = _by_gate(gates.evaluate(_ctx(platform=platform)), "windows_target")
+        assert d["status"] == gates.WARN, platform
+
+
+def test_windows_target_still_fails_open_on_garbage_types():
+    """Casing fix must not turn this into a gate that crashes or blocks
+    on a non-string platform value -- it stays advisory-only."""
+    for bogus in (1, [], {}, True):
+        d = _by_gate(gates.evaluate(_ctx(platform=bogus)), "windows_target")
+        assert d["status"] != gates.BLOCK, bogus
 
 
 def test_secondary_kinds_are_gated_too():

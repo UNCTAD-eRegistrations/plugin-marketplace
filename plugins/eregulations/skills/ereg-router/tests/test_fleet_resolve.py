@@ -47,6 +47,35 @@ def test_unknown_instance_resolves_nothing():
     assert "host" in ctx["unresolved"]
 
 
+def test_unrecognised_slug_is_distinguishable_from_a_known_sparse_one():
+    """An unknown slug and a known-but-sparse one used to come back
+    identically all-unresolved, with no way to tell "typo, never heard of
+    it" apart from "real instance, just missing data". known_instance
+    makes that distinction explicit."""
+    unknown = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert unknown["known_instance"] is False
+
+    sparse = fleet_resolve.resolve("delta", None, _overlay())  # missing version
+    assert sparse["known_instance"] is True
+    assert sparse["version_major"] is None  # still genuinely unresolved
+
+
+def test_monitor_record_alone_marks_the_instance_known():
+    record = {"slug": "zulu", "host": "host-x", "version": "7.0"}
+    ctx = fleet_resolve.resolve("zulu", record, _overlay())  # not in the overlay at all
+    assert ctx["known_instance"] is True
+
+
+def test_known_slugs_lists_the_overlay_instance_roster():
+    """The overlay is the only scripted source of a fleet roster, so a
+    caller offering "the nearest matches" for an unrecognised slug needs
+    a real list to search -- not just the word "unresolved"."""
+    ctx = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert ctx["known_slugs"] == ["alpha", "bravo", "charlie", "delta"]
+    assert fleet_resolve.known_slugs(_overlay()) == ["alpha", "bravo", "charlie", "delta"]
+    assert fleet_resolve.known_slugs({}) == []
+
+
 def test_monitor_wins_over_overlay_for_state():
     record = {"slug": "bravo", "host": "host-safe", "version": "7.3", "platform": "ubuntu"}
     ctx = fleet_resolve.resolve("bravo", record, _overlay())

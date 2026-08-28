@@ -131,6 +131,80 @@ def test_case_mismatch_in_the_reference_is_invalid_even_on_case_insensitive_host
     assert result["valid"] is False
 
 
+def test_public_root_is_found_regardless_of_csproj_depth(tmp_path):
+    """public_root used to be dirname(dirname(csproj)), which assumes the
+    csproj sits exactly one directory below the repo root. The real Public
+    layout nests it two levels down (Project/WebApp/), landing one
+    directory short of the actual root -- it only ever "worked" because
+    `git -C` walks upward on its own. This pins the root down explicitly
+    by locating `.git`, at whatever depth.
+    """
+    repo_root = tmp_path / "Public"
+    (repo_root / ".git").mkdir(parents=True)
+    project_dir = repo_root / "Project" / "WebApp"
+    project_dir.mkdir(parents=True)
+    csproj = project_dir / "WebApp.csproj"
+    csproj.write_text((FIXTURES / "no-reference.csproj").read_text())
+
+    seen_roots = []
+
+    def reader(root):
+        seen_roots.append(str(root))
+        return "feature/public-branch"
+
+    admin = tmp_path / "Admin"
+    admin.mkdir()
+
+    branch_pair.derive(str(csproj), str(admin), reader)
+
+    old_wrong_root = str(project_dir.parent)  # repo_root/Project -- one short
+    assert str(repo_root) in seen_roots
+    assert old_wrong_root not in seen_roots
+
+
+def test_public_root_falls_back_to_the_containing_directory_without_a_git_repo(tmp_path):
+    """No `.git` anywhere above the csproj (e.g. an unversioned checkout,
+    as in most of these fixtures) -- fall back to the csproj's own
+    directory rather than guessing a fixed depth upward."""
+    public = tmp_path / "Public" / "src"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text((FIXTURES / "no-reference.csproj").read_text())
+
+    seen_roots = []
+
+    def reader(root):
+        seen_roots.append(str(root))
+        return "feature/x"
+
+    branch_pair.derive(str(csproj), str(tmp_path / "Admin"), reader)
+
+    assert str(public) in seen_roots
+
+
+def test_detached_head_is_reported_as_none_not_the_literal_string(monkeypatch):
+    """`git rev-parse --abbrev-ref HEAD` returns the literal "HEAD" in a
+    detached checkout -- indistinguishable from a branch actually named
+    "HEAD" if passed through as-is. Must normalise to None instead."""
+
+    def fake_check_output(cmd, **kwargs):
+        return b"HEAD\n"
+
+    monkeypatch.setattr(branch_pair.subprocess, "check_output", fake_check_output)
+    assert branch_pair.git_branch("/some/checkout") is None
+
+
+def test_a_branch_literally_named_head_would_be_indistinguishable_but_real_branches_pass_through(monkeypatch):
+    """Regression guard: ordinary branch names must still pass through
+    unchanged -- only the exact sentinel "HEAD" is normalised."""
+
+    def fake_check_output(cmd, **kwargs):
+        return b"feature/head-hunting\n"
+
+    monkeypatch.setattr(branch_pair.subprocess, "check_output", fake_check_output)
+    assert branch_pair.git_branch("/some/checkout") == "feature/head-hunting"
+
+
 def test_invalid_when_the_reference_resolves_outside_admin_root(tmp_path):
     """A reference that happens to resolve into some OTHER Admin-shaped checkout
     must not be reported valid just because a Library.csproj exists there — the

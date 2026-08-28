@@ -62,6 +62,17 @@ def _major(version):
     return str(version).split(".")[0]
 
 
+def known_slugs(overlay):
+    """Instance slugs the overlay actually knows about, sorted.
+
+    The overlay is the only scripted source of a fleet roster today --
+    Monitor is queried one slug at a time, never listed. This is what
+    lets a caller offer "the nearest matches" for a slug that does not
+    resolve, instead of just saying "unresolved" with nothing to search.
+    """
+    return sorted((overlay.get("instances") or {}).keys())
+
+
 def resolve(slug, monitor_record, overlay):
     """Merge Monitor and overlay into one context, reporting drift."""
     overlay_instance = (overlay.get("instances") or {}).get(slug) or {}
@@ -95,9 +106,15 @@ def resolve(slug, monitor_record, overlay):
 
     unresolved = [f for f in STATE_FIELDS if resolved.get(f) is None]
 
+    # Distinguishes an unrecognised slug from a recognised-but-sparse one:
+    # both leave every field unresolved, but only the former is a typo or
+    # a wrong country, and the latter is a real instance missing data.
+    in_overlay = slug in (overlay.get("instances") or {})
     context = {
         "instance": slug,
         "source": "monitor" if monitor_record else "overlay",
+        "known_instance": bool(monitor_record) or in_overlay,
+        "known_slugs": known_slugs(overlay),
         "drift": drift,
         "unresolved": unresolved,
         "version_major": _major(resolved.get("version")),
