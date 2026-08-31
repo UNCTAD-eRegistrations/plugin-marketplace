@@ -20,9 +20,20 @@ def _now():
     return datetime.now().astimezone().isoformat()
 
 
-def build_record(gate, reason, context, clock=_now):
+def _require_reason(reason):
+    """The one rule this module exists to enforce, in one place.
+
+    A whitespace-only reason is a blank one: `str()` first so a non-string
+    is judged on what it would actually be written as, and rejected if that
+    is empty.
+    """
     if reason is None or not str(reason).strip():
         raise ValueError("an override requires a stated reason")
+    return reason
+
+
+def build_record(gate, reason, context, clock=_now):
+    _require_reason(reason)
     return {
         "timestamp": clock(),
         "gate": gate,
@@ -32,6 +43,28 @@ def build_record(gate, reason, context, clock=_now):
 
 
 def append(path, record):
+    """Append one record, refusing any that states no reason.
+
+    `record_override` already validates before calling this, so the guard
+    is defence in depth rather than a live hole -- but the invariant it
+    protects ("the one overridable gate is never bypassed without a stated
+    reason") is the whole reason this module exists, and it was enforced in
+    exactly one place. A caller importing `append` directly wrote a
+    reasonless record and the log then claimed an override with nothing
+    behind it, which is worse than no log at all.
+
+    `append` is not a general-purpose JSONL writer that happens to be used
+    here: this module has one record shape, one caller, and one purpose, so
+    the reason belongs to the write, not only to the layer above it.
+
+    Refused BEFORE anything is written, and before the parent directory is
+    created -- a refused override leaves no trace of having been attempted
+    through a path that could not carry it. Same ValueError as
+    `build_record`, so `record_override` is unchanged in behaviour: it
+    still raises from `build_record` first, with the same message, having
+    written nothing.
+    """
+    _require_reason(record.get("reason") if isinstance(record, dict) else None)
     parent = os.path.dirname(os.path.abspath(path))
     if parent and not os.path.isdir(parent):
         # exist_ok, because the isdir check above is not a lock. Two
