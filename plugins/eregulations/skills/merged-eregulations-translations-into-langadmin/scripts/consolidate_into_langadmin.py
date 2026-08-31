@@ -91,6 +91,13 @@ def consolidate(src_dir, source_files):
     # still overwrite the destination is refused, not reported as a merge.
     # A header-only LangAdmin.txt is NOT this case — it names its languages,
     # so the merge has everything it needs and every source row arrives whole.
+    # `not langs` alone would let a header whose language names are blank
+    # through -- `id|` parses to one empty name, which is truthy as a list but
+    # names nothing. That header writes every row with an empty cell and loses
+    # every translation, exactly as a missing header does. Nothing in this repo
+    # emits that shape, but the guard should match what it claims to refuse.
+    langs = [lang for lang in langs if lang.strip()]
+
     if not langs:
         raise ValueError(
             "LangAdmin.txt at %s names no languages (its header row is %s). "

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.request
 
 STATE_FIELDS = ("host", "version", "platform", "posture")
@@ -217,7 +218,18 @@ def main(argv=None):
     parser.add_argument("--token", default=os.environ.get("EREG_MONITOR_TOKEN"))
     args = parser.parse_args(argv)
 
-    overlay = load_overlay(args.overlay)
+    # load_overlay raises on an unreadable or malformed overlay -- absent is a
+    # state, unreadable is an error. Both must reach the operator as one stderr
+    # line, not a traceback: gates.py and audit.py already print that shape, and
+    # a traceback here is the same failure wearing a worse coat. Exit is
+    # non-zero either way, so no context is emitted and no gate can return a
+    # verdict on data that was never read.
+    try:
+        overlay = load_overlay(args.overlay)
+    except (OSError, ValueError) as exc:
+        sys.stderr.write("fleet_resolve.py: %s\n" % exc)
+        return 2
+
     record = None
     if args.monitor_url:
         record = fetch_instance(args.monitor_url, args.token, args.slug)

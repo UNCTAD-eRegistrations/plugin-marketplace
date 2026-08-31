@@ -271,3 +271,46 @@ def test_langadmin_with_no_language_columns_is_refused(tmp_path, capsys):
         assert rc == 1, header_line
         assert "LangAdmin.txt" in capsys.readouterr().err
         assert not out.exists()
+
+
+def test_langadmin_whose_language_names_are_blank_is_refused(tmp_path, capsys):
+    """A header can name a language column that is not a language.
+
+    `id|` parses to `["id", ""]`, so `langs` is `[""]` -- truthy as a list,
+    naming nothing. It writes every row with an empty cell and loses every
+    translation, exactly as a missing header does, while the counts still
+    report the rows as merged.
+
+    Nothing in this repo emits that shape, so this is not a reachable bug so
+    much as the guard matching what SKILL.md says it refuses: "a destination
+    that names no languages". `id|` is such a destination.
+
+    The trailing-pipe case is the control. `id|en|fr|` names two real
+    languages plus a phantom, and must still merge -- a stray trailing pipe
+    in a legacy file is common and harmless.
+    """
+    for header_line in ("id|", "id||"):
+        d = tmp_path / ("blank" + str(len(header_line)))
+        d.mkdir()
+        (d / "LangAdmin.txt").write_text(header_line + "\n", encoding="utf-8")
+        write(d / "Common.txt", ["id|en|fr", "greeting|Hello|Bonjour"])
+
+        out = tmp_path / ("blankout%d.txt" % len(header_line))
+        rc = mod.main([str(d), str(out), str(tmp_path / "c.txt"), "Common.txt"])
+        assert rc == 1, header_line
+        assert "LangAdmin.txt" in capsys.readouterr().err
+        assert not out.exists(), header_line
+
+
+def test_trailing_pipe_in_the_header_still_merges(tmp_path):
+    """The control for the test above: a phantom column is not a missing one."""
+    d = tmp_path / "trailing"
+    d.mkdir()
+    (d / "LangAdmin.txt").write_text("id|en|fr|\n", encoding="utf-8")
+    write(d / "Common.txt", ["id|en|fr", "greeting|Hello|Bonjour"])
+
+    out = tmp_path / "trailingout.txt"
+    rc = mod.main([str(d), str(out), str(tmp_path / "c.txt"), "Common.txt"])
+    assert rc == 0
+    assert out.exists()
+    assert "greeting" in out.read_text(encoding="utf-8-sig")

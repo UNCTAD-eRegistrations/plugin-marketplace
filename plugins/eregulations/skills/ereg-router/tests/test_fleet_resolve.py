@@ -308,3 +308,32 @@ def test_an_unreadable_overlay_is_not_treated_as_an_absent_one(tmp_path):
 def test_an_absent_overlay_is_still_fine(tmp_path):
     """The one OSError that must keep degrading to {}."""
     assert fleet_resolve.load_overlay(str(tmp_path / "nope.json")) == {}
+
+
+def test_cli_reports_an_unreadable_overlay_on_one_line_without_a_traceback(tmp_path, capsys):
+    """An unreadable overlay must reach the operator the way audit.py and
+    gates.py report their errors: one stderr line, non-zero exit, nothing on
+    stdout. A traceback here is the same failure wearing a worse coat, and
+    because no context is emitted no gate can return a verdict on data that
+    was never read."""
+    bad = tmp_path / "fleet.local.json"
+    bad.write_text("{not json")
+
+    rc = fleet_resolve.main(["alpha", "--overlay", str(bad)])
+    captured = capsys.readouterr()
+
+    assert rc != 0
+    assert captured.out == ""
+    assert "Traceback" not in captured.err
+    assert len(captured.err.strip().splitlines()) == 1
+    assert "fleet.local.json" in captured.err
+
+
+def test_cli_still_degrades_quietly_when_the_overlay_is_merely_absent(tmp_path, capsys):
+    """The control: absent is a state, not an error."""
+    rc = fleet_resolve.main(["alpha", "--overlay", str(tmp_path / "nope.json")])
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert captured.err == ""
+    assert "unresolved" in captured.out
