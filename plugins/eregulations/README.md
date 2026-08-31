@@ -86,11 +86,18 @@ script before any scenario below was trusted.
 
 Also run and clean, off the real repository (not the fixture):
 
-- `uv run --python 3.9 --with pytest python -m pytest plugins/eregulations/skills/ereg-router/tests -q` — 49 passed.
-- `uv run --python 3.13 --with pytest python -m pytest plugins/eregulations/skills/ereg-router/tests -q` — 49 passed.
+- `uv run --python 3.9 --with pytest python -m pytest plugins/eregulations/skills -q` — 100 passed.
+- `uv run --python 3.13 --with pytest python -m pytest plugins/eregulations/skills -q` — 100 passed.
+  (Both bundled suites: 83 in `ereg-router/tests`, 17 in
+  `merged-eregulations-translations-into-langadmin/tests`. CI runs each suite
+  as its own pytest invocation, so the per-suite figures are what a CI log
+  shows; the combined run is what this command reports.)
 - `uv run --python 3.9 python -m compileall plugins/ -q` — clean compile, no errors.
 - `python3 scripts/generate-kimi-manifests.py --check` — all manifests up to date.
-- `uv run --python 3.12 scripts/validate-plugins.py` — 14 error(s), all pre-existing in other plugins; none from `eregulations`.
+- `uv run --python 3.12 scripts/validate-plugins.py` — 16 error(s), all pre-existing in other
+  plugins; **none from `eregulations`**. `origin/main` reports the same 16, so this branch
+  adds none. (An earlier revision of this block said 14: that was the baseline before
+  `change-document` landed on `main` and contributed two.)
 
 ### Changelog entries
 

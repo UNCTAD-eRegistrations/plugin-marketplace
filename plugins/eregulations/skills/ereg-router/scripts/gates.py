@@ -251,7 +251,25 @@ def _is_upgrade_request(context):
 
 
 def _unsupported_version(context):
-    major = context.get("version_major")
+    raw = context.get("version_major")
+    if raw is not None and not isinstance(raw, str):
+        # Blocks either way, but the REMEDY has to match the finding. A
+        # non-string is not a version anybody resolved, and telling an
+        # operator holding a fully resolved 7.x instance to "resolve the
+        # instance version" is the exact mismatch _enum exists to prevent.
+        return _decision(
+            "unsupported_version",
+            BLOCK,
+            "version_major could not be interpreted: expected a version "
+            "string such as \"7\", received a value of type %s" % type(raw).__name__,
+            "set version_major to the leading component of the version as a "
+            "string, then retry",
+        )
+    # Normalised like every other enum this module reads -- see _enum. A
+    # value templated through a shell or YAML arrives as `" 7"`, which under
+    # an exact match missed the supported branch and landed on the
+    # unresolved one.
+    major = _enum(context, "version_major")
     if major == SUPPORTED_MAJOR:
         return _decision("unsupported_version", PASS, "target is 7.x")
     if major in UNSUPPORTED_MAJORS:

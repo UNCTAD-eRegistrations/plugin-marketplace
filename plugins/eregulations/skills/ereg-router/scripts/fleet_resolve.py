@@ -27,11 +27,20 @@ DEFAULT_OVERLAY = os.path.join(os.path.expanduser("~"), ".ereg", "fleet.local.js
 
 
 def load_overlay(path):
-    """Read the operator overlay. Absent is fine; malformed is not."""
+    """Read the operator overlay. Absent is fine; unreadable is not.
+
+    Only FileNotFoundError means "absent". Catching OSError wholesale made
+    a PermissionError or an IsADirectoryError indistinguishable from a file
+    that was never created: both came back as `{}`, so an operator whose
+    overlay cannot be read was told every fact was unresolved, and handed
+    the remedy "add the fact to the overlay" for a file that already exists
+    and already cannot be read. Everything except absence raises, naming
+    the file, as this module's docstring and resolution.md both promise.
+    """
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as handle:
             text = handle.read()
-    except (IOError, OSError, ValueError):
+    except FileNotFoundError:
         return {}
     try:
         overlay = json.loads(text)

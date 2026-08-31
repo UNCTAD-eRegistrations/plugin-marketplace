@@ -29,6 +29,42 @@ SELECT CASE WHEN
   COLLATE DATABASE_DEFAULT
 THEN 'MATCH' ELSE 'NO MATCH' END;
 ```
+
+> **Limitation — this statement is only correct for ASCII credentials, and the
+> `MATCH` check above will not catch the case where it is not.**
+>
+> `CONVERT(VARCHAR(200), Password)` converts `nvarchar` to `varchar`. Per
+> documented SQL Server behaviour, characters with no representation in the
+> database's code page are replaced with `?` during that conversion. So a
+> credential containing an accented or non-Latin character is hashed from
+> mangled bytes, and the application — which hashes the real UTF-8 bytes — can
+> never reproduce it. That is the same silent, irreversible failure this
+> section exists to warn about, arriving through a different door, and it
+> survives the verification step: the shared master account's password is
+> almost certainly ASCII, so `MATCH` is returned while every non-ASCII
+> credential on the instance is quietly unusable.
+>
+> **On SQL Server 2019 or later**, hashing the UTF-8 bytes directly avoids the
+> conversion entirely:
+>
+> ```sql
+> UPDATE [User]
+> SET Password = LOWER(CONVERT(VARCHAR(64),
+>   HASHBYTES('SHA2_256', CONVERT(VARBINARY(400), Password COLLATE Latin1_General_100_CI_AS_SC_UTF8)), 2));
+> ```
+>
+> Confirm the server supports a UTF-8 collation before using it —
+> `SELECT SERVERPROPERTY('ProductMajorVersion')` must be 15 or higher, and
+> `SELECT name FROM sys.fn_helpcollations() WHERE name LIKE '%UTF8'` must
+> return rows. On an older server there is no in-database fix: hash those
+> credentials outside SQL Server, or reset them.
+>
+> **Provenance:** the code-page replacement behaviour is taken from Microsoft's
+> documentation for `CONVERT` between `nvarchar` and `varchar`, not from a run
+> against a live instance — no SQL Server was available to execute it here.
+> Confirm on your own instance before relying on either statement, ideally by
+> hashing one deliberately non-ASCII test credential and attempting a login
+> with it.
 If you already ran the update without the inner `CONVERT`, the plaintext
 is gone (overwritten) — restore the Global DB backup again into a fresh
 temp DB, copy `Password` back from it by `ID` to undo the damage, then

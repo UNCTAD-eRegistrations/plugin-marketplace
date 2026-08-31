@@ -155,3 +155,79 @@ def test_invalid_when_the_reference_resolves_outside_admin_root(tmp_path):
 
     result = branch_pair.derive(str(csproj), str(admin_root), _reader({}))
     assert result["valid"] is False
+
+
+def _filesystem_folds_case(tmp_path):
+    probe = tmp_path / "CaseProbe"
+    probe.mkdir()
+    return (tmp_path / "caseprobe").exists()
+
+
+def test_ancestors_outside_both_checkouts_are_not_case_checked(tmp_path):
+    """The case walk must start inside the checkouts, not at the filesystem root.
+
+    It used to compare every segment from `/` upward, including ancestors
+    the operator merely typed. On a case-folding host, `/Users/...` typed
+    as `/USERS/...` resolves, so the pair is genuinely fine -- but `USERS`
+    is not in `/`'s listing, so the walk reported it as case-divergent and
+    returned `valid: false`.
+
+    That is not a cosmetic wrong answer. `gates.py` reads `valid is False`
+    as confirmed-bad evidence, which outranks the applicability flag, so
+    it blocked even requests that never build Admin + Public -- with a
+    remedy ("check out a pair whose csproj project reference resolves")
+    that nothing could act on, because the reference did resolve.
+
+    Only the segments below the checkout can say anything about whether
+    `dotnet build` will resolve the reference on case-sensitive Linux.
+    """
+    if not _filesystem_folds_case(tmp_path):
+        import pytest
+
+        pytest.skip("needs a case-folding filesystem to re-case an ancestor")
+
+    outer = tmp_path / "Outer"
+    lib = outer / "Admin" / "Unctad.eRegulations.Library"
+    lib.mkdir(parents=True)
+    (lib / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+    public = outer / "Public" / "src"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\Admin\\Unctad.eRegulations.Library\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    # The operator typed the shared ancestor in a different case. It resolves.
+    recased = str(tmp_path / "OUTER")
+    result = branch_pair.derive(
+        recased + "/Public/src/WebAppCore.csproj", recased + "/Admin", _reader({})
+    )
+    assert result["valid"] is True, result["reason"]
+
+
+def test_case_divergence_below_the_base_is_still_reported(tmp_path):
+    """Narrowing the walk must not stop it seeing what it exists to see."""
+    base = tmp_path / "Admin"
+    (base / "Unctad.eRegulations.Library").mkdir(parents=True)
+
+    good = base / "Unctad.eRegulations.Library" / "x.csproj"
+    assert branch_pair._case_divergent_segment(str(good), str(base)) == "x.csproj"
+
+    (base / "Unctad.eRegulations.Library" / "x.csproj").write_text("<Project />")
+    assert branch_pair._case_divergent_segment(str(good), str(base)) is None
+
+    bad = base / "unctad.eregulations.library" / "x.csproj"
+    assert (
+        branch_pair._case_divergent_segment(str(bad), str(base))
+        == "unctad.eregulations.library"
+    )
+
+
+def test_case_walk_ignores_a_target_that_is_not_under_the_base(tmp_path):
+    """Containment is a separate verdict with its own reason; the case walk
+    does not also try to answer it."""
+    base = tmp_path / "Admin"
+    base.mkdir()
+    assert branch_pair._case_divergent_segment(str(tmp_path / "Elsewhere" / "x"), str(base)) is None

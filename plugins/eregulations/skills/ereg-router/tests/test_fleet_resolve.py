@@ -266,3 +266,45 @@ def test_overlay_that_is_valid_json_but_not_an_object_is_rejected_loudly(tmp_pat
         assert "object" in str(exc)
     else:
         raise AssertionError("a non-object overlay must raise")
+
+
+def test_an_unreadable_overlay_is_not_treated_as_an_absent_one(tmp_path):
+    """`load_overlay` swallowed every OSError, not just "not there".
+
+    The docstring promises "Absent is fine; malformed is not", and
+    resolution.md promises a loud failure naming the file. But a
+    PermissionError or an IsADirectoryError came back as `{}` -- exactly
+    what an absent overlay returns -- so an operator whose overlay the
+    resolver cannot actually read is told every fact is unresolved, and
+    the remedy they are handed is to write facts into the very file that
+    is already there and already unreadable.
+
+    Only FileNotFoundError means "absent".
+    """
+    a_directory = tmp_path / "fleet.local.json"
+    a_directory.mkdir()
+    try:
+        fleet_resolve.load_overlay(str(a_directory))
+    except OSError as exc:
+        assert "fleet.local.json" in str(exc)
+    else:
+        raise AssertionError("an overlay that is a directory must raise, not resolve to {}")
+
+    unreadable = tmp_path / "locked.json"
+    unreadable.write_text('{"instances": {}}', encoding="utf-8")
+    unreadable.chmod(0o000)
+    try:
+        fleet_resolve.load_overlay(str(unreadable))
+    except OSError as exc:
+        assert "locked.json" in str(exc)
+    except AssertionError:
+        raise
+    else:
+        raise AssertionError("an unreadable overlay must raise, not resolve to {}")
+    finally:
+        unreadable.chmod(0o600)
+
+
+def test_an_absent_overlay_is_still_fine(tmp_path):
+    """The one OSError that must keep degrading to {}."""
+    assert fleet_resolve.load_overlay(str(tmp_path / "nope.json")) == {}

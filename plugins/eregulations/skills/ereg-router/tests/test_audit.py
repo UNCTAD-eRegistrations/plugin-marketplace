@@ -85,3 +85,36 @@ def test_cli_refuses_a_blank_reason_cleanly(capsys, tmp_path):
     assert "Traceback" not in captured.err
     assert captured.err.strip().count("\n") == 0  # one line, not a dump
     assert not log.exists()
+
+
+def test_append_survives_losing_the_directory_creation_race(tmp_path, monkeypatch):
+    """`os.makedirs` without exist_ok=True races with a concurrent session.
+
+    Two overrides recorded before ~/.ereg exists both see `isdir` False,
+    both call makedirs, and the loser gets an uncaught FileExistsError
+    traceback where the rest of the toolchain prints one stderr line.
+    Concurrent sessions against one home directory are normal here.
+
+    Reproduced deterministically rather than with threads: the loser's
+    state IS "my isdir check said no, and by the time I called makedirs the
+    directory was there". Only the first isdir call is stale -- every later
+    one, including the one makedirs itself makes to honour exist_ok, sees
+    the real filesystem.
+    """
+    log = tmp_path / "nested" / "audit.jsonl"
+    (tmp_path / "nested").mkdir()  # the winning session got there first
+
+    import os as _os
+
+    real_isdir = _os.path.isdir
+    calls = {"n": 0}
+
+    def stale_first_isdir(path):
+        calls["n"] += 1
+        return False if calls["n"] == 1 else real_isdir(path)
+
+    monkeypatch.setattr(_os.path, "isdir", stale_first_isdir)
+
+    audit.append(str(log), {"gate": "unsupported_version"})
+
+    assert len(log.read_text().strip().splitlines()) == 1

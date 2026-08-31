@@ -32,8 +32,8 @@ def extract_library_reference(csproj_text):
     return match.group(1)
 
 
-def _case_divergent_segment(path):
-    """Walk `path` segment by segment against real directory listings.
+def _case_divergent_segment(path, base):
+    """Walk `path` below `base`, segment by segment, against real listings.
 
     os.path.exists follows the host filesystem's case-folding — case-
     insensitive by default on macOS, case-sensitive on Linux (and in the
@@ -43,16 +43,38 @@ def _case_divergent_segment(path):
     os.listdir() is a plain Python string comparison, so it gives the same
     answer regardless of the host's case-folding.
 
+    The walk starts at `base` — the Admin checkout — and NOT at the
+    filesystem root. Only the segments below the checkout come from the
+    csproj reference, and only those can say anything about whether the
+    build will resolve it. Ancestors above the checkout are whatever the
+    operator happened to type: on a case-folding host `/Users/...` typed as
+    `/USERS/...` resolves and the pair is fine, but walking from `/` found
+    `USERS` absent from `/`'s listing and condemned the pair for it. That
+    verdict then reached gates.py as `valid is False` — confirmed-bad
+    evidence, which outranks the applicability flag — and blocked requests
+    that never build Admin + Public at all, with a remedy nothing could act
+    on because the reference did resolve.
+
+    A `path` that is not under `base` is not this function's question:
+    containment is a separate verdict with its own reason, so that case
+    returns None rather than inventing a case complaint.
+
     Returns the first segment that is not present verbatim in its parent
     directory's listing, or None if every segment matches exactly. Callers
     only reach this after confirming the path exists (case-insensitively),
     so a non-None result here means "case mismatch", not "missing".
     """
-    path = os.path.normpath(path)
-    drive, rest = os.path.splitdrive(path)
-    is_abs = rest.startswith(os.sep)
-    segments = [part for part in rest.split(os.sep) if part]
-    current = (drive + os.sep) if is_abs else (drive or ".")
+    path = os.path.normpath(os.path.abspath(path))
+    base = os.path.normpath(os.path.abspath(base))
+    try:
+        relative = os.path.relpath(path, base)
+    except ValueError:
+        # Different drives on Windows — nothing below `base` to walk.
+        return None
+    if relative == os.pardir or relative.startswith(os.pardir + os.sep):
+        return None
+    segments = [part for part in relative.split(os.sep) if part and part != os.curdir]
+    current = base
     for segment in segments:
         try:
             entries = os.listdir(current)
@@ -111,15 +133,10 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         result["reason"] = "referenced project does not exist at %s" % target
         return result
 
-    diverging = _case_divergent_segment(target)
-    if diverging is not None:
-        result["valid"] = False
-        result["reason"] = (
-            "referenced project resolves only case-insensitively; "
-            "%r does not appear verbatim on disk (path %s)" % (diverging, target)
-        )
-        return result
-
+    # Containment is settled BEFORE the case walk, because the walk needs a
+    # base to start from and admin_root is that base. Checking case first
+    # would mean walking from the filesystem root, which drags in ancestors
+    # that belong to neither checkout.
     admin_root_abs = os.path.abspath(str(admin_root))
     try:
         inside_admin_root = os.path.commonpath([admin_root_abs, target]) == admin_root_abs
@@ -129,6 +146,15 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         result["valid"] = False
         result["reason"] = (
             "reference resolves outside admin_root (%s): %s" % (admin_root_abs, target)
+        )
+        return result
+
+    diverging = _case_divergent_segment(target, admin_root_abs)
+    if diverging is not None:
+        result["valid"] = False
+        result["reason"] = (
+            "referenced project resolves only case-insensitively; "
+            "%r does not appear verbatim on disk (path %s)" % (diverging, target)
         )
         return result
 

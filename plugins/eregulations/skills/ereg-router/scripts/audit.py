@@ -34,7 +34,13 @@ def build_record(gate, reason, context, clock=_now):
 def append(path, record):
     parent = os.path.dirname(os.path.abspath(path))
     if parent and not os.path.isdir(parent):
-        os.makedirs(parent)
+        # exist_ok, because the isdir check above is not a lock. Two
+        # concurrent sessions recording an override before ~/.ereg exists
+        # both see False and both call makedirs; without this the loser got
+        # an uncaught FileExistsError traceback, where the rest of the
+        # toolchain prints one stderr line. Concurrent sessions against one
+        # home directory are normal here.
+        os.makedirs(parent, exist_ok=True)
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
 

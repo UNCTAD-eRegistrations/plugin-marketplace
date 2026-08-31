@@ -52,7 +52,11 @@ Output, as JSON:
 
 A missing overlay file is fine — it resolves to nothing and everything lands in
 `unresolved`. A **malformed** overlay is not: it raises, naming the file, rather
-than silently behaving as if it were empty.
+than silently behaving as if it were empty. So does an **unreadable** one — a
+permissions problem, or a directory where the file should be. Only *absent*
+degrades to nothing: an overlay the resolver cannot read must not be reported as
+one that was never written, or the remedy you are handed ("add the fact to the
+overlay") is for a file that already exists and still cannot be read.
 
 Monitor being unreachable is likewise not an error. It degrades to the overlay,
 and whatever stays unresolved is what the gates block on.

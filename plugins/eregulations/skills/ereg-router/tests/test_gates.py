@@ -489,3 +489,47 @@ def test_unresolved_platform_does_not_claim_the_target_is_not_windows():
     d = _by_gate(gates.evaluate(_ctx(platform=None)), "windows_target")
     assert d["status"] != gates.BLOCK
     assert "unresolved" in d["reason"]
+
+
+def test_version_major_is_normalised_like_every_other_enum():
+    """`version_major` was the one enum read by exact match.
+
+    `_enum` is applied to `posture` and `platform` for the reason its own
+    docstring gives: a policy enum compared by exact match turns a correct
+    verdict into the wrong REMEDY, and the remedy is the part an operator
+    acts on. `" 7"` -- a value templated through a shell or YAML on its way
+    into the context -- missed the supported branch and landed on the
+    unresolved one, telling the operator to "resolve the instance version"
+    for an instance whose version was already fully resolved.
+    """
+    for spelling in ("7", " 7", "7\n", "  7  "):
+        d = _by_gate(gates.evaluate(_ctx(version_major=spelling)), "unsupported_version")
+        assert d["status"] == gates.PASS, spelling
+
+    for spelling in (" 5", "5\n"):
+        d = _by_gate(gates.evaluate(_ctx(version_major=spelling)), "unsupported_version")
+        assert d["status"] == gates.BLOCK, spelling
+        assert d["overridable"] is True, spelling
+        assert "5.x" in d["reason"], spelling
+
+
+def test_a_non_string_version_major_blocks_and_says_why():
+    """Normalising must not become its own way through.
+
+    A value that is not a string is not a version anybody resolved, so it
+    still BLOCKS -- but with a remedy that matches the finding. Telling an
+    operator holding a fully-resolved 7.x instance to "resolve the instance
+    version" is the exact remedy/finding mismatch `_enum` exists to avoid.
+    """
+    for bogus in (7, 7.0, True, ["7"], {"major": "7"}):
+        d = _by_gate(gates.evaluate(_ctx(version_major=bogus)), "unsupported_version")
+        assert d["status"] == gates.BLOCK, bogus
+        assert d["overridable"] is False, bogus
+        assert type(bogus).__name__ in d["reason"], bogus
+        assert "resolve the instance version" not in d["remedy"], bogus
+
+
+def test_an_absent_version_major_still_reads_as_unresolved():
+    d = _by_gate(gates.evaluate(_ctx(version_major=None)), "unsupported_version")
+    assert d["status"] == gates.BLOCK
+    assert "unresolved" in d["reason"]
