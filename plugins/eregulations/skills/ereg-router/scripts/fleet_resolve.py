@@ -4,6 +4,10 @@ Order: Monitor (authoritative for state) -> operator overlay -> UNRESOLVED.
 There is no third source and no guessing. "Unresolved" is a real outcome
 that the fail-closed gates in gates.py act on.
 
+Posture is the one exception to Monitor precedence: it is a judgement
+about whether a host is safe to touch rather than state, so the more
+severe value wins whichever source supplied it. See `_worse_posture`.
+
 Monitor's read endpoints sit behind `authenticate`, so the live path needs
 a token. Without one this module still works from the overlay alone, which
 is the baseline mode the plugin ships in.
@@ -85,6 +89,53 @@ def fetch_instance(base_url, token, slug, opener=urllib.request.urlopen):
         return None
 
 
+# Posture, ordered by how dangerous it is to touch the host. Anything not
+# named here is "unknown", which the host_posture gate blocks on.
+#
+# Unknown sits ABOVE degraded because the gate blocks on a posture it cannot
+# read and only warns on `degraded`; it sits BELOW compromised so a garbage
+# reading from one source cannot displace a real `compromised` from the other
+# and swap the gate's actionable remedy ("migrate off this host") for the
+# wrong one ("record the host").
+_POSTURE_SEVERITY = {"ok": 0, "degraded": 1, "compromised": 3}
+_UNKNOWN_POSTURE_SEVERITY = 2
+
+
+def _posture_severity(value):
+    if isinstance(value, str):
+        return _POSTURE_SEVERITY.get(value.strip().lower(), _UNKNOWN_POSTURE_SEVERITY)
+    return _UNKNOWN_POSTURE_SEVERITY
+
+
+def _worse_posture(from_monitor, from_overlay):
+    """For posture, the more severe of the two sources wins.
+
+    Every other field is state, and Monitor is authoritative for state
+    because state changes without anyone editing a file. Posture is not
+    state in that sense -- it is a judgement about whether a host is safe
+    to touch, and both sources can hold one.
+
+    So neither source overrules the other downwards. An operator who marks
+    a host compromised must not be overruled by a Monitor that is stale or
+    optimistic; that is the entire reason the overlay lets them write it
+    down. Equally, a Monitor reporting compromised must not be overruled by
+    a stale local `ok`.
+
+    A source with nothing to say (None) is not a vote for safety -- the
+    other source's value stands, and if neither has one the field is
+    UNRESOLVED, which the fail-closed gate blocks on. On equal severity
+    Monitor wins, preserving its precedence where the two agree in
+    substance and differ only in spelling.
+    """
+    if from_monitor is None:
+        return from_overlay
+    if from_overlay is None:
+        return from_monitor
+    if _posture_severity(from_overlay) > _posture_severity(from_monitor):
+        return from_overlay
+    return from_monitor
+
+
 def _major(version):
     if not version:
         return None
@@ -125,7 +176,12 @@ def resolve(slug, monitor_record, overlay):
     for field in STATE_FIELDS:
         from_monitor = monitor_view.get(field)
         from_overlay = overlay_view.get(field)
-        resolved[field] = from_monitor if from_monitor is not None else from_overlay
+        if field == "posture":
+            resolved[field] = _worse_posture(from_monitor, from_overlay)
+        else:
+            resolved[field] = from_monitor if from_monitor is not None else from_overlay
+        # Drift is computed from the raw sources, not from what won, so a
+        # disagreement is still reported whichever way it resolved.
         if from_monitor is not None and from_overlay is not None and from_monitor != from_overlay:
             drift.append({"field": field, "monitor": from_monitor, "overlay": from_overlay})
 

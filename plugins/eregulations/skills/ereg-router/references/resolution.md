@@ -13,6 +13,9 @@ There is no third source and no guessing.
 1. **Monitor is authoritative for STATE** — up/down, the version actually
    running, which server hosts an instance, SSL status. State changes without
    anyone editing a file, so only a live source can be right about it.
+   **`posture` is the exception**: it is a judgement about whether a host is
+   safe to touch, not state, and both sources can hold one — so the **more
+   severe** value wins, whichever source it came from. See *Posture* below.
 2. **The operator overlay** (`~/.ereg/fleet.local.json`) fills what Monitor
    cannot yet serve, and is the baseline the plugin ships in: every Monitor read
    endpoint sits behind authentication, so without an account there is no live
@@ -57,7 +60,8 @@ and whatever stays unresolved is what the gates block on.
 ## Drift
 
 Where Monitor and the overlay disagree on a field, **Monitor wins and the
-disagreement is reported**:
+disagreement is reported** — for every field except `posture`, where the more
+severe value wins instead:
 
 ```json
 {"field": "version", "monitor": "7.2", "overlay": "5.1"}
@@ -67,6 +71,30 @@ Report every entry to the user. The overlay is a human artefact and drifts
 silently otherwise; surfacing the disagreement is what gets it corrected by real
 runs instead of left to rot. The router never edits the overlay itself — a fact
 worth writing down is a fact worth a human deciding to write down.
+
+## Posture
+
+`posture` is the one field where Monitor does not simply win. The **more severe
+value wins, whichever source supplied it**:
+
+> `ok` < `degraded` < *unreadable* < `compromised`
+
+Neither source overrules the other downwards. An operator who marks a host
+compromised is not overruled by a Monitor that is stale or optimistic — that is
+the whole reason the overlay lets them write it down — and equally a Monitor
+reporting `compromised` is not overruled by a stale local `ok`.
+
+An *unreadable* posture (a typo, a value that is not one of the three, anything
+that is not a string) ranks above `degraded` because the `host_posture` gate
+**blocks** on a posture it cannot read while only warning on `degraded`. It
+ranks below `compromised` so that a garbage reading from one source cannot
+displace a real `compromised` from the other and swap the gate's remedy
+("migrate the instance off this host") for the wrong one ("record the host").
+
+A source with nothing to say does not vote for safety: if only one source
+supplies a posture, that value stands; if neither does, the field is unresolved
+and the fail-closed gate blocks on it. The disagreement is reported as `drift`
+either way — resolving to the severe value never hides it.
 
 ## Unresolved
 
@@ -133,7 +161,10 @@ You do not need a fleet inventory to start. Add instances as you touch them:
    outcome; a guessed one does not.
 4. **The posture** — `ok` is a statement that you have reason to believe the
    host is sound, not a default. If a host is recorded elsewhere as likely
-   compromised, write `compromised` here and let the gate do its job.
+   compromised, write `compromised` here and let the gate do its job. That
+   marking **holds even against a live Monitor reporting `ok`** — see
+   *Posture* — so it is worth writing down even for an instance Monitor
+   already covers.
 5. **The address and VPN profile name** — copy them from wherever you keep them
    today. They never leave this file. See `access.md`.
 

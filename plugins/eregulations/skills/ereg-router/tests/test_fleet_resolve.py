@@ -69,9 +69,100 @@ def test_agreement_produces_no_drift():
     assert fleet_resolve.resolve("alpha", record, _overlay())["drift"] == []
 
 
-def test_monitor_posture_beats_overlay_posture():
+def test_the_more_severe_posture_wins_in_both_directions():
+    """Posture is the one field Monitor does not simply win.
+
+    An operator who marks a host compromised must not be overruled by a
+    Monitor that is stale or optimistic -- that is the whole point of
+    being able to write it down. Equally, a Monitor reporting compromised
+    must not be overruled by a stale local `ok`. So for posture the more
+    severe value wins, whichever source it came from.
+
+    This replaces `test_monitor_posture_beats_overlay_posture`, which
+    pinned the first direction as correct: against this same fixture, a
+    Monitor reporting `ok` for `bravo` resolved to `ok` and the
+    host_posture gate PASSED on a host the operator had recorded as
+    compromised.
+    """
+    overlay = _overlay()
+
+    # overlay compromised (bravo -> host-bad) + Monitor ok -> compromised
+    optimistic = {"slug": "bravo", "host": "host-bad", "version": "5.1", "posture": "ok"}
+    assert fleet_resolve.resolve("bravo", optimistic, overlay)["posture"] == "compromised"
+
+    # Monitor compromised + overlay ok (alpha -> host-safe) -> compromised
+    alarming = {"slug": "alpha", "host": "host-safe", "version": "7.2", "posture": "compromised"}
+    assert fleet_resolve.resolve("alpha", alarming, overlay)["posture"] == "compromised"
+
+
+def test_posture_disagreement_is_still_reported_as_drift():
+    """Resolving to the severe value does not hide the disagreement."""
     record = {"slug": "bravo", "host": "host-bad", "version": "5.1", "posture": "ok"}
-    assert fleet_resolve.resolve("bravo", record, _overlay())["posture"] == "ok"
+    drifted = dict(
+        (d["field"], d) for d in fleet_resolve.resolve("bravo", record, _overlay())["drift"]
+    )
+    assert drifted["posture"]["monitor"] == "ok"
+    assert drifted["posture"]["overlay"] == "compromised"
+
+
+def test_degraded_outranks_ok_and_an_unreadable_posture_outranks_both():
+    """The order is ok < degraded < unknown < compromised.
+
+    Unknown sits above degraded because the host_posture gate blocks on a
+    posture it cannot read and only warns on `degraded`; it sits below
+    compromised so that a garbage reading from one source cannot displace
+    a real `compromised` from the other and swap the gate's actionable
+    remedy ("migrate off this host") for the wrong one ("record the host").
+    """
+    overlay = _overlay()
+
+    # alpha's overlay posture is ok
+    degraded = {"slug": "alpha", "host": "host-safe", "posture": "degraded"}
+    assert fleet_resolve.resolve("alpha", degraded, overlay)["posture"] == "degraded"
+
+    # an unreadable value must not be discarded in favour of a benign one
+    for unreadable in ("wat", "", 7, {"posture": "ok"}):
+        record = {"slug": "alpha", "host": "host-safe", "posture": unreadable}
+        assert fleet_resolve.resolve("alpha", record, overlay)["posture"] == unreadable, unreadable
+
+    # ...but it must not displace a real compromised either
+    record = {"slug": "bravo", "host": "host-bad", "posture": "wat"}
+    assert fleet_resolve.resolve("bravo", record, overlay)["posture"] == "compromised"
+
+
+def test_posture_from_one_source_only_is_used_as_is():
+    """Severity only arbitrates a disagreement. A single source still
+    supplies the answer, and neither side absent means unresolved."""
+    overlay = _overlay()
+
+    # Monitor silent on posture -> the overlay's value stands
+    assert fleet_resolve.resolve("bravo", {"slug": "bravo"}, overlay)["posture"] == "compromised"
+
+    # overlay silent (charlie's host is unlisted) -> Monitor's value stands
+    record = {"slug": "charlie", "host": "host-unlisted", "posture": "degraded"}
+    assert fleet_resolve.resolve("charlie", record, overlay)["posture"] == "degraded"
+
+    # neither -> unresolved, which the fail-closed gate blocks on
+    ctx = fleet_resolve.resolve("charlie", {"slug": "charlie"}, overlay)
+    assert ctx["posture"] is None
+    assert "posture" in ctx["unresolved"]
+
+
+def test_monitor_still_wins_the_other_three_fields():
+    """Only posture changes. host, version and platform keep Monitor
+    precedence: they are state, and only a live source can be right
+    about state."""
+    record = {
+        "slug": "bravo",
+        "host": "host-safe",
+        "version": "7.3",
+        "platform": "ubuntu",
+        "posture": "ok",
+    }
+    ctx = fleet_resolve.resolve("bravo", record, _overlay())
+    assert ctx["host"] == "host-safe"        # overlay said host-bad
+    assert ctx["version"] == "7.3"           # overlay said 5.1
+    assert ctx["platform"] == "ubuntu"       # overlay said windows
 
 
 def test_version_major_is_the_leading_component():
