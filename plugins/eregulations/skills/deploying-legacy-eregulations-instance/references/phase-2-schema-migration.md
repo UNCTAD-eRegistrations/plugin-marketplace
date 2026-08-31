@@ -201,7 +201,7 @@ check other tables) finds it the same way.
 
 **Confirmed second occurrence, different table, found the reactive way**
 (not caught by the proactive diff — this one only surfaced when a user hit
-the affected page): on the `comoros` test instance, `Admin_Menu` was missing
+the affected page): on one migrated test instance, `Admin_Menu` was missing
 `IsVisibleInPublicHomePage` and `IsWidePage` (both `bit not null` in the
 current EF model — `Unctad.eRegulations.Library/Model/Country/Menu.cs`).
 Symptom was the Admin SPA's menu-translation list page (`/app/translation/
@@ -288,8 +288,9 @@ apply one rule to all of it:
    recreate from, so the only trustworthy definition is whatever a verified
    *currently working* sibling instance has — diff against one before
    assuming the version on your instance is fine, and never drop without
-   first capturing a known-good replacement to restore from. (Comoros's
-   copies of these four were last modified 2021–2024 and appeared to work
+   first capturing a known-good replacement to restore from. (On the
+   instance examined, copies of these four were last modified 2021–2024 and
+   appeared to work
    for the one action tested — that's not the same as confirmed current.)
 3. **Not referenced anywhere in current code — drop outright, nothing to
    recreate.** This is almost everything else: all `Community_*` objects

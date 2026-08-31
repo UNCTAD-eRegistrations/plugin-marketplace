@@ -118,14 +118,29 @@ assumption** — it's the one thing you can't derive and the only thing that bre
 against the live gateway.
 
 ### 3. Java component — `src/main/java/.../<Name>.java`
-Copy the closest existing `Callable`. The reusable skeleton: trust-all SSL (gov
-proxies use self-signed certs), Base64 Basic auth from `${user-ws}`/`${pwd-ws}`,
+Copy the closest existing `Callable`. The reusable skeleton: Base64 Basic auth
+from `${user-ws}`/`${pwd-ws}`,
 `HttpPost` with the right `Content-Type` (`application/json` for a JSON backend —
 see step 0b), parse the response, and **flatten** the nested response into the flat
 keys that `servicelist.json` outputs declare. Inject the endpoint with
 `@Value("${<service>.url}")`. (For a JSON backend, `new JSONObject(body)` — it
 tolerates the trailing commas some gateways emit; for SOAP, strip namespaces then
 `org.json.XML.toJSONObject(...)`.)
+
+> **Trust-all SSL is in the existing components, and it is a development
+> shortcut — do not carry it into anything that reaches production.**
+> The reason it is there is real: some government gateways present self-signed
+> certificates. But a trust-all `TrustManager` disables certificate *and*
+> hostname verification for that client, so the connection it protects can be
+> intercepted by anything on the path — and these components carry Basic-auth
+> credentials in the very same request.
+>
+> If you copy a component that has it, treat removing it as part of the work,
+> not as a follow-up. The supported fix is to import the gateway's certificate
+> into a truststore and point the client at that, so exactly one unusual
+> certificate is trusted rather than all of them. Where a local run genuinely
+> needs it, keep it local: never in a component that gets deployed, and never
+> in the reusable skeleton this section describes.
 
 **Coerce values to the types the platform expects — flattening is not just
 renaming.** The platform/form mappings expect real types, and backends rarely
