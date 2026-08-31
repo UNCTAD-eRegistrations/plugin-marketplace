@@ -73,9 +73,32 @@ def consolidate(src_dir, source_files):
     Returns (langadmin_header, dest_rows, stats, conflicts). Nothing is written
     to disk here — main() owns the output side, so tests can exercise the merge
     rules without touching a live translation repository.
+
+    Raises ValueError if the destination names no languages; see below.
     """
-    langadmin_header, dest_rows = read_table(os.path.join(src_dir, "LangAdmin.txt"))
+    langadmin_path = os.path.join(src_dir, "LangAdmin.txt")
+    langadmin_header, dest_rows = read_table(langadmin_path)
     langs = langadmin_header[1:]
+
+    # The destination's header is what names the languages, so an empty
+    # `langs` is not an empty merge — it is a merge that writes every source
+    # row as a bare id with no language cells, discarding every translation
+    # while still reporting a healthy `new_keys` count. A zero-byte file
+    # (`touch LangAdmin.txt`) reaches this, and so does any header that
+    # carries no language column, which is the same hole by another door.
+    #
+    # Same reasoning as main()'s zero-source arity check: a no-op that would
+    # still overwrite the destination is refused, not reported as a merge.
+    # A header-only LangAdmin.txt is NOT this case — it names its languages,
+    # so the merge has everything it needs and every source row arrives whole.
+    if not langs:
+        raise ValueError(
+            "LangAdmin.txt at %s names no languages (its header row is %s). "
+            "Merging into it would write every source row without any "
+            "language cells, discarding every translation. Give the "
+            "destination a real header row, e.g. 'id|en|fr', and retry."
+            % (langadmin_path, "empty" if not langadmin_header else repr("|".join(langadmin_header)))
+        )
 
     stats = []
     conflicts = []
@@ -183,7 +206,14 @@ def main(argv=None):
                          % (src_dir, ", ".join(missing)))
         return 1
 
-    header, dest_rows, stats, conflicts = consolidate(src_dir, source_files)
+    try:
+        header, dest_rows, stats, conflicts = consolidate(src_dir, source_files)
+    except ValueError as exc:
+        # Refused before anything is written: neither output file is created,
+        # so a destination that cannot be merged into cannot be overwritten
+        # by a merge that silently dropped its contents.
+        sys.stderr.write("error: %s\n" % exc)
+        return 1
 
     write_langadmin(out_langadmin, header, dest_rows)
     write_conflicts(conflicts_path, conflicts)

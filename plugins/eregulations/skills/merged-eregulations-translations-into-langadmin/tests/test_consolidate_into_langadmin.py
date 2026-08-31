@@ -200,3 +200,74 @@ def test_is_blank_or_english_mirror():
     assert mod.is_blank_or_english_mirror(["a", "A", "   "], header, "fr", "A")
     assert mod.is_blank_or_english_mirror(["a", "A", "A"], header, "fr", "A")
     assert not mod.is_blank_or_english_mirror(["a", "A", "Aa"], header, "fr", "A")
+
+
+# --- an empty destination is refused, not silently emptied --------------------
+
+def test_empty_langadmin_is_refused_rather_than_discarding_every_translation(tmp_path, capsys):
+    """A zero-byte destination has no header, so it names no languages.
+
+    The merge would then write every source row as a bare id with no
+    language cells -- every translation silently discarded -- and still
+    exit 0 with counts (`new_keys 2`) plausible enough to survive the
+    skill's own "sanity-check the counts" step, after which the skill
+    copies that file over the live per-country LangAdmin.txt.
+
+    `touch LangAdmin.txt` in a repo with no LangAdmin family yet, then
+    running the consolidation expecting it to be populated, is an
+    ordinary move. Same reasoning as the zero-source arity check: a
+    no-op that would still overwrite the destination is refused.
+    """
+    d = tmp_path / "repo"
+    d.mkdir()
+    (d / "LangAdmin.txt").write_text("", encoding="utf-8")
+    write(d / "Common.txt", ["id|en|fr", "greeting|Hello|Bonjour", "farewell|Bye|Au revoir"])
+
+    out, conf = tmp_path / "out.txt", tmp_path / "conf.txt"
+    rc = mod.main([str(d), str(out), str(conf), "Common.txt"])
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "LangAdmin.txt" in err
+    assert not out.exists()
+    assert not conf.exists()
+
+
+def test_header_only_langadmin_still_merges(tmp_path):
+    """A destination that is only a header row is FINE, and must stay so.
+
+    It names its languages, so the merge has everything it needs and every
+    source row arrives whole. This is the case the empty-file refusal must
+    not swallow.
+    """
+    d = tmp_path / "repo"
+    d.mkdir()
+    write(d / "LangAdmin.txt", ["id|en|fr|es"])
+    write(d / "Common.txt", ["id|en|fr|es", "greeting|Hello|Bonjour|Hola"])
+
+    out, conf = tmp_path / "out.txt", tmp_path / "conf.txt"
+    assert mod.main([str(d), str(out), str(conf), "Common.txt"]) == 0
+
+    lines = out.read_text(encoding="utf-8-sig").splitlines()
+    assert lines == ["id|en|fr|es", "greeting|Hello|Bonjour|Hola"]
+
+
+def test_langadmin_with_no_language_columns_is_refused(tmp_path, capsys):
+    """The same data loss, reached by a header that names no languages.
+
+    `read_table` happily returns `["id"]` (or `[""]` for a lone newline)
+    as a header, and `langs` is then empty for exactly the same reason it
+    is empty for a zero-byte file. Guarding the byte count alone would
+    leave this hole open.
+    """
+    for header_line in ("id", ""):
+        d = tmp_path / ("repo" + str(len(header_line)))
+        d.mkdir()
+        (d / "LangAdmin.txt").write_text(header_line + "\n", encoding="utf-8")
+        write(d / "Common.txt", ["id|en|fr", "greeting|Hello|Bonjour"])
+
+        out = tmp_path / ("out%d.txt" % len(header_line))
+        rc = mod.main([str(d), str(out), str(tmp_path / "c.txt"), "Common.txt"])
+        assert rc == 1, header_line
+        assert "LangAdmin.txt" in capsys.readouterr().err
+        assert not out.exists()

@@ -132,6 +132,12 @@ confirm with the user first (see "Ask before assuming" below).
 - English (`en`) is never overwritten — differences are logged as conflicts
   only, since English is the SPA's default/fallback text and corrupting it
   would change what every untranslated user sees.
+- The destination's header row is what names the languages, so the script
+  **refuses** (exit 1, nothing written) a `LangAdmin.txt` that is empty or
+  whose header carries no language column. Merging into one would write every
+  source row as a bare id with no cells — every translation discarded, while
+  the counts still looked healthy. A header-only `LangAdmin.txt` is fine and
+  merges normally; only a destination that names no languages is refused.
 - All 12 files must share an identical header for the script's plain
   column-index cell lookups to be correct — it does not attempt to union
   differing language columns across files (unlike the unrelated
