@@ -47,6 +47,62 @@ def test_unknown_instance_resolves_nothing():
     assert "host" in ctx["unresolved"]
 
 
+def test_an_unrecognised_slug_is_distinguishable_from_a_known_sparse_one():
+    """Both come back with everything unresolved, and they are not the same.
+
+    A slug nobody has heard of is a typo or the wrong country, and the
+    answer is to ask which instance was meant. A slug that IS in the
+    overlay but carries no data is a real instance missing facts, and the
+    answer is to add them. Told only "unresolved", a caller cannot tell
+    which it is holding -- so SKILL.md Step 2's "offer the nearest matches"
+    had no trigger to fire on.
+    """
+    unknown = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert unknown["known_instance"] is False
+
+    sparse = fleet_resolve.resolve("delta", None, _overlay())  # no version recorded
+    assert sparse["known_instance"] is True
+    assert "version" in sparse["unresolved"]  # still genuinely unresolved
+
+
+def test_a_monitor_record_alone_marks_the_instance_known():
+    """Monitor is the other place a slug can be found. An instance it
+    serves is recognised whether or not the operator has written it down."""
+    record = {"slug": "zulu", "host": "host-x", "version": "7.0"}
+    ctx = fleet_resolve.resolve("zulu", record, _overlay())  # absent from the overlay
+    assert ctx["known_instance"] is True
+
+
+def test_a_slug_present_in_the_overlay_but_empty_is_still_known():
+    """Presence is the question, not how much the entry carries. An entry
+    holding nothing is still an operator saying "this instance exists"."""
+    ctx = fleet_resolve.resolve("echo", None, {"instances": {"echo": {}}})
+    assert ctx["known_instance"] is True
+    assert ctx["unresolved"] == list(fleet_resolve.STATE_FIELDS)
+
+
+def test_known_slugs_is_the_overlay_roster_a_caller_can_search():
+    """The overlay is the only scripted source of a roster -- Monitor is
+    queried one slug at a time and never listed. Without this there is
+    nothing for "the nearest matches" to be drawn from."""
+    ctx = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert ctx["known_slugs"] == ["alpha", "bravo", "charlie", "delta"]
+    assert fleet_resolve.known_slugs(_overlay()) == ["alpha", "bravo", "charlie", "delta"]
+
+
+def test_known_slugs_survives_the_overlay_shapes_resolve_already_tolerates():
+    """Same tolerance as the rest of `resolve`: a hand-edited overlay
+    yields an empty roster, never a traceback."""
+    for overlay in ({}, [], "alpha", {"instances": ["alpha"]}, {"instances": None}):
+        assert fleet_resolve.known_slugs(overlay) == [], overlay
+        assert fleet_resolve.resolve("alpha", None, overlay)["known_slugs"] == [], overlay
+
+
+def test_known_slugs_is_sorted_regardless_of_file_order():
+    overlay = {"instances": {"zulu": {}, "alpha": {}, "mike": {}}}
+    assert fleet_resolve.known_slugs(overlay) == ["alpha", "mike", "zulu"]
+
+
 def test_monitor_wins_over_overlay_for_state():
     record = {"slug": "bravo", "host": "host-safe", "version": "7.3", "platform": "ubuntu"}
     ctx = fleet_resolve.resolve("bravo", record, _overlay())

@@ -152,8 +152,35 @@ def _major(version):
     return str(version).split(".")[0]
 
 
+def known_slugs(overlay):
+    """The instance slugs the overlay knows about, sorted.
+
+    The overlay is the only scripted source of a fleet roster: Monitor is
+    queried one slug at a time and has no list endpoint here. This is what
+    lets a caller offer "the nearest matches" for a slug that did not
+    resolve, instead of saying "unresolved" with nothing to search.
+
+    Tolerant of the same hand-edited shapes `resolve` tolerates -- see
+    `_as_dict`. A malformed overlay yields an empty roster, never a
+    traceback.
+    """
+    return sorted(_as_dict(_as_dict(overlay).get("instances")).keys())
+
+
 def resolve(slug, monitor_record, overlay):
-    """Merge Monitor and overlay into one context, reporting drift."""
+    """Merge Monitor and overlay into one context, reporting drift.
+
+    Two of the keys returned are RESOLUTION METADATA, not gate context:
+    `known_instance` and `known_slugs`. They describe what this resolver
+    could look the slug up in; they say nothing about the host, the
+    version, the platform or the posture. `gates.py` must never read
+    either, and a test in test_gates.py holds that line -- a gate reading
+    `known_instance` would treat "somebody wrote this slug down" as
+    evidence about an instance, which is precisely the inference the
+    fail-closed design exists to forbid. A recorded slug with no facts
+    behind it still leaves every field UNRESOLVED, and every gate still
+    blocks on that.
+    """
     overlay = _as_dict(overlay)
     monitor_record = _as_dict(monitor_record)
 
@@ -197,9 +224,24 @@ def resolve(slug, monitor_record, overlay):
 
     unresolved = [f for f in STATE_FIELDS if resolved.get(f) is None]
 
+    # An unrecognised slug and a recognised-but-sparse one are both entirely
+    # unresolved, and they call for opposite responses: the first is a typo
+    # or the wrong country and the answer is to ask which instance was
+    # meant; the second is a real instance missing facts and the answer is
+    # to record them. `unresolved` alone cannot tell them apart, so
+    # SKILL.md Step 2's "offer the nearest matches" had no trigger to fire
+    # on and no roster to draw from.
+    #
+    # `monitor_record` has already been through `_as_dict`, so a shape
+    # Monitor could not have meant does not count as having found the slug
+    # -- the same rule `source` follows two lines below.
+    known_instance = bool(monitor_record) or slug in _as_dict(overlay.get("instances"))
+
     context = {
         "instance": slug,
         "source": "monitor" if monitor_record else "overlay",
+        "known_instance": known_instance,
+        "known_slugs": known_slugs(overlay),
         "drift": drift,
         "unresolved": unresolved,
         "version_major": _major(resolved.get("version")),

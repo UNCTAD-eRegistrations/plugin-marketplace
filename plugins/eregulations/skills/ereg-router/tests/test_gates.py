@@ -533,3 +533,60 @@ def test_an_absent_version_major_still_reads_as_unresolved():
     d = _by_gate(gates.evaluate(_ctx(version_major=None)), "unsupported_version")
     assert d["status"] == gates.BLOCK
     assert "unresolved" in d["reason"]
+
+
+def test_resolution_metadata_never_reaches_a_gate_decision():
+    """`known_instance` and `known_slugs` are resolution metadata, not gate
+    context. `fleet_resolve.resolve` emits them into the same JSON object
+    the gate context is built from, so the risk is real: a gate that ever
+    started reading `known_instance` would turn "this slug is in the
+    overlay" into evidence about a host, a version or a branch pair --
+    which it is not. Recording a slug's NAME is not knowing anything about
+    the instance, and a fail-closed gate that treated it as such would pass
+    on nothing.
+
+    Adding either key to any context -- clean or blocking -- must leave
+    every decision byte-identical, and every blocking payload must still
+    block.
+    """
+    metadata = {
+        "known_instance": True,
+        "known_slugs": ["alpha", "bravo", "charlie", "delta"],
+    }
+    payloads = (
+        _ctx(),                                              # clean
+        _ctx(posture=None),                                  # host_posture blocks
+        _ctx(posture="compromised"),
+        _ctx(touches_admin_public=True),                     # branch_pair blocks
+        _ctx(branch_pair_valid=False),
+        _ctx(targets_admin_deploy=True),                     # media_mount blocks
+        _ctx(media_mount=False),
+        _ctx(version_major=None),                            # unsupported_version blocks
+        _ctx(version_major="5"),
+        _ctx(platform="windows"),                            # windows_target warns
+    )
+    for context in payloads:
+        without = gates.evaluate(context)
+        for value in (True, False):
+            enriched = dict(context)
+            enriched.update(metadata)
+            enriched["known_instance"] = value
+            assert gates.evaluate(enriched) == without, (context, value)
+
+    # And the blocking ones still block, with the metadata attached.
+    for context in payloads[1:9]:
+        enriched = dict(context)
+        enriched.update(metadata)
+        assert gates.blocking(gates.evaluate(enriched)) != []
+
+
+def test_no_gate_names_a_resolution_metadata_key():
+    """The behavioural check above can only see the keys a gate reads
+    today. This one closes the door on a future gate reaching for them at
+    all: neither name may appear anywhere in the gate module.
+    """
+    import pathlib
+
+    source = pathlib.Path(gates.__file__).read_text(encoding="utf-8")
+    for key in ("known_instance", "known_slugs"):
+        assert key not in source, key
