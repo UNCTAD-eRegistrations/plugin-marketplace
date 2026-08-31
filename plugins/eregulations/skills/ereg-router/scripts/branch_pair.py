@@ -86,8 +86,41 @@ def _case_divergent_segment(path, base):
     return None
 
 
+#: What `git rev-parse --abbrev-ref HEAD` prints when the checkout is not on
+#: a branch at all. It is a sentinel, not a name.
+DETACHED_HEAD = "HEAD"
+
+
+def _reported_branch(value):
+    """Normalise a reader's answer into the branch name to report, or None.
+
+    `git rev-parse --abbrev-ref HEAD` prints the literal string `HEAD` when
+    the checkout is detached. Passed through, that is indistinguishable
+    from a checkout genuinely on a branch called `HEAD`, so a detached pair
+    was reported to the operator as being on a branch — the one thing it is
+    not, and the state in which "which branches am I on" has no answer.
+
+    None is the value these fields already carry when there is no branch
+    name to report (the path is not a git checkout), and both consumers —
+    SKILL.md 4a and references/versions.md, which only print the two fields
+    — read it as "no branch". Nothing in gates.py reads either field, so
+    the gate outcomes are untouched by this.
+
+    Only the exact sentinel is normalised: `Head`, `HEADS` and
+    `feature/head-hunting` are real branch names and are reported as such.
+    """
+    if value == DETACHED_HEAD:
+        return None
+    return value
+
+
 def git_branch(root):
-    """Current branch of a checkout, or None if it is not a repo."""
+    """Current branch of a checkout, or None if it is not on one.
+
+    None covers both "not a git checkout" and "detached HEAD" — see
+    `_reported_branch`. Neither is a branch name, and the caller's only use
+    for this value is to print it.
+    """
     try:
         out = subprocess.check_output(
             ["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
@@ -95,7 +128,7 @@ def git_branch(root):
         )
     except (subprocess.CalledProcessError, OSError):
         return None
-    return out.decode("utf-8").strip()
+    return _reported_branch(out.decode("utf-8").strip())
 
 
 def derive(public_csproj, admin_root, branch_reader=git_branch):
@@ -104,7 +137,10 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         "valid": None,
         "reason": "",
         "reference": None,
-        "admin_branch": branch_reader(admin_root),
+        # Normalised here as well as in git_branch, because the contract
+        # ("this field never names a branch that does not exist") belongs to
+        # the field an operator reads, not to whichever reader filled it.
+        "admin_branch": _reported_branch(branch_reader(admin_root)),
         "public_branch": None,
     }
 
@@ -116,7 +152,7 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         return result
 
     public_root = os.path.dirname(os.path.dirname(os.path.abspath(public_csproj)))
-    result["public_branch"] = branch_reader(public_root)
+    result["public_branch"] = _reported_branch(branch_reader(public_root))
 
     reference = extract_library_reference(text)
     if reference is None:
