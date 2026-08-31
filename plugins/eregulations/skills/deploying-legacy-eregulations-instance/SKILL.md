@@ -48,7 +48,11 @@ Ask for whatever is missing now, not mid-migration.
 
 1. **Restore both backups** — country DB permanently, Global DB into a temp DB
    on the *same* SQL Server instance so later steps can do cross-database
-   `INSERT ... SELECT`. → `references/phase-1-restore.md`
+   `INSERT ... SELECT`. **Confirm both target names are free first** — the SQL
+   Server is shared with live instances, and `RESTORE` onto an existing name
+   overwrites that database with no prompt and no undo. This is the only step
+   here that can destroy another country's data.
+   → `references/phase-1-restore.md`
 2. **Schema migration** — plus the drift the migration scripts do *not* cover:
    `Snapshot_*` identity columns, stale legacy views and procedures, leftover
    `Community_*` objects, `SET QUOTED_IDENTIFIER`.
@@ -58,7 +62,9 @@ Ask for whatever is missing now, not mid-migration.
    comparison and a duplicate-username check first.
    → `references/phase-3-user-migration.md`
 4. **Drop the temp Global DB**, then set `COMPATIBILITY_LEVEL = 150` — required
-   for EF Core's `OPENJSON`. → `references/phase-4-drop-temp-db.md`
+   for EF Core's `OPENJSON`. **Keep both `.bak` files on the mount** until
+   phase 5 is verified — they are phase 5's only rollback.
+   → `references/phase-4-drop-temp-db.md`
 5. **Hash the migrated credentials** — the legacy column is plaintext, so no
    migrated account can log in until this runs. **Not idempotent.**
    → `references/phase-5-credential-hashing.md`

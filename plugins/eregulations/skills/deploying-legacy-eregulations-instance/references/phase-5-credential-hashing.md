@@ -34,6 +34,13 @@ is gone (overwritten) — restore the Global DB backup again into a fresh
 temp DB, copy `Password` back from it by `ID` to undo the damage, then
 re-run the corrected UPDATE above.
 
+**That undo exists only while the Global DB `.bak` is still on the backup
+mount.** Phase 4 runs before this one and reads as a cleanup step, so this is
+a real way to lose the rollback: `phase-4-drop-temp-db.md` says to keep both
+`.bak` files until this phase has been verified, for exactly this reason. If
+the mount was already cleared, there is no undo — the plaintext credentials
+are gone for good and every account has to be reset by hand.
+
 Do this via direct SQL, not the `/api/user/encrypt` endpoint — that
 endpoint requires `[Authorize]` with no anonymous override, which is
 circular before any account can log in (nothing hashes correctly yet).
