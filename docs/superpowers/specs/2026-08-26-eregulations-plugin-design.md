@@ -31,14 +31,14 @@ The eRegistrations side of the house already solves this with the `unctad-digita
 | --- | --- | --- |
 | Terminal is the only executor | User decision, 2026-08-25 | App/web lanes must degrade honestly, never half-execute |
 | Ships to the team via the marketplace | User decision, 2026-08-25 | See next row — this one has teeth |
-| **`plugin-marketplace` is a PUBLIC GitHub repo** | `gh repo view` → `"visibility": "PUBLIC"` | **No credentials, no server addresses, and no security posture may ship in the plugin** |
+| **`plugin-marketplace` is a PUBLIC GitHub repo** | `gh repo view` → `"visibility": "PUBLIC"` | **No credentials, no server addresses, and no security posture may appear in ANY committed file** — plugin code, `README`s, `docs/`, specs and plans alike. In a public repo the plugin/docs distinction does not exist: everything committed is published, and a design document is as readable to a stranger as a skill is. |
 | Front door is one router | User decision, 2026-08-25 | Routing is explicit and auditable, not scattered across skills |
 | Plugin commands are namespaced `plugin:command` | Claude Code plugin loading; every listed command in this marketplace resolves as `bpa-mcp:status`, `devops:align-mule3-repo`, … | **A bare `/ereg` is not achievable from a plugin.** Plain English is the front door; `/eregulations:ereg` is the explicit form |
 | Kimi manifests and catalogs are generated | `CLAUDE.md`: *"generated — never edit them by hand"* | `scripts/generate-kimi-manifests.py` after any change to `plugin.json`, `.mcp.json`, `skills/` or `commands/` |
 | Two validators gate this repo | `scripts/validate-plugins.py` (packaging) and `.github/scripts/validate-frontmatter.ts` under `bun` (frontmatter) | Both must pass; the second is CI-only unless bun is installed |
 | 7.x only going forward | Handover Doc §3 | New work on 4.x/5.x/6.x is gated |
 | Admin ↔ Public branch pairing | Handover Doc §10; `WebAppCore.csproj` project-references `Unctad.eRegulations.Library` | A build gate is mandatory — and derivable from code, so it is derived |
-| Two hosts recorded as likely compromised | Handover Doc §5 | A fail-closed host gate is mandatory |
+| Some hosts carry a non-clean security posture | Operator-held posture records, resolved at runtime | A fail-closed host gate is mandatory |
 | Admin crashes without `/app/media` | Handover Doc §10 | A deploy precondition check is mandatory |
 | Monitor API is still moving | `eRegulations-Monitor/PRD.md` (provisioning is Phase-1) | MCP server must fail loudly on shape change |
 | Monitor auth is user/password → JWT, no service accounts, 5-attempt lockout | `backend/src/routes/auth.ts`, `middleware/auth.ts` | Credential provisioning is a Monitor-side change, not an admin action |
@@ -47,6 +47,8 @@ The eRegistrations side of the house already solves this with the `unctad-digita
 ## Data classification
 
 This table governs where every fact is allowed to live. It exists because the marketplace is public.
+
+Wherever the table says **the plugin**, read it as *every file committed to this repository* — `docs/` included. The constraint above binds the repo, not a subdirectory of it.
 
 | Class | Examples | Lives in | Never in |
 | --- | --- | --- | --- |
@@ -136,7 +138,7 @@ Into a **primary** kind, plus optional **secondary** kinds, from:
 
 `bugfix` · `deploy` · `upgrade` · `dev` · `provision` · `translations`
 
-Compound requests are the norm in incident work, not the exception — *"Kenya is down because it's on 5.x, migrate it"* is `bugfix` (primary) + `upgrade` (secondary). The primary kind drives dispatch; secondaries are carried into the resolved context so gates evaluate against the whole request, not just its first clause.
+Compound requests are the norm in incident work, not the exception — *"bravo is down because it's on 5.x, migrate it"* is `bugfix` (primary) + `upgrade` (secondary). The primary kind drives dispatch; secondaries are carried into the resolved context so gates evaluate against the whole request, not just its first clause.
 
 If the primary is genuinely ambiguous — the request could reasonably lead with either kind, and they dispatch differently — the router asks one question. It does not pick.
 
@@ -268,7 +270,7 @@ A works standalone: the router calls Monitor over plain HTTP. B swaps that for t
 
 The plugin references credentials **by name only** and carries no value, no address, and no posture. See **Data classification** — that table is the enforceable rule, and the marketplace being public is why it exists.
 
-**Flagged, deliberately out of scope:** `RD Different accesses` (same Drive folder) contains working VPN, SSH, GitLab, Mailgun and currency-API passwords in plain text, several tied to a personal account rather than an institutional one. Two of the hosts those credentials open are recorded as likely compromised. Rotating them and moving them to a shared secret store is worth its own piece of work. It is not folded in here: mixing a security cleanup into a tooling change makes both harder to review.
+**Flagged, deliberately out of scope:** a separate operations document holds working credential values in plain text, several tied to a personal rather than an institutional account, and some of them open hosts whose posture is questionable. Rotating those and moving them into a shared credential manager is real work with real value. It is deliberately **not** folded into this design: mixing a security cleanup into a tooling change makes both harder to review, and it is tracked separately — by name, elsewhere, not here.
 
 ## Acceptance criteria
 
@@ -294,7 +296,7 @@ Keep `allowed-tools` minimal per the marketplace `CLAUDE.md`.
 **All gate scenarios run in `execute` lane against `fixtures/fleet.sample.json`.** Both halves of that sentence are corrections from the first draft:
 
 - *Execute lane*, because plan lane touches nothing **by construction** — no VPN, no SSH. A plan-lane assertion cannot distinguish "the gate fired" from "the lane prevented action," so it tests the lane, not the gate.
-- *Synthetic fixtures*, because the first draft pinned its host-gate test to Turkmenistan TP — the last instance on Old eRegulations, and the one the handover makes top priority to move. The day it moves, that test passes while testing nothing: a green result meaning the opposite of what it appears to.
+- *Synthetic fixtures*, because the first draft pinned its host-gate test to a real, named production instance — one already queued to move. The day it moves, that test passes while testing nothing: a green result meaning the opposite of what it appears to. The fixtures use synthetic slugs (`alpha`, `bravo`, `charlie`, `delta`) that no migration can pull out from under a test.
 
 **If any of these silently passes, the router is worse than useless — it is confidently wrong about production.**
 
@@ -342,7 +344,7 @@ Neither blocks A. **A is fully functional with fleet facts supplied by the opera
 
 - **C — Coolify/API control plane.** Deploys need VPN + SSH, which the terminal already has. The 4.x/5.x Windows fleet, where most instances still live, has no API to drive.
 - **Instance provisioning tools.** See Component 2.
-- **Credential rotation** for `RD Different accesses`. See Security.
+- **Credential rotation** for the plaintext operations credentials. See Security.
 - **The pre-existing public-IP exposure** already committed under `plugins/leaflets/` in this public repo. See Data classification.
 - **Fixing the 14 pre-existing validator errors** in other plugins.
 - **The six repo `CLAUDE.md` PRs** as a blocking dependency. The plugin is fully functional if they never merge.
@@ -354,7 +356,7 @@ Neither blocks A. **A is fully functional with fleet facts supplied by the opera
 | F1 | Critical | Plugin would publish a compromised-host map to a public repo | **Data classification**; `fleet.md` deleted; overlay introduced |
 | F2 | Critical | Host gate consumed rotting data and failed **open** | **Step 4**; gate now fail-closed, unknown treated as compromised |
 | F3 | High | Gate scenario asserted in plan lane, where nothing can act anyway | **Gate scenarios**; all now execute lane |
-| F4 | High | Test fixture pinned to Turkmenistan, whose migration is top priority | **Gate scenarios**; `fixtures/fleet.sample.json` |
+| F4 | High | Test fixture pinned to a real production instance already queued to move | **Gate scenarios**; `fixtures/fleet.sample.json` |
 | F5 | High | Monitor has no service accounts; retry could lock the account | **Auth model**; `viewer` account, no-retry rule, scenario 8 |
 | F6 | Medium | "One-file swap" understated the MCP auth lifecycle | **The seam**; claim corrected, B re-estimated |
 | F7 | Medium | Single classification fails on compound incident requests | **Step 1**; primary + secondary kinds |
