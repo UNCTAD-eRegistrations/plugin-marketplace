@@ -36,8 +36,32 @@ def _decision(gate, status, reason, remedy="", overridable=False):
     }
 
 
+def _enum(context, key):
+    """Read a string-valued enum field the way an operator wrote it.
+
+    Lower-cased and stripped, because comparing a policy enum by exact
+    match is how a correct block turns into a bypass. `posture:
+    "Compromised"` misses the compromised branch and lands on the
+    unresolved one. Both block, so it looks harmless -- but the two
+    blocks print different REMEDIES, and the remedy is the part an
+    operator acts on. Told the posture is unresolved, they do exactly
+    what the remedy says, record the host in their overlay as
+    `posture: "ok"`, and the gate that was right the first time now
+    passes. The remedy has to match the finding, which means the
+    comparison has to see the value that was actually written.
+
+    Anything that is not a string returns None and so reaches whatever
+    the gate does with an unresolved value -- for the fail-closed gates,
+    a block. Normalising must not become its own way through.
+    """
+    value = context.get(key)
+    if isinstance(value, str):
+        return value.strip().lower()
+    return None
+
+
 def _host_posture(context):
-    posture = context.get("posture")
+    posture = _enum(context, "posture")
     if posture == "ok":
         return _decision("host_posture", PASS, "host posture is ok")
     if posture == "degraded":
@@ -253,12 +277,25 @@ def _unsupported_version(context):
 
 
 def _windows_target(context):
-    if context.get("platform") == "windows":
+    platform = _enum(context, "platform")
+    if platform == "windows":
         return _decision(
             "windows_target",
             WARN,
             "target is Windows/IIS, which is transitional",
             "plan the move to Ubuntu; this is not a long-term target",
+        )
+    if platform is None:
+        # Fail open, per the gate's declared direction -- but say so.
+        # "target is not Windows" is a claim, and nobody resolved the
+        # platform, so it is a claim this gate has no basis for.
+        return _decision(
+            "windows_target",
+            PASS,
+            "target platform is unresolved; this gate is advisory and does "
+            "not block",
+            "resolve the platform if you want the Windows advisory to be "
+            "reliable",
         )
     return _decision("windows_target", PASS, "target is not Windows")
 

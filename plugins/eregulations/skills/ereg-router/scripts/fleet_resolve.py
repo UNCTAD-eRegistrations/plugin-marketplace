@@ -30,9 +30,38 @@ def load_overlay(path):
     except (IOError, OSError, ValueError):
         return {}
     try:
-        return json.loads(text)
+        overlay = json.loads(text)
     except ValueError as exc:
         raise ValueError("could not parse fleet.local.json at %s: %s" % (path, exc))
+    if not isinstance(overlay, dict):
+        # Same guard gates.py puts on its own JSON input. This is the loud
+        # front door -- a file that parses but is not an object is one the
+        # operator has to fix, not one to read as empty and then block on
+        # everything with no explanation.
+        raise ValueError(
+            "fleet.local.json at %s must be a JSON object, got %s"
+            % (path, type(overlay).__name__)
+        )
+    return overlay
+
+
+def _as_dict(value):
+    """Return `value` if it is a dict, otherwise an empty one.
+
+    `resolve` is the tolerant half of the pair: unreadable input resolves
+    to nothing rather than raising. Every field a malformed overlay
+    section would have supplied ends up UNRESOLVED, which the fail-closed
+    gates block on -- the same outcome as a section that was simply
+    absent, and the safe one.
+
+    Without this, a hand-edited overlay carrying `"hosts": ["host-a"]`
+    where an object belongs takes the resolver down with a bare
+    AttributeError. That direction is safe (no verdict is issued, so
+    nothing proceeds) but it is not a verdict: the operator gets a
+    traceback and a line number instead of "posture unresolved, record
+    the host".
+    """
+    return value if isinstance(value, dict) else {}
 
 
 def fetch_instance(base_url, token, slug, opener=urllib.request.urlopen):
@@ -64,14 +93,21 @@ def _major(version):
 
 def resolve(slug, monitor_record, overlay):
     """Merge Monitor and overlay into one context, reporting drift."""
-    overlay_instance = (overlay.get("instances") or {}).get(slug) or {}
+    overlay = _as_dict(overlay)
+    monitor_record = _as_dict(monitor_record)
+
+    overlay_instance = _as_dict(_as_dict(overlay.get("instances")).get(slug))
     overlay_host = overlay_instance.get("host")
-    overlay_hosts = overlay.get("hosts") or {}
+    overlay_hosts = _as_dict(overlay.get("hosts"))
+    # Only a string can name a host. A dict or a list is not merely the
+    # wrong value, it is an unhashable key -- `dict.get` raises TypeError
+    # on it, which no amount of dict-guarding downstream would catch.
+    host_record = _as_dict(overlay_hosts.get(overlay_host)) if isinstance(overlay_host, str) else {}
     overlay_view = {
         "host": overlay_host,
         "version": overlay_instance.get("version"),
         "platform": overlay_instance.get("platform"),
-        "posture": (overlay_hosts.get(overlay_host) or {}).get("posture"),
+        "posture": host_record.get("posture"),
     }
 
     monitor_view = {}

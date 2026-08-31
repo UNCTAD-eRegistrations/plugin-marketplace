@@ -34,6 +34,15 @@ at all. `ok` passes. `degraded` warns and proceeds with care. `compromised`
 blocks. **Anything else — including absent, unknown, or unresolved — blocks
 identically to `compromised`.**
 
+The value is compared case-insensitively with surrounding whitespace trimmed,
+so `Compromised` and `  compromised ` reach the compromised branch and not the
+unresolved one. That is not cosmetic: both spellings block, but they print
+**different remedies**, and the remedy is the part an operator acts on. Told
+the posture is unresolved, an operator does exactly what that remedy says —
+records the host in their overlay, as `ok` — and a gate that was correct the
+first time now passes. A value that is not a string at all is not a posture,
+and blocks as unresolved.
+
 **Why that direction.** This gate is the reason the plugin's design was revised.
 A gate fed by a static table fails in both directions, and the dangerous one is
 quiet: a stale record reading "not compromised" means **the gate silently never
@@ -162,7 +171,13 @@ resolve it — see `resolution.md`.
 **Context key:** `platform`.
 
 **What it means.** Windows/IIS is a transitional target. This gate warns; it
-never blocks.
+never blocks. `platform` is matched case-insensitively and trimmed, so
+`Windows` warns exactly as `windows` does — a cased value must not silently
+drop the advisory.
+
+An unresolved `platform` passes, as fail-open requires, and **says that it is
+unresolved**. It does not report "target is not Windows", which would be a
+claim about the one fact this gate exists to report and one nobody resolved.
 
 **Why that direction.** It is advisory. Most of the legacy fleet still runs on
 Windows, and blocking there would stop routine work in order to make a point

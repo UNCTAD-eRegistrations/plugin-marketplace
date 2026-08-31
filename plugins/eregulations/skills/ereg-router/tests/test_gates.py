@@ -426,3 +426,66 @@ def test_boolean_evidence_behaviour_is_unchanged():
         gates.evaluate(_ctx_without("touches_admin_public", branch_pair_valid=None)),
         "branch_pair",
     )["status"] == gates.PASS
+
+
+def test_posture_comparison_is_case_and_whitespace_insensitive():
+    """A cased posture must reach the SAME branch as the bare one.
+
+    Both spellings block, so this looks cosmetic. It is not. The two
+    blocks carry different REMEDIES, and the remedy is the part an
+    operator acts on. "compromised" says migrate off the host and do not
+    repair in place. Unresolved says record the host in
+    ~/.ereg/fleet.local.json. An operator told their posture is
+    unresolved follows the printed instruction, writes `posture: "ok"`
+    into their overlay, and walks straight through a gate that was
+    correct the first time. That is a correct block converting into a
+    clean bypass by way of the tool's own advice, so the reason and the
+    remedy are asserted, not just the status.
+    """
+    baseline = _by_gate(gates.evaluate(_ctx(posture="compromised")), "host_posture")
+    assert baseline["status"] == gates.BLOCK
+    for spelling in ("Compromised", "COMPROMISED", "  compromised  ", "compromised\n"):
+        d = _by_gate(gates.evaluate(_ctx(posture=spelling)), "host_posture")
+        assert d["status"] == gates.BLOCK, spelling
+        assert d["reason"] == baseline["reason"], spelling
+        assert d["remedy"] == baseline["remedy"], spelling
+
+
+def test_cased_ok_and_degraded_reach_their_own_branches():
+    """The same normalisation in the other direction.
+
+    Without it a `posture: "OK"` blocks as unresolved -- noise, not a
+    hole, but it teaches operators that the gate misfires, which is how
+    an override habit starts.
+    """
+    ok = _by_gate(gates.evaluate(_ctx(posture="OK")), "host_posture")
+    assert ok["status"] == gates.PASS
+    degraded = _by_gate(gates.evaluate(_ctx(posture=" Degraded ")), "host_posture")
+    assert degraded["status"] == gates.WARN
+
+
+def test_non_string_posture_blocks_as_unresolved():
+    """Normalising must not open a hole of its own: a posture that is not
+    a string is not a posture, and the gate stays fail-closed on it."""
+    for junk in (1, True, {"posture": "ok"}, ["ok"]):
+        d = _by_gate(gates.evaluate(_ctx(posture=junk)), "host_posture")
+        assert d["status"] == gates.BLOCK, junk
+        assert d["overridable"] is False
+
+
+def test_cased_windows_warns_and_the_reason_is_never_a_false_statement():
+    """`platform: "Windows"` used to PASS carrying the reason "target is
+    not Windows" -- a false statement about the one fact this gate
+    exists to report, and a silently dropped advisory."""
+    for spelling in ("Windows", "WINDOWS", " windows "):
+        d = _by_gate(gates.evaluate(_ctx(platform=spelling)), "windows_target")
+        assert d["status"] == gates.WARN, spelling
+        assert "not Windows" not in d["reason"], spelling
+
+
+def test_unresolved_platform_does_not_claim_the_target_is_not_windows():
+    """Fail-open is correct here; asserting a fact nobody resolved is
+    not. An unresolved platform passes, and says that it is unresolved."""
+    d = _by_gate(gates.evaluate(_ctx(platform=None)), "windows_target")
+    assert d["status"] != gates.BLOCK
+    assert "unresolved" in d["reason"]
