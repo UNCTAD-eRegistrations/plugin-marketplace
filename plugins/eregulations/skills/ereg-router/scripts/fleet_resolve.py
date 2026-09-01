@@ -211,6 +211,22 @@ def resolve(slug, monitor_record, overlay):
             "platform": monitor_record.get("platform"),
             "posture": monitor_record.get("posture"),
         }
+        # An empty string is an absent value wearing a value's clothes, and
+        # `host` already collapses `""` to the `server` alias two lines up.
+        # Doing the same for `version` and `platform` gives absence one
+        # meaning across the merge, the unresolved list, and `known_instance`.
+        #
+        # `posture` is deliberately EXCLUDED. An unreadable posture is not an
+        # absent one: `_worse_posture` ranks anything it cannot parse above
+        # `degraded`, precisely so a garbage reading from one source cannot be
+        # displaced by a benign `ok` from the other. Collapsing `""` to None
+        # here let exactly that happen -- the overlay's `ok` won and the gate
+        # passed on a host whose posture Monitor had failed to state. The
+        # existing severity test caught it.
+        monitor_view = dict(
+            (field, None if (value == "" and field != "posture") else value)
+            for field, value in monitor_view.items()
+        )
 
     resolved = {}
     drift = []
@@ -243,16 +259,22 @@ def resolve(slug, monitor_record, overlay):
     # operator this is a real instance merely missing data and to add those
     # facts to the overlay by hand. They would be inventing a record for a
     # slug that names nothing, and the gates would pass on it afterwards.
-    # So a Monitor body counts as having found the slug only when it carries
-    # at least one field Monitor would actually populate.
-    monitor_named_it = any(
-        _as_dict(monitor_record).get(field) is not None for field in STATE_FIELDS
-    )
+    #
+    # Evaluated over `monitor_view`, NOT the raw record, so one definition of
+    # "Monitor supplied this" serves the whole object. Reading the raw record
+    # made it disagree with itself: `{"server": "h1"}` resolved a host FROM
+    # MONITOR while reporting the slug found nowhere, and `{"host": ""}`
+    # reported it found while resolving nothing.
+    monitor_named_it = any(monitor_view.get(field) is not None for field in STATE_FIELDS)
     known_instance = monitor_named_it or slug in _as_dict(overlay.get("instances"))
 
     context = {
         "instance": slug,
-        "source": "monitor" if monitor_record else "overlay",
+        # Same definition again: a body that named nothing did not source
+        # anything, however truthy it was. Otherwise an error object reported
+        # `source: monitor` beside `known_instance: false`, and the two lines
+        # of one object contradicted each other.
+        "source": "monitor" if monitor_named_it else "overlay",
         "known_instance": known_instance,
         "known_slugs": known_slugs(overlay),
         "drift": drift,

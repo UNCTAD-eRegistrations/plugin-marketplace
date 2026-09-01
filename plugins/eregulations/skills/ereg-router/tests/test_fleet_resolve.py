@@ -430,3 +430,58 @@ def test_known_slugs_does_not_raise_on_mixed_type_keys():
     but the docstring promises no traceback, and a promise a caller can break
     is not one."""
     assert fleet_resolve.known_slugs({"instances": {"b": {}, 1: {}, "a": {}}}) == ["1", "a", "b"]
+
+
+def test_the_server_alias_counts_as_finding_the_slug():
+    """`server` is accepted as a host alias by the merge, so it must count for
+    `known_instance` too. Reading the raw record made the object disagree with
+    itself: a host resolved *from Monitor* beside a report that the slug was
+    found nowhere, which had Step 2 telling the operator to ask which instance
+    was meant while the context in front of them named one."""
+    ctx = fleet_resolve.resolve("s", {"server": "h1"}, {})
+    assert ctx["known_instance"] is True
+    assert ctx["host"] == "h1"
+    assert ctx["source"] == "monitor"
+
+
+def test_an_empty_string_field_is_absent_not_found():
+    """`"" is not None`, so an empty host counted as finding the slug while
+    resolving nothing. `host` already collapsed `""` to the alias; the rest of
+    the fields now do the same, so absence has one meaning."""
+    ctx = fleet_resolve.resolve("s", {"host": ""}, {})
+    assert ctx["known_instance"] is False
+    assert ctx["host"] is None
+    assert "host" in ctx["unresolved"]
+
+
+def test_source_agrees_with_known_instance():
+    """One object must not contradict itself. An error body is truthy, so a
+    truthiness-based `source` reported `monitor` beside `known_instance:
+    false`."""
+    for record in ({"error": "not found"}, {}, {"host": ""}):
+        ctx = fleet_resolve.resolve("s", record, {})
+        assert ctx["source"] == "overlay", record
+        assert ctx["known_instance"] is False, record
+
+    for record in ({"host": "h1"}, {"server": "h1"}, {"posture": "ok"}):
+        ctx = fleet_resolve.resolve("s", record, {})
+        assert ctx["source"] == "monitor", record
+        assert ctx["known_instance"] is True, record
+
+
+def test_an_empty_posture_is_unreadable_not_absent():
+    """The regression guard for the empty-string collapse.
+
+    Collapsing `""` to None across every field looked tidy and quietly broke
+    the severity rule: an empty posture from Monitor became absent, the
+    overlay's benign `ok` won, and the gate passed on a host whose posture
+    Monitor had failed to state. An unreadable posture must keep outranking a
+    benign one -- that is the whole point of ranking unknown above degraded.
+    """
+    overlay = _overlay()  # alpha's overlay posture is ok
+    record = {"slug": "alpha", "host": "host-safe", "posture": ""}
+    assert fleet_resolve.resolve("alpha", record, overlay)["posture"] == ""
+
+    # ...while an empty host really is absent, and falls through to the overlay
+    record = {"slug": "alpha", "host": "", "posture": "ok"}
+    assert fleet_resolve.resolve("alpha", record, overlay)["host"] == "host-safe"
