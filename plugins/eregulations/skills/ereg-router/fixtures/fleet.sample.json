@@ -1,0 +1,13 @@
+{
+  "instances": {
+    "alpha": { "host": "host-safe", "version": "7.2", "platform": "ubuntu" },
+    "bravo": { "host": "host-bad", "version": "5.1", "platform": "windows" },
+    "charlie": { "host": "host-unlisted", "version": "7.2", "platform": "ubuntu" },
+    "delta": { "host": "host-safe", "platform": "ubuntu" }
+  },
+  "hosts": {
+    "host-safe": { "posture": "ok" },
+    "host-bad": { "posture": "compromised" },
+    "host-tired": { "posture": "degraded" }
+  }
+}
