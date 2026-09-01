@@ -23,11 +23,13 @@ def _now():
 def _require_reason(reason):
     """The one rule this module exists to enforce, in one place.
 
-    A whitespace-only reason is a blank one: `str()` first so a non-string
-    is judged on what it would actually be written as, and rejected if that
-    is empty.
+    A whitespace-only reason is a blank one. Only a string can be a reason:
+    `str()` on a container produces something non-empty -- `str({})` is
+    `"{}"`, `str(0)` is `"0"` -- so judging a non-string by what it would be
+    written as lets an empty object through as a justification. The type
+    check is what makes the emptiness test mean anything.
     """
-    if reason is None or not str(reason).strip():
+    if not isinstance(reason, str) or not reason.strip():
         raise ValueError("an override requires a stated reason")
     return reason
 

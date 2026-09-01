@@ -393,3 +393,40 @@ def test_cli_still_degrades_quietly_when_the_overlay_is_merely_absent(tmp_path, 
     assert rc == 0
     assert captured.err == ""
     assert "unresolved" in captured.out
+
+
+def test_a_monitor_error_body_does_not_count_as_finding_the_slug():
+    """A gateway that answers a missing slug with 200 + an error object.
+
+    `_as_dict` rejects non-dicts, not non-instances -- an error object is a
+    dict and passes straight through it. If that counted as having found the
+    slug, SKILL.md Step 2 would tell the operator this is a real instance
+    merely missing data and to add those facts to the overlay by hand. They
+    would be inventing a record for a slug that names nothing, and the gates
+    would pass on it from then on: a correct block turned into a bypass by
+    following the remedy the tool printed.
+    """
+    error_body = {"error": "instance not found", "status": 404}
+    ctx = fleet_resolve.resolve("typo-slug", error_body, {"instances": {"alpha": {}}})
+
+    assert ctx["known_instance"] is False
+    assert ctx["unresolved"] == list(fleet_resolve.STATE_FIELDS)
+
+
+def test_a_monitor_record_with_any_real_field_does_count():
+    """The control: one populated state field is enough to have found it."""
+    for field in fleet_resolve.STATE_FIELDS:
+        ctx = fleet_resolve.resolve("s", {field: "x"}, {})
+        assert ctx["known_instance"] is True, field
+
+
+def test_an_empty_monitor_body_does_not_count_either():
+    ctx = fleet_resolve.resolve("s", {}, {})
+    assert ctx["known_instance"] is False
+
+
+def test_known_slugs_does_not_raise_on_mixed_type_keys():
+    """JSON keys are always strings, so only a Python caller reaches this --
+    but the docstring promises no traceback, and a promise a caller can break
+    is not one."""
+    assert fleet_resolve.known_slugs({"instances": {"b": {}, 1: {}, "a": {}}}) == ["1", "a", "b"]

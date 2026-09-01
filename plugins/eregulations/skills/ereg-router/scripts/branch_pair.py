@@ -124,7 +124,11 @@ def git_branch(root):
     try:
         out = subprocess.check_output(
             ["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
-            stderr=subprocess.STDOUT,
+            # DEVNULL, not STDOUT: merging git's stderr into stdout makes a
+            # two-line error message arrive as the branch name -- the same
+            # class of bug as the detached-HEAD sentinel this function
+            # normalises, one step sideways.
+            stderr=subprocess.DEVNULL,
         )
     except (subprocess.CalledProcessError, OSError):
         return None

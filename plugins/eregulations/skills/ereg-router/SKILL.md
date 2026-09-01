@@ -184,10 +184,13 @@ an answer. As with `media_mount`, an explicit `branch_pair_valid: false` blocks
 on its own whether or not `touches_admin_public` is set — a pair derived and
 found incompatible is not made compatible by a flag saying the check does not
 apply. Report `reason`, `admin_branch` and `public_branch`
-to the user either way. A `null` branch means **there is no branch to name** —
-the checkout is detached, or it is not a git checkout at all. Report it as
-that, never as a branch; a detached checkout is exactly the state in which
-"which branches am I on" has no answer, and saying so is the point.
+to the user either way. A `null` branch means **there is no branch to name**, and
+it has four causes: the checkout is detached, the path is not a git checkout,
+the repository has no commit yet, or git could not be run there at all. The
+value does not say which — if that matters, ask the operator rather than
+guessing. Report `null` as "no branch", never as a branch; a detached checkout
+is exactly the state in which "which branches am I on" has no answer, and
+saying so is the point.
 
 ### 4b — Media mount, for any Admin deploy
 

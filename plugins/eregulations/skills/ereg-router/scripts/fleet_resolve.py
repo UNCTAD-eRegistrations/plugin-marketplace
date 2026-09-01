@@ -162,9 +162,13 @@ def known_slugs(overlay):
 
     Tolerant of the same hand-edited shapes `resolve` tolerates -- see
     `_as_dict`. A malformed overlay yields an empty roster, never a
-    traceback.
+    traceback: keys are coerced to strings first, because `sorted()` raises
+    on a dict whose keys are of mixed type. JSON keys are always strings, so
+    that shape only arrives from a Python caller building the dict by hand --
+    but the docstring promises no traceback, and a promise a caller can break
+    is not one.
     """
-    return sorted(_as_dict(_as_dict(overlay).get("instances")).keys())
+    return sorted(str(slug) for slug in _as_dict(_as_dict(overlay).get("instances")))
 
 
 def resolve(slug, monitor_record, overlay):
@@ -232,10 +236,19 @@ def resolve(slug, monitor_record, overlay):
     # SKILL.md Step 2's "offer the nearest matches" had no trigger to fire
     # on and no roster to draw from.
     #
-    # `monitor_record` has already been through `_as_dict`, so a shape
-    # Monitor could not have meant does not count as having found the slug
-    # -- the same rule `source` follows two lines below.
-    known_instance = bool(monitor_record) or slug in _as_dict(overlay.get("instances"))
+    # `_as_dict` rejects non-dicts, NOT non-instances -- an error object is a
+    # dict and sails straight through it. A gateway that answers a missing
+    # slug with `200 {"error": "not found"}` instead of a 404 would otherwise
+    # be read as having found it, and SKILL.md Step 2 would then tell the
+    # operator this is a real instance merely missing data and to add those
+    # facts to the overlay by hand. They would be inventing a record for a
+    # slug that names nothing, and the gates would pass on it afterwards.
+    # So a Monitor body counts as having found the slug only when it carries
+    # at least one field Monitor would actually populate.
+    monitor_named_it = any(
+        _as_dict(monitor_record).get(field) is not None for field in STATE_FIELDS
+    )
+    known_instance = monitor_named_it or slug in _as_dict(overlay.get("instances"))
 
     context = {
         "instance": slug,

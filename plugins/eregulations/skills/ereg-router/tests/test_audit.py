@@ -159,3 +159,24 @@ def test_append_survives_losing_the_directory_creation_race(tmp_path, monkeypatc
     )
 
     assert len(log.read_text().strip().splitlines()) == 1
+
+
+def test_a_container_is_not_a_reason(tmp_path):
+    """`str({})` is `"{}"` and `str(0)` is `"0"`, both non-empty, so judging a
+    non-string by what it would be written as lets an empty object through as
+    a justification. Only a string can be a reason."""
+    log = tmp_path / "audit.jsonl"
+    for bogus in ({}, [], 0, False, {"why": "x"}, ["x"]):
+        try:
+            audit.append(str(log), {"gate": "unsupported_version", "reason": bogus})
+        except ValueError as exc:
+            assert "reason" in str(exc).lower()
+        else:
+            raise AssertionError("accepted %r as a reason" % (bogus,))
+        try:
+            audit.record_override(str(log), "unsupported_version", bogus, {}, lambda: "t")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("record_override accepted %r" % (bogus,))
+    assert not log.exists()
