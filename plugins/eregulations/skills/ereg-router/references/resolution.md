@@ -49,6 +49,30 @@ Output, as JSON:
 | `source` | `monitor` if a Monitor record was used, else `overlay` |
 | `drift` | fields where Monitor and the overlay disagree |
 | `unresolved` | fields no source could supply |
+| `known_instance` | whether the slug was found at all — in Monitor, or in the overlay's `instances` |
+| `known_slugs` | the full sorted roster of slugs the overlay knows about |
+
+The last two are **resolution metadata, not gate context.** They describe what
+the resolver could look the slug up in; they say nothing about the host, the
+version, the platform or the posture. The gates do not read them and must not:
+a slug somebody wrote down is not evidence about an instance, and treating it
+as such is exactly the inference the fail-closed design forbids. They are not
+copied into the gate context — see SKILL.md 4c.
+
+They exist because `unresolved` cannot, on its own, tell a **typo** from a
+**thin record**. A slug nobody has heard of and a slug recorded with no facts
+behind it both come back with every field unresolved, and the two call for
+opposite responses:
+
+| | `known_instance` | `unresolved` | The response |
+| --- | --- | --- | --- |
+| Slug not recognised | `false` | everything | offer the nearest matches from `known_slugs` and ask which instance was meant |
+| Recognised, thin record | `true` | what is missing | name the missing fields; add them to the overlay, or restore Monitor access |
+
+`known_slugs` is drawn from the overlay because the overlay is the only scripted
+source of a roster: Monitor is queried one slug at a time and is never listed.
+An empty roster (no overlay, or one with no `instances`) is a real answer — it
+means there is nothing to offer, not that the slug was recognised.
 
 A missing overlay file is fine — it resolves to nothing and everything lands in
 `unresolved`. A **malformed** overlay is not: it raises, naming the file, rather

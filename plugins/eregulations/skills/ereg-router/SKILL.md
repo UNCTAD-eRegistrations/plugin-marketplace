@@ -89,13 +89,33 @@ The JSON it prints is the base of the gate context: `instance`, `host`,
 `version`, `platform`, `posture`, `version_major`, plus `source`, `drift` and
 `unresolved`.
 
+It also carries two **resolution-metadata** keys — `known_instance` and
+`known_slugs` — which are *not* gate context. They say what the resolver could
+look the slug up in, not anything about the instance. **Do not copy them into
+the context you assemble in Step 4c**; the gates neither read them nor should.
+A slug somebody wrote down is not a fact about a host, a version or a posture,
+and every field of a recognised-but-empty instance is still `unresolved`.
+
 - **Report every `drift` entry to the user.** Monitor won; the overlay is wrong
   and only a human can correct it.
 - **Never fill an `unresolved` field by inference.** Not from the country name,
   not from a sibling instance, not from a previous conversation. Unresolved is a
   real outcome the fail-closed gates act on — see `references/resolution.md`.
-- If the slug is not recognised, offer the nearest matches from the overlay and
-  ask. Never guess which country was meant.
+- **`known_instance: false` — the slug is not recognised at all.** It was found
+  neither in Monitor nor in the overlay's `instances`: a typo, or a country this
+  environment has never been told about. Offer the nearest matches from
+  `known_slugs` in the same output — that list is the whole roster the overlay
+  knows — and ask which was meant. Never guess, and never proceed on the slug as
+  typed.
+- **`known_instance: true` with fields in `unresolved` — a real instance missing
+  data.** Do not offer alternatives; there is nothing to disambiguate. Name the
+  unresolved fields and the remedy from `references/resolution.md`: add them to
+  the overlay, or restore Monitor access. The gates will block on them, which is
+  the correct outcome.
+
+The two look identical in `unresolved` — an unrecognised slug leaves every field
+unresolved, and so does a recognised but empty one — and they call for opposite
+responses. `known_instance` is the only thing that tells them apart.
 
 ## Step 3 — Detect lane
 
@@ -164,7 +184,13 @@ an answer. As with `media_mount`, an explicit `branch_pair_valid: false` blocks
 on its own whether or not `touches_admin_public` is set — a pair derived and
 found incompatible is not made compatible by a flag saying the check does not
 apply. Report `reason`, `admin_branch` and `public_branch`
-to the user either way.
+to the user either way. A `null` branch means **there is no branch to name**, and
+it has four causes: the checkout is detached, the path is not a git checkout,
+the repository has no commit yet, or git could not be run there at all. The
+value does not say which — if that matters, ask the operator rather than
+guessing. Report `null` as "no branch", never as a branch; a detached checkout
+is exactly the state in which "which branches am I on" has no answer, and
+saying so is the point.
 
 ### 4b — Media mount, for any Admin deploy
 
@@ -201,7 +227,9 @@ then starts empty and must be populated.
 
 ### 4c — Assemble the context and run the gates
 
-The context is one flat JSON object. Every key has exactly one producer:
+The context is one flat JSON object. Every key has exactly one producer, and
+nothing else belongs in it — in particular **not** Step 2's `known_instance` or
+`known_slugs`, which are resolution metadata and are not gate input:
 
 | Key | Produced by |
 | --- | --- |

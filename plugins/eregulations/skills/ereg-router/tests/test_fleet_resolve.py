@@ -47,6 +47,62 @@ def test_unknown_instance_resolves_nothing():
     assert "host" in ctx["unresolved"]
 
 
+def test_an_unrecognised_slug_is_distinguishable_from_a_known_sparse_one():
+    """Both come back with everything unresolved, and they are not the same.
+
+    A slug nobody has heard of is a typo or the wrong country, and the
+    answer is to ask which instance was meant. A slug that IS in the
+    overlay but carries no data is a real instance missing facts, and the
+    answer is to add them. Told only "unresolved", a caller cannot tell
+    which it is holding -- so SKILL.md Step 2's "offer the nearest matches"
+    had no trigger to fire on.
+    """
+    unknown = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert unknown["known_instance"] is False
+
+    sparse = fleet_resolve.resolve("delta", None, _overlay())  # no version recorded
+    assert sparse["known_instance"] is True
+    assert "version" in sparse["unresolved"]  # still genuinely unresolved
+
+
+def test_a_monitor_record_alone_marks_the_instance_known():
+    """Monitor is the other place a slug can be found. An instance it
+    serves is recognised whether or not the operator has written it down."""
+    record = {"slug": "zulu", "host": "host-x", "version": "7.0"}
+    ctx = fleet_resolve.resolve("zulu", record, _overlay())  # absent from the overlay
+    assert ctx["known_instance"] is True
+
+
+def test_a_slug_present_in_the_overlay_but_empty_is_still_known():
+    """Presence is the question, not how much the entry carries. An entry
+    holding nothing is still an operator saying "this instance exists"."""
+    ctx = fleet_resolve.resolve("echo", None, {"instances": {"echo": {}}})
+    assert ctx["known_instance"] is True
+    assert ctx["unresolved"] == list(fleet_resolve.STATE_FIELDS)
+
+
+def test_known_slugs_is_the_overlay_roster_a_caller_can_search():
+    """The overlay is the only scripted source of a roster -- Monitor is
+    queried one slug at a time and never listed. Without this there is
+    nothing for "the nearest matches" to be drawn from."""
+    ctx = fleet_resolve.resolve("nosuch", None, _overlay())
+    assert ctx["known_slugs"] == ["alpha", "bravo", "charlie", "delta"]
+    assert fleet_resolve.known_slugs(_overlay()) == ["alpha", "bravo", "charlie", "delta"]
+
+
+def test_known_slugs_survives_the_overlay_shapes_resolve_already_tolerates():
+    """Same tolerance as the rest of `resolve`: a hand-edited overlay
+    yields an empty roster, never a traceback."""
+    for overlay in ({}, [], "alpha", {"instances": ["alpha"]}, {"instances": None}):
+        assert fleet_resolve.known_slugs(overlay) == [], overlay
+        assert fleet_resolve.resolve("alpha", None, overlay)["known_slugs"] == [], overlay
+
+
+def test_known_slugs_is_sorted_regardless_of_file_order():
+    overlay = {"instances": {"zulu": {}, "alpha": {}, "mike": {}}}
+    assert fleet_resolve.known_slugs(overlay) == ["alpha", "mike", "zulu"]
+
+
 def test_monitor_wins_over_overlay_for_state():
     record = {"slug": "bravo", "host": "host-safe", "version": "7.3", "platform": "ubuntu"}
     ctx = fleet_resolve.resolve("bravo", record, _overlay())
@@ -337,3 +393,95 @@ def test_cli_still_degrades_quietly_when_the_overlay_is_merely_absent(tmp_path, 
     assert rc == 0
     assert captured.err == ""
     assert "unresolved" in captured.out
+
+
+def test_a_monitor_error_body_does_not_count_as_finding_the_slug():
+    """A gateway that answers a missing slug with 200 + an error object.
+
+    `_as_dict` rejects non-dicts, not non-instances -- an error object is a
+    dict and passes straight through it. If that counted as having found the
+    slug, SKILL.md Step 2 would tell the operator this is a real instance
+    merely missing data and to add those facts to the overlay by hand. They
+    would be inventing a record for a slug that names nothing, and the gates
+    would pass on it from then on: a correct block turned into a bypass by
+    following the remedy the tool printed.
+    """
+    error_body = {"error": "instance not found", "status": 404}
+    ctx = fleet_resolve.resolve("typo-slug", error_body, {"instances": {"alpha": {}}})
+
+    assert ctx["known_instance"] is False
+    assert ctx["unresolved"] == list(fleet_resolve.STATE_FIELDS)
+
+
+def test_a_monitor_record_with_any_real_field_does_count():
+    """The control: one populated state field is enough to have found it."""
+    for field in fleet_resolve.STATE_FIELDS:
+        ctx = fleet_resolve.resolve("s", {field: "x"}, {})
+        assert ctx["known_instance"] is True, field
+
+
+def test_an_empty_monitor_body_does_not_count_either():
+    ctx = fleet_resolve.resolve("s", {}, {})
+    assert ctx["known_instance"] is False
+
+
+def test_known_slugs_does_not_raise_on_mixed_type_keys():
+    """JSON keys are always strings, so only a Python caller reaches this --
+    but the docstring promises no traceback, and a promise a caller can break
+    is not one."""
+    assert fleet_resolve.known_slugs({"instances": {"b": {}, 1: {}, "a": {}}}) == ["1", "a", "b"]
+
+
+def test_the_server_alias_counts_as_finding_the_slug():
+    """`server` is accepted as a host alias by the merge, so it must count for
+    `known_instance` too. Reading the raw record made the object disagree with
+    itself: a host resolved *from Monitor* beside a report that the slug was
+    found nowhere, which had Step 2 telling the operator to ask which instance
+    was meant while the context in front of them named one."""
+    ctx = fleet_resolve.resolve("s", {"server": "h1"}, {})
+    assert ctx["known_instance"] is True
+    assert ctx["host"] == "h1"
+    assert ctx["source"] == "monitor"
+
+
+def test_an_empty_string_field_is_absent_not_found():
+    """`"" is not None`, so an empty host counted as finding the slug while
+    resolving nothing. `host` already collapsed `""` to the alias; the rest of
+    the fields now do the same, so absence has one meaning."""
+    ctx = fleet_resolve.resolve("s", {"host": ""}, {})
+    assert ctx["known_instance"] is False
+    assert ctx["host"] is None
+    assert "host" in ctx["unresolved"]
+
+
+def test_source_agrees_with_known_instance():
+    """One object must not contradict itself. An error body is truthy, so a
+    truthiness-based `source` reported `monitor` beside `known_instance:
+    false`."""
+    for record in ({"error": "not found"}, {}, {"host": ""}):
+        ctx = fleet_resolve.resolve("s", record, {})
+        assert ctx["source"] == "overlay", record
+        assert ctx["known_instance"] is False, record
+
+    for record in ({"host": "h1"}, {"server": "h1"}, {"posture": "ok"}):
+        ctx = fleet_resolve.resolve("s", record, {})
+        assert ctx["source"] == "monitor", record
+        assert ctx["known_instance"] is True, record
+
+
+def test_an_empty_posture_is_unreadable_not_absent():
+    """The regression guard for the empty-string collapse.
+
+    Collapsing `""` to None across every field looked tidy and quietly broke
+    the severity rule: an empty posture from Monitor became absent, the
+    overlay's benign `ok` won, and the gate passed on a host whose posture
+    Monitor had failed to state. An unreadable posture must keep outranking a
+    benign one -- that is the whole point of ranking unknown above degraded.
+    """
+    overlay = _overlay()  # alpha's overlay posture is ok
+    record = {"slug": "alpha", "host": "host-safe", "posture": ""}
+    assert fleet_resolve.resolve("alpha", record, overlay)["posture"] == ""
+
+    # ...while an empty host really is absent, and falls through to the overlay
+    record = {"slug": "alpha", "host": "", "posture": "ok"}
+    assert fleet_resolve.resolve("alpha", record, overlay)["host"] == "host-safe"

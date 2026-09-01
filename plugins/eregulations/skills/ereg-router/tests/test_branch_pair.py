@@ -131,6 +131,61 @@ def test_case_mismatch_in_the_reference_is_invalid_even_on_case_insensitive_host
     assert result["valid"] is False
 
 
+def test_detached_head_is_not_reported_as_a_branch_named_head(monkeypatch):
+    """`git rev-parse --abbrev-ref HEAD` returns the literal string "HEAD"
+    when the checkout is detached. Passed through as-is it is
+    indistinguishable from a branch actually named `HEAD`, so `derive`
+    reported a detached checkout to the operator as being on a branch --
+    the one thing it is not. It must come back as None, the value this
+    function already uses for "no branch name to report".
+    """
+
+    def detached(cmd, **kwargs):
+        return b"HEAD\n"
+
+    monkeypatch.setattr(branch_pair.subprocess, "check_output", detached)
+    assert branch_pair.git_branch("/some/checkout") is None
+
+
+def test_ordinary_branch_names_still_pass_through(monkeypatch):
+    """Only the exact sentinel is normalised. A branch whose name merely
+    contains "HEAD", or differs in case, is a real branch and is reported.
+    """
+    for name in (b"main\n", b"feature/head-hunting\n", b"Head\n", b"HEADS\n"):
+        def reader(cmd, _out=name, **kwargs):
+            return _out
+
+        monkeypatch.setattr(branch_pair.subprocess, "check_output", reader)
+        assert branch_pair.git_branch("/some/checkout") == name.decode().strip()
+
+
+def test_a_detached_checkout_reports_no_branch_through_derive(tmp_path):
+    """The contract belongs to the two fields, not only to the reader.
+
+    `admin_branch` and `public_branch` are what an operator is told, so
+    `derive` normalises whatever its reader hands back rather than
+    trusting the default reader to have done it.
+    """
+    admin = tmp_path / "Admin"
+    lib = admin / "Unctad.eRegulations.Library"
+    lib.mkdir(parents=True)
+    (lib / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+
+    public = tmp_path / "Public" / "src"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\Admin\\Unctad.eRegulations.Library\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    result = branch_pair.derive(str(csproj), str(admin), lambda root: "HEAD")
+    assert result["valid"] is True
+    assert result["admin_branch"] is None
+    assert result["public_branch"] is None
+
+
 def test_invalid_when_the_reference_resolves_outside_admin_root(tmp_path):
     """A reference that happens to resolve into some OTHER Admin-shaped checkout
     must not be reported valid just because a Library.csproj exists there — the

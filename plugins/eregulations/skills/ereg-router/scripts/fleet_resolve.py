@@ -152,8 +152,39 @@ def _major(version):
     return str(version).split(".")[0]
 
 
+def known_slugs(overlay):
+    """The instance slugs the overlay knows about, sorted.
+
+    The overlay is the only scripted source of a fleet roster: Monitor is
+    queried one slug at a time and has no list endpoint here. This is what
+    lets a caller offer "the nearest matches" for a slug that did not
+    resolve, instead of saying "unresolved" with nothing to search.
+
+    Tolerant of the same hand-edited shapes `resolve` tolerates -- see
+    `_as_dict`. A malformed overlay yields an empty roster, never a
+    traceback: keys are coerced to strings first, because `sorted()` raises
+    on a dict whose keys are of mixed type. JSON keys are always strings, so
+    that shape only arrives from a Python caller building the dict by hand --
+    but the docstring promises no traceback, and a promise a caller can break
+    is not one.
+    """
+    return sorted(str(slug) for slug in _as_dict(_as_dict(overlay).get("instances")))
+
+
 def resolve(slug, monitor_record, overlay):
-    """Merge Monitor and overlay into one context, reporting drift."""
+    """Merge Monitor and overlay into one context, reporting drift.
+
+    Two of the keys returned are RESOLUTION METADATA, not gate context:
+    `known_instance` and `known_slugs`. They describe what this resolver
+    could look the slug up in; they say nothing about the host, the
+    version, the platform or the posture. `gates.py` must never read
+    either, and a test in test_gates.py holds that line -- a gate reading
+    `known_instance` would treat "somebody wrote this slug down" as
+    evidence about an instance, which is precisely the inference the
+    fail-closed design exists to forbid. A recorded slug with no facts
+    behind it still leaves every field UNRESOLVED, and every gate still
+    blocks on that.
+    """
     overlay = _as_dict(overlay)
     monitor_record = _as_dict(monitor_record)
 
@@ -180,6 +211,22 @@ def resolve(slug, monitor_record, overlay):
             "platform": monitor_record.get("platform"),
             "posture": monitor_record.get("posture"),
         }
+        # An empty string is an absent value wearing a value's clothes, and
+        # `host` already collapses `""` to the `server` alias two lines up.
+        # Doing the same for `version` and `platform` gives absence one
+        # meaning across the merge, the unresolved list, and `known_instance`.
+        #
+        # `posture` is deliberately EXCLUDED. An unreadable posture is not an
+        # absent one: `_worse_posture` ranks anything it cannot parse above
+        # `degraded`, precisely so a garbage reading from one source cannot be
+        # displaced by a benign `ok` from the other. Collapsing `""` to None
+        # here let exactly that happen -- the overlay's `ok` won and the gate
+        # passed on a host whose posture Monitor had failed to state. The
+        # existing severity test caught it.
+        monitor_view = dict(
+            (field, None if (value == "" and field != "posture") else value)
+            for field, value in monitor_view.items()
+        )
 
     resolved = {}
     drift = []
@@ -197,9 +244,39 @@ def resolve(slug, monitor_record, overlay):
 
     unresolved = [f for f in STATE_FIELDS if resolved.get(f) is None]
 
+    # An unrecognised slug and a recognised-but-sparse one are both entirely
+    # unresolved, and they call for opposite responses: the first is a typo
+    # or the wrong country and the answer is to ask which instance was
+    # meant; the second is a real instance missing facts and the answer is
+    # to record them. `unresolved` alone cannot tell them apart, so
+    # SKILL.md Step 2's "offer the nearest matches" had no trigger to fire
+    # on and no roster to draw from.
+    #
+    # `_as_dict` rejects non-dicts, NOT non-instances -- an error object is a
+    # dict and sails straight through it. A gateway that answers a missing
+    # slug with `200 {"error": "not found"}` instead of a 404 would otherwise
+    # be read as having found it, and SKILL.md Step 2 would then tell the
+    # operator this is a real instance merely missing data and to add those
+    # facts to the overlay by hand. They would be inventing a record for a
+    # slug that names nothing, and the gates would pass on it afterwards.
+    #
+    # Evaluated over `monitor_view`, NOT the raw record, so one definition of
+    # "Monitor supplied this" serves the whole object. Reading the raw record
+    # made it disagree with itself: `{"server": "h1"}` resolved a host FROM
+    # MONITOR while reporting the slug found nowhere, and `{"host": ""}`
+    # reported it found while resolving nothing.
+    monitor_named_it = any(monitor_view.get(field) is not None for field in STATE_FIELDS)
+    known_instance = monitor_named_it or slug in _as_dict(overlay.get("instances"))
+
     context = {
         "instance": slug,
-        "source": "monitor" if monitor_record else "overlay",
+        # Same definition again: a body that named nothing did not source
+        # anything, however truthy it was. Otherwise an error object reported
+        # `source: monitor` beside `known_instance: false`, and the two lines
+        # of one object contradicted each other.
+        "source": "monitor" if monitor_named_it else "overlay",
+        "known_instance": known_instance,
+        "known_slugs": known_slugs(overlay),
         "drift": drift,
         "unresolved": unresolved,
         "version_major": _major(resolved.get("version")),

@@ -54,7 +54,12 @@ python3 "$SKILL/scripts/branch_pair.py" <public-csproj> <admin-root>
 ```
 
 It prints the current `admin_branch` and `public_branch` alongside the verdict,
-so it answers "which branches am I on" and "do they pair" in one call. Nothing
+so it answers "which branches am I on" and "do they pair" in one call. Either
+is `null` when there is no branch to name, from any of four causes: a detached
+checkout, a path that is not a git checkout, a repository with no commit yet,
+or git failing to run there. `null` does not distinguish them. `null` is not a branch name and must not be reported as
+one: `git rev-parse --abbrev-ref HEAD` says the literal `HEAD` for a detached
+checkout, and passing that through would claim a branch that does not exist. Nothing
 in this file records which branches are checked out anywhere: a snapshot of one
 machine's clones would be wrong within the week, and there is nothing that could
 correct it. Deriving the answer is the whole reason the pairing table was
