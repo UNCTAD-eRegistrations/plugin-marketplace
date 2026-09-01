@@ -241,6 +241,19 @@ Run this over every section before delivering. It is what separates a document h
 - **Progress lines are a few plain words and a date.** Past ~25 words a done line has swallowed its reasoning; the why goes to the technical block. Exception: a loud correction of an earlier wrong claim stays where the claim was made.
 - **State the consequence.** A finding that says what happened but not what it cost ("the copy never filled the answer") makes the reader ask why it mattered. Say it: the file could not be submitted at all.
 
+## The head, and the naming (Frank's line reviews with Julien, 01-09-2026)
+
+Sitting with the reader beside him, he cut everything that was not the change itself. What survives:
+
+- **The page opens on the title, then the section links, then Change in short.** No provenance box under the title, no opening paragraph telling the reader what the document draws. The instance, the read date and the links to the specification, the choice page, the evidence and the migration annex sit as ONE quiet line at the foot of the page.
+- **Change in short, in this order: Why, What we change, How it works, What it touches.** Why comes first because it is the reason anything is being built. Say it fully: how many records, what their holders experience, what it costs them. Figures in digits, `6,178`, never spelled out.
+- **Cases are bullets, never a run-on sentence.** Three outcomes, three lines, each opening with the case in bold.
+- **Screens are named Case 1, Case 2**, never by an invented container name. If a title names a thing on the screen, the thing must exist under that name on the screen.
+- **A legend entry exists only if it marks something on that screen.** A chip for a state no screen carries is removed, not explained. Legend words say who acts: *the applicant types*, *the service fills*.
+- **Under a screen, one line.** It carries the reason the screen looks like that, nothing else. No "what you are looking at", no history of what stood there last week, no repetition of what the drawing already shows.
+- **Never let one word carry two things.** When two numbers are in play, name both every time: *the Business ID or licence number printed on the certificate*, *the national ID or passport number recorded on the record*.
+- **A clause that only repeats the drawing is cut.** Placement, layout and position live in the screens.
+
 ## Verification gate before delivering
 
 Collapsed-by-default sections, the opening summary "Change in short" (`<details id="short">`) included + working index chips (tiny JS opens targets) · **the words checklist above applied section by section** · **every named element carries its link** (the triggers table, the drawing captions and their "open in BPA" chips, the certificates, the databases, the bots, the labels row; verified routes only) · `python3 "9 - System/ui-ux/token-audit.py" <file>` = 0, honestly: the first style block token-pure, BPA quotations in `<style data-specimen>` blocks and `data-specimen` inline, dead grammar deleted not exempted · ONE kit block, imports stripped · every top-level summary the same `<h2>` (a summary in another face or element is a defect) · links `target="_blank"` · no amber, gates and tags quiet grey · open in Frank's browser (`open <file>`) · his verdict line by line, corrections applied the same hour, ripple pass after each.
