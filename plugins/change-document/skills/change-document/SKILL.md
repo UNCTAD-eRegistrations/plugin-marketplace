@@ -62,7 +62,7 @@ Pass `instance="{name}"` to every `mcp__BPA__*` tool call.
 
 ## Proposing and accepting (one document, his tabs, no technical words)
 
-**One document, one address.** https://smartrules.ai/service-change-doc/change.html . Every section carries two tabs: the agreed contract, shown by default, and the colleague's try. His proposals live in his tabs, inside the same document everybody reads. There is no second address and no copy.
+**One document, one address.** https://smartrules.ai/service-change-doc/change.html . One switch at the top of the document, `Agreed contract` and `<name>'s try`, flips every section at once; the agreed side is always the default. **The try side starts as a copy of the agreed contract**, so the colleague edits real content instead of a blank pane, and what he changed is read by comparing the two sides. There is no second address.
 
 **Underneath, invisible to both.** The pages are held in the private repository `UNCTAD-eRegistrations/service-change-documents`, folder per change, and a publisher on the server carries `main` to that address every two minutes. Local copy: `~/Claude/3 - Projects/service-change-documents` on Frank's machine, `~/service-change-documents` elsewhere; clone or refresh it silently, never mention it.
 
