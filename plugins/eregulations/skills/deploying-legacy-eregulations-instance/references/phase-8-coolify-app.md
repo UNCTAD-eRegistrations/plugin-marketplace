@@ -1,17 +1,36 @@
 # Phase 8 — Create the Coolify application
 
 Create the Coolify application — **see the Coolify sections below.** Set env
-vars matching a healthy sibling instance's pattern (`COUNTRY_DB`,
-`SYSTEM_INSTANCE_ID`, `SHARED_SQL_HOST=eregulations-shared-sqlserver`,
-`SA_PASSWORD` — **must be byte-identical to the shared sqlserver's actual value, not freshly generated; pull it from a sibling app's env vars or
-ask the operator directly** — `CONSISTENCY_DB`/`STATISTICS_DB`, domains,
-`CONTENT_DIR`, image tags — pin to whatever tag sibling instances use, e.g.
-`:user-rights`, not `:latest`), including `INSTANCE` and `PUBLIC_DOMAIN`
-(referenced by the compose file's basic-auth labels even when you don't use
-basic auth) and the three SSO vars (see the SSO section below — not
-wired in `docker-compose.yml`, easy to miss; these three, unlike
-`SA_PASSWORD`, should be freshly generated per instance). See the env-var-quirks section below for how to actually set these via the API. Then
-set `docker_compose_domains` and deploy.
+vars matching a healthy sibling instance's pattern, then `docker_compose_domains`,
+then deploy. Use the env-var-quirks section below for how to actually set them
+via the API.
+
+## The two variables that depend on phase 0
+
+- **Dedicated server** — `SHARED_SQL_HOST=eregulations-<slug>-sqlserver`, and
+  `SA_PASSWORD` is **that server's own password**, the one generated when its
+  `<slug>-sql` application was created. Never reuse the shared server's.
+- **Shared server** — `SHARED_SQL_HOST=eregulations-shared-sqlserver`, and
+  `SA_PASSWORD` must be **byte-identical to that server's actual value, not
+  freshly generated**. Pull it from a sibling app's env vars or ask the
+  operator.
+
+`SHARED_SQL_HOST` has **no default**. The compose file fails the deploy when it
+is missing, on purpose: the bare alias `sqlserver` resolves to every SQL Server
+on the network, so a missing value would otherwise connect the instance to a
+randomly chosen one.
+
+## The rest of the env vars
+
+- `COUNTRY_DB`, `SYSTEM_INSTANCE_ID`, `CONSISTENCY_DB`, `STATISTICS_DB`.
+- Domains and `CONTENT_DIR`.
+- Image tags — pin to whatever tag sibling instances use, e.g. `:user-rights`,
+  never `:latest`.
+- `INSTANCE` and `PUBLIC_DOMAIN` — referenced by the compose file's basic-auth
+  labels even when you don't use basic auth.
+- The three SSO vars — see the SSO section below. They are not wired in
+  `docker-compose.yml` and are easy to miss. Unlike `SA_PASSWORD`, these three
+  should be freshly generated per instance.
 
 ## Coolify control panel may be a separate host
 

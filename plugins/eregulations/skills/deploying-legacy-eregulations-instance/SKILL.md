@@ -3,10 +3,11 @@ name: deploying-legacy-eregulations-instance
 description: >
   Use when standing up a legacy Windows/SQL-Server-hosted eRegulations or
   TradePortal country instance as a new per-country application on the
-  shared-services Coolify host — symptoms include having a raw `.bak` country
+  multi-instance Coolify host — symptoms include having a raw `.bak` country
   DB backup, an old "Global DB" `.bak`, a content zip
   (Multilang/PublicConfig/PublicContent/media), and an old `Web.config` to
-  migrate onto eRegulations-deploy's shared sqlserver + Coolify architecture.
+  migrate onto eRegulations-deploy's Coolify architecture. A production country
+  gets its own dedicated SQL Server (phase 0); test and demo instances share one.
   Triggers on "deploy <country> to Coolify", "stand up the legacy instance",
   "migrate this .bak onto the shared SQL Server". This is the `deploy` dispatch
   target of `ereg-router` for a legacy instance. DO NOT TRIGGER for redeploying
@@ -14,8 +15,8 @@ description: >
   a 7.x-native instance that was never on the legacy Windows stack.
 allowed-tools: Read, Bash, Grep, Glob
 metadata:
-  version: "0.1.0"
-  version-date: "2026-08-26"
+  version: "0.2.0"
+  version-date: "2026-09-02"
   argument-hint: "[country-slug]"
 ---
 
@@ -43,6 +44,23 @@ Ask for whatever is missing now, not mid-migration.
 | Old Global DB `.bak` | Same `file` check. Holds pre-migration Users/Roles/UserFeedback. **A separate file from the country backup and the one most often missing from a handoff** — without it you can only seed shared master users. |
 | Old `Web.config` | Extract `SystemInstanceID` (old numeric ID, scopes the user migration), `CountryName`, `CountryCode` (often blank — confirm the ISO code with the handoff, do not guess), `DefaultLang`, `Currency`. |
 | Content zip | `unzip -l` shows `Media`/`media`, `Multilang`, `PublicConfig`, `PublicContent` somewhere inside, whatever the top-level prefix and casing. Extra `ftp/`, `upload/` folders are normal. |
+
+## Phase 0 — which SQL Server this instance gets
+
+**A production country gets its own dedicated SQL Server. Test, pilot and demo
+instances stay on the shared one.** Decide before phase 1: it changes where you
+restore, which `SA_PASSWORD` you use, and how far a mistake can reach.
+
+The short reason is not performance. It is that `00-dbe-consistency` is
+fleet-shared and was measured at **6 086 MB against Express's 10 240 MB
+per-database hard cap** — when it fills, every instance on that server stops
+writing at once. The same database on a dedicated server holds one country's
+rows: 33 MB.
+
+A dedicated server is a **separate Coolify application** `<slug>-sql`, so
+redeploying the country never restarts its database. The instance-provisioner
+creates and seeds it when the descriptor carries `"dedicatedSql": true`.
+→ `references/phase-0-target-sql-server.md`
 
 ## The nine phases
 
@@ -110,10 +128,17 @@ instance. None of them can be answered from memory.
   instance. Pick per purpose; siblings drift. (Phases 2, 6, 8)
 - **`SiteMenu.Id` is identity on some instances and plain int on others** —
   query `COLUMNPROPERTY(...)` before assuming either way. (Phase 6)
-- **Which values are shared and which are fresh** — `SA_PASSWORD` must be
-  byte-identical to the shared sqlserver's actual value (pull it from a sibling
-  app or ask the operator; never generate it). The three SSO variables are
-  per-instance and *should* be freshly generated. (Phase 8)
+- **Which values are shared and which are fresh** — this one flips with phase
+  0. On the **shared** server, `SA_PASSWORD` must be byte-identical to that
+  server's actual value (pull it from a sibling app or ask the operator; never
+  generate it). On a **dedicated** server it is that server's own password,
+  freshly generated, and reusing the shared one is a mistake. The three SSO
+  variables are per-instance and *should* be freshly generated either way.
+  (Phases 0, 8)
+- **Shared or dedicated SQL Server** — production countries get their own,
+  test/pilot/demo share. It decides the blast radius of phases 1–5 and whether
+  a failed migration is deleted or unpicked by hand. Not answerable from the
+  instance's data — ask what the instance is for. (Phase 0)
 - **Which Coolify creation endpoint** — `/applications/public` accepts an SSH
   git URL, returns 200, and then fails every deploy with
   `Permission denied (publickey)`, because it attaches no key. Use
@@ -123,6 +148,8 @@ instance. None of them can be answered from memory.
 
 ## Scope
 
-This skill covers the migration onto Coolify. It does not cover DNS, TLS
-issuance, or the shared sqlserver's own provisioning — those are the
+This skill covers the migration onto Coolify, including creating the
+instance's own SQL Server when it gets one (phase 0). It does not cover DNS,
+TLS issuance, the shared sqlserver's own provisioning, or converting an
+instance that is already live on the shared server — those are the
 `eRegulations-deploy` docs' territory.

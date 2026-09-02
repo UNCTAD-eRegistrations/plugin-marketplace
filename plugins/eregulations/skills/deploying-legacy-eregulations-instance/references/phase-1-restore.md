@@ -1,6 +1,10 @@
 # Phase 1 — Restore both backups
 
-SCP both `.bak`s to the shared sqlserver's backup mount. `RESTORE
+Restore into **the server phase 0 chose** — this instance's own dedicated
+server, or the shared one. Both mount the same restore area, so the `.bak`
+files are visible either way.
+
+SCP both `.bak`s to that server's backup mount. `RESTORE
 FILELISTONLY`, then `RESTORE DATABASE` the country DB permanently (e.g.
 `50-dbe-TradePortal-<name>` or `50-dbe-eRegulations-<name>`, matching
 whatever the other live instances on that host use) and the Global DB into
@@ -11,9 +15,9 @@ checked-in `Generic_0X_*.sql` scripts describe.
 
 ## Confirm both target names are free BEFORE restoring anything
 
-**This is the only step in the whole sequence that can destroy another
-country's data.** The SQL Server is shared and already hosts live instances,
-and the naming convention above deliberately makes your target resemble its
+**On the shared server this is the only step in the whole sequence that can
+destroy another country's data.** It already hosts live instances, and the
+naming convention above deliberately makes your target resemble its
 neighbours — `50-dbe-TradePortal-<name>` differs from a live sibling's name by
 a country slug and nothing else. `RESTORE DATABASE` onto an existing name
 **overwrites that database in place**: no confirmation prompt, no automatic
@@ -29,6 +33,12 @@ SELECT
   CASE WHEN DB_ID('<country-db-name>')  IS NULL THEN 'FREE' ELSE 'IN USE' END AS country_db,
   CASE WHEN DB_ID('temp-global-<name>') IS NULL THEN 'FREE' ELSE 'IN USE' END AS temp_global_db;
 ```
+
+**On a dedicated server that danger does not exist** — the server holds only
+the two seeded templates and nothing another country depends on. Run the check
+anyway: it costs one query, and it is how you find out you are pointed at the
+wrong server. An unexpected `IN USE` on a server that should be empty means you
+are on the shared one.
 
 `IN USE` on the country DB means one of two things, and which one has to be
 established before you type anything else:
