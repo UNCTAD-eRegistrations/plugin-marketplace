@@ -19,6 +19,7 @@ Sources: Frank's corrections (dated), `2 - eR services/CLAUDE.md` §CRITICAL RUL
 | Part B, the processing | the back office side, the officer side, the workflow side | "desk" is allowed for a role's screen |
 | registration | stage of the flow, step of the service | corrected 31-07-2026; a registration is an authorization delivered |
 | role, status | actor, state machine, node | |
+| effect (the E drawn on a screen: a determinant's effect on that component), action (the A) | badge, pill, chip, tag, mark, marker | Frank, 03-09-2026: "I don't understand what a badge is... The badge we call that effect" |
 | grid, row | table, repeatable section, array | |
 | classification, catalog | dropdown list, option set, enum | |
 | publish to draft | deploy, push, release to draft | |

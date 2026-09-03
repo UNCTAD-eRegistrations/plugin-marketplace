@@ -82,7 +82,7 @@
     {
       "id": "change-document",
       "displayName": "Change Document",
-      "version": "1.0.0",
+      "version": "1.3.0",
       "description": "Write a change document for an eRegistrations service the way the house does it: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
