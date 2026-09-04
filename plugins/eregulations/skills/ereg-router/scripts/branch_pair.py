@@ -183,6 +183,34 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
     except ValueError:
         inside_admin_root = False
     if not inside_admin_root:
+        # Distinguish "points somewhere else" from "points here, in the wrong
+        # case". `commonpath` is a string comparison, so a reference written
+        # `eregulations-4.0-admin` against an on-disk `eRegulations-4.0-Admin`
+        # lands outside by that test even though it is the same directory on a
+        # case-folding filesystem -- and the operator, told the reference
+        # "resolves outside admin_root", goes looking for a path problem that
+        # does not exist.
+        #
+        # The verdict is the same either way and deliberately so: a reference
+        # that only resolves by case-folding does NOT resolve under `dotnet
+        # build` on Linux or in CI, so this pair genuinely will not build
+        # there. What changes is that the reason names the real cause and the
+        # remedy points at the file that has to change.
+        # `.lower()`, not `os.path.normcase`: normcase only folds case on
+        # Windows and is the identity on POSIX, which is where this runs.
+        if target.lower().startswith(admin_root_abs.lower()):
+            result["valid"] = False
+            result["reason"] = (
+                "the project reference differs from the directory on disk only "
+                "by case: reference resolves to %s, admin_root is %s. This "
+                "builds on a case-folding filesystem (macOS default) and fails "
+                "on a case-sensitive one, so the pair does not build in CI. Fix "
+                "the ProjectReference path in the csproj, or rename on disk to "
+                "match -- do not work around it by renaming admin_root."
+                % (target, admin_root_abs)
+            )
+            return result
+
         result["valid"] = False
         result["reason"] = (
             "reference resolves outside admin_root (%s): %s" % (admin_root_abs, target)
