@@ -2,7 +2,7 @@
 name: instance-ops
 description: >
   Use when operating a 7.x eRegulations/TradePortal instance on the Coolify host — "what runs on
-  burundi", "is comoros behind", "create the togo instance", "move X to stable", "hold burundi",
+  <slug>", "is <slug> behind", "create the <slug> instance", "move X to stable", "hold <slug>",
   "redeploy", "verify after the release", "adopt this old app", "write a descriptor for <uuid>".
   Drives `eregulations` (eRegulations-deploy/tools/eregulations.py): descriptor in git, plan before any
   change, drift from three sources. Not for releases (docs/RELEASING.md) and not for legacy Windows hosts.

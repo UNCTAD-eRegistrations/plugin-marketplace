@@ -475,13 +475,13 @@ def test_fleet_json_sits_between_monitor_and_the_overlay():
     -written state, not a hand-edited fallback. Posture is the overlay's
     alone -- the fleet record carries none -- so it still comes from
     `hosts` there."""
-    fleet_record = {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}
+    fleet_record = {"host": "host-coolify", "version": "7.3.3", "platform": "coolify"}
     overlay = {
-        "instances": {"burundi": {"host": "hope", "version": "5.5", "platform": "windows"}},
-        "hosts": {"eregulations-coolify": {"posture": "ok"}},
+        "instances": {"echo": {"host": "host-legacy", "version": "5.5", "platform": "windows"}},
+        "hosts": {"host-coolify": {"posture": "ok"}},
     }
-    ctx = fleet_resolve.resolve("burundi", None, overlay, fleet_record=fleet_record)
-    assert ctx["host"] == "eregulations-coolify"
+    ctx = fleet_resolve.resolve("echo", None, overlay, fleet_record=fleet_record)
+    assert ctx["host"] == "host-coolify"
     assert ctx["version"] == "7.3.3"
     assert ctx["source"] == "fleet-json"
     assert ctx["posture"] == "ok"
@@ -490,9 +490,9 @@ def test_fleet_json_sits_between_monitor_and_the_overlay():
 def test_monitor_still_wins_over_a_fleet_json_record():
     """Monitor is still the top of the order -- fleet.json only fills the
     gap between Monitor and the overlay, it does not displace Monitor."""
-    fleet_record = {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}
+    fleet_record = {"host": "host-coolify", "version": "7.3.3", "platform": "coolify"}
     monitor_record = {"host": "host-live", "version": "7.4.0", "platform": "coolify"}
-    ctx = fleet_resolve.resolve("burundi", monitor_record, {}, fleet_record=fleet_record)
+    ctx = fleet_resolve.resolve("echo", monitor_record, {}, fleet_record=fleet_record)
     assert ctx["host"] == "host-live"
     assert ctx["version"] == "7.4.0"
     assert ctx["source"] == "monitor"
@@ -536,16 +536,16 @@ def test_non_object_fleet_json_is_rejected_loudly(tmp_path):
 def test_cli_reads_fleet_json_between_monitor_and_the_overlay(tmp_path, capsys):
     fleet_json = tmp_path / "fleet.json"
     fleet_json.write_text(json.dumps({
-        "instances": {"burundi": {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}}
+        "instances": {"echo": {"host": "host-coolify", "version": "7.3.3", "platform": "coolify"}}
     }))
     overlay = tmp_path / "fleet.local.json"
     overlay.write_text(json.dumps({
-        "instances": {"burundi": {"host": "hope", "version": "5.5"}},
-        "hosts": {"eregulations-coolify": {"posture": "ok"}},
+        "instances": {"echo": {"host": "host-legacy", "version": "5.5"}},
+        "hosts": {"host-coolify": {"posture": "ok"}},
     }))
 
     rc = fleet_resolve.main([
-        "burundi",
+        "echo",
         "--overlay", str(overlay),
         "--fleet-json", str(fleet_json),
     ])
@@ -553,7 +553,7 @@ def test_cli_reads_fleet_json_between_monitor_and_the_overlay(tmp_path, capsys):
 
     assert rc == 0
     out = json.loads(captured.out)
-    assert out["host"] == "eregulations-coolify"
+    assert out["host"] == "host-coolify"
     assert out["source"] == "fleet-json"
     assert out["posture"] == "ok"
 
