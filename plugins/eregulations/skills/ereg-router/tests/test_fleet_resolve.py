@@ -469,6 +469,95 @@ def test_source_agrees_with_known_instance():
         assert ctx["known_instance"] is True, record
 
 
+def test_fleet_json_sits_between_monitor_and_the_overlay():
+    """fleet.json (written by `eregulations fleet --for-router`) fills what
+    Monitor cannot yet serve, ahead of the operator overlay: it is machine
+    -written state, not a hand-edited fallback. Posture is the overlay's
+    alone -- the fleet record carries none -- so it still comes from
+    `hosts` there."""
+    fleet_record = {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}
+    overlay = {
+        "instances": {"burundi": {"host": "hope", "version": "5.5", "platform": "windows"}},
+        "hosts": {"eregulations-coolify": {"posture": "ok"}},
+    }
+    ctx = fleet_resolve.resolve("burundi", None, overlay, fleet_record=fleet_record)
+    assert ctx["host"] == "eregulations-coolify"
+    assert ctx["version"] == "7.3.3"
+    assert ctx["source"] == "fleet-json"
+    assert ctx["posture"] == "ok"
+
+
+def test_monitor_still_wins_over_a_fleet_json_record():
+    """Monitor is still the top of the order -- fleet.json only fills the
+    gap between Monitor and the overlay, it does not displace Monitor."""
+    fleet_record = {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}
+    monitor_record = {"host": "host-live", "version": "7.4.0", "platform": "coolify"}
+    ctx = fleet_resolve.resolve("burundi", monitor_record, {}, fleet_record=fleet_record)
+    assert ctx["host"] == "host-live"
+    assert ctx["version"] == "7.4.0"
+    assert ctx["source"] == "monitor"
+
+
+def test_a_fleet_json_record_alone_marks_the_instance_known():
+    """fleet.json is the third place a slug can be found, same as Monitor
+    and the overlay -- a slug it names is recognised even absent from both
+    of the others."""
+    ctx = fleet_resolve.resolve("s", None, {}, fleet_record={"host": "h1"})
+    assert ctx["known_instance"] is True
+    assert ctx["source"] == "fleet-json"
+
+
+def test_load_fleet_json_has_the_same_tolerance_as_load_overlay():
+    assert fleet_resolve.load_fleet_json("/nonexistent/fleet.json") == {}
+
+
+def test_malformed_fleet_json_raises_naming_the_file(tmp_path):
+    bad = tmp_path / "fleet.json"
+    bad.write_text("{not json")
+    try:
+        fleet_resolve.load_fleet_json(str(bad))
+    except ValueError as exc:
+        assert "fleet.json" in str(exc)
+    else:
+        raise AssertionError("a malformed fleet.json must raise, not resolve to {}")
+
+
+def test_non_object_fleet_json_is_rejected_loudly(tmp_path):
+    path = tmp_path / "fleet.json"
+    path.write_text('["host-a"]', encoding="utf-8")
+    try:
+        fleet_resolve.load_fleet_json(str(path))
+    except ValueError as exc:
+        assert "object" in str(exc)
+    else:
+        raise AssertionError("a non-object fleet.json must raise")
+
+
+def test_cli_reads_fleet_json_between_monitor_and_the_overlay(tmp_path, capsys):
+    fleet_json = tmp_path / "fleet.json"
+    fleet_json.write_text(json.dumps({
+        "instances": {"burundi": {"host": "eregulations-coolify", "version": "7.3.3", "platform": "coolify"}}
+    }))
+    overlay = tmp_path / "fleet.local.json"
+    overlay.write_text(json.dumps({
+        "instances": {"burundi": {"host": "hope", "version": "5.5"}},
+        "hosts": {"eregulations-coolify": {"posture": "ok"}},
+    }))
+
+    rc = fleet_resolve.main([
+        "burundi",
+        "--overlay", str(overlay),
+        "--fleet-json", str(fleet_json),
+    ])
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    out = json.loads(captured.out)
+    assert out["host"] == "eregulations-coolify"
+    assert out["source"] == "fleet-json"
+    assert out["posture"] == "ok"
+
+
 def test_an_empty_posture_is_unreadable_not_absent():
     """The regression guard for the empty-string collapse.
 
