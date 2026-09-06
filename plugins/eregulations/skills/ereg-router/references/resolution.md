@@ -6,9 +6,10 @@ whether that host is safe to touch. This file describes **how to resolve**, not
 
 ## The order
 
-> **Monitor → operator overlay → unresolved.**
+> **Monitor → fleet.json (written by `eregulations fleet --for-router`) →
+> operator overlay → unresolved.**
 
-There is no third source and no guessing.
+There is no fourth source and no guessing.
 
 1. **Monitor is authoritative for STATE** — up/down, the version actually
    running, which server hosts an instance, SSL status. State changes without
@@ -16,11 +17,18 @@ There is no third source and no guessing.
    **`posture` is the exception**: it is a judgement about whether a host is
    safe to touch, not state, and both sources can hold one — so the **more
    severe** value wins, whichever source it came from. See *Posture* below.
-2. **The operator overlay** (`~/.ereg/fleet.local.json`) fills what Monitor
-   cannot yet serve, and is the baseline the plugin ships in: every Monitor read
-   endpoint sits behind authentication, so without an account there is no live
-   path at all.
-3. **Unresolved** is a real outcome, not an error to paper over. The fail-closed
+2. **`fleet.json`** (`~/.ereg/fleet.json`, default) is machine-written state:
+   the output of `eregulations fleet --for-router`, run from the deploy repo.
+   It fills what Monitor cannot yet serve, ahead of the hand-edited overlay —
+   it is closer to the truth than something a human typed, even though it is
+   not a live read the way a Monitor call is. It carries `host`, `version` and
+   `platform` only — no `posture` judgement, which stays the overlay's alone.
+3. **The operator overlay** (`~/.ereg/fleet.local.json`) fills what neither
+   Monitor nor fleet.json can yet serve, and is the baseline the plugin ships
+   in: every Monitor read endpoint sits behind authentication, and fleet.json
+   requires the CLI to have been run at least once, so without either there is
+   still a path — a file the operator writes by hand.
+4. **Unresolved** is a real outcome, not an error to paper over. The fail-closed
    gates act on it — see `gates.md`.
 
 The plugin itself is authoritative for **policy**: what is supported, which
@@ -36,6 +44,7 @@ python3 <skill-dir>/scripts/fleet_resolve.py <instance-slug>
 | Flag | Environment variable | Default |
 | --- | --- | --- |
 | `--overlay` | `EREG_OVERLAY` | `~/.ereg/fleet.local.json` |
+| `--fleet-json` | `EREG_FLEET_JSON` | `~/.ereg/fleet.json` |
 | `--monitor-url` | `EREG_MONITOR_URL` | unset — overlay-only mode |
 | `--token` | `EREG_MONITOR_TOKEN` | unset |
 
@@ -46,7 +55,7 @@ Output, as JSON:
 | `instance` | the slug you asked for |
 | `host`, `version`, `platform`, `posture` | the resolved facts |
 | `version_major` | the leading component of `version`, e.g. `"7"` |
-| `source` | `monitor` if a Monitor record was used, else `overlay` |
+| `source` | `monitor` if a Monitor record was used, else `fleet-json` if the fleet.json record was used, else `overlay` |
 | `drift` | fields where Monitor and the overlay disagree |
 | `unresolved` | fields no source could supply |
 | `known_instance` | whether the slug was found at all — in Monitor, or in the overlay's `instances` |
@@ -82,14 +91,20 @@ degrades to nothing: an overlay the resolver cannot read must not be reported as
 one that was never written, or the remedy you are handed ("add the fact to the
 overlay") is for a file that already exists and still cannot be read.
 
-Monitor being unreachable is likewise not an error. It degrades to the overlay,
-and whatever stays unresolved is what the gates block on.
+Monitor being unreachable is likewise not an error. It degrades to fleet.json,
+then to the overlay, and whatever stays unresolved is what the gates block on.
+A missing or empty `fleet.json` is the same kind of non-error: it means the CLI
+has not been run yet, and resolution falls straight through to the overlay.
 
 ## Drift
 
 Where Monitor and the overlay disagree on a field, **Monitor wins and the
 disagreement is reported** — for every field except `posture`, where the more
-severe value wins instead:
+severe value wins instead. This comparison is Monitor against the overlay
+only; `fleet.json` sits between them in precedence but is not itself compared
+for drift — it is machine-written from the same fleet the overlay describes by
+hand, so a disagreement there is the overlay falling behind, which showing the
+resolved value already surfaces.
 
 ```json
 {"field": "version", "monitor": "7.2", "overlay": "5.1"}
@@ -161,9 +176,12 @@ policy and PyYAML is a third-party package.
 ```
 
 - `instances.<slug>.host` is a **name**, and it joins the two maps: posture is
-  looked up as `hosts[instances[slug].host].posture`. A host named in
-  `instances` but absent from `hosts` resolves to an unknown posture, **and
-  unknown blocks**.
+  looked up as `hosts[<resolved host>].posture` — the host the merge actually
+  settles on (Monitor, then fleet.json, then this file's own `instances`
+  entry), not necessarily this file's own recorded host for the slug. If
+  Monitor or fleet.json says the instance now lives elsewhere, that is the
+  host whose posture is checked. A host named nowhere in `hosts` resolves to
+  an unknown posture, **and unknown blocks**.
 - `posture` is one of `ok`, `degraded`, `compromised`. Anything else, including
   a typo, is unknown — and blocks.
 - `version` is the full version string; `version_major` is derived from it.
