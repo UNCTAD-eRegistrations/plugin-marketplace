@@ -216,6 +216,36 @@ if [ -n "$BRANCH" ]; then
 fi
 [ -n "$VIM_MODE" ] && { [ "$VIM_MODE" = "NORMAL" ] && L1="${L1} ${GHOST}[N]${RST}" || L1="${L1} ${LIME}${BD}[I]${RST}"; }
 
+# ── OMC signals (optional) ──
+# When oh-my-claudecode's HUD is installed, fold its session telemetry into SYS
+# instead of letting it print a separate line. Tokens are relabelled into words
+# (T:189 -> "tools 189"). Silently skipped when OMC or node is absent, so this
+# plugin still works standalone.
+OMC_HUD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud.mjs"
+if [ -r "$OMC_HUD" ] && command -v node >/dev/null 2>&1; then
+    OMC_RAW=$(printf '%s' "$input" | node "$OMC_HUD" 2>/dev/null \
+              | sed $'s/\033\\[[0-9;]*m//g' | tr '\n' '|')
+    _omc() { L1="${L1} ${GHOST}░${RST} $1"; }
+    IFS='|' read -ra OMC_TOKS <<< "$OMC_RAW"
+    for OT in "${OMC_TOKS[@]}"; do
+        OT="${OT#"${OT%%[![:space:]]*}"}"; OT="${OT%"${OT##*[![:space:]]}"}"
+        [ -z "$OT" ] && continue
+        case "$OT" in
+            branch:*)  ;;                                       # LCARS renders git itself
+            agents:*)  _omc "${GHOST}agents ${RST}${TEAL}${OT#agents:}${RST}" ;;
+            todos:*)   _omc "${GHOST}todos ${RST}${LIME}${OT#todos:}${RST}" ;;
+            bg:*)      _omc "${GHOST}bg ${RST}${SLATE}${OT#bg:}${RST}" ;;
+            ralph:*)   _omc "${GHOST}ralph ${RST}${AMBER}${OT#ralph:}${RST}" ;;
+            skill:*)   _omc "${GHOST}skill ${RST}${TEAL}${OT#skill:}${RST}" ;;
+            thinking)  _omc "${LAVENDER}thinking${RST}" ;;
+            T:*)       _omc "${GHOST}tools ${RST}${SLATE}${OT#T:}${RST}" ;;
+            A:*)       _omc "${GHOST}spawned ${RST}${SLATE}${OT#A:}${RST}" ;;
+            S:*)       _omc "${GHOST}used ${RST}${SLATE}${OT#S:}${RST}" ;;
+            *)         _omc "${SLATE}${OT}${RST}" ;;
+        esac
+    done
+fi
+
 # ── Panel CTX: context gauge + cache rate + idle timer ──
 PC=$(fg $CR $CG $CB)
 L2="${CTX_P} ${BAR} ${PC}${BD}${PCT}%${RST} ${DM}${US}/${SS}${RST}"
