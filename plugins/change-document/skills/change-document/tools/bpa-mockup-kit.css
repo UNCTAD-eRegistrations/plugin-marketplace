@@ -221,3 +221,5 @@
 .chip { position:absolute; top:-9px; right:-6px; background:#fff; font-size:11px; font-weight:700; line-height:1; padding:2px 8px; border-radius:999px; white-space:nowrap; z-index:1; }
 .chip.new { color:rgb(37,99,235); border:1.5px solid rgb(37,99,235); }
 .chip.modified { color:rgb(107,114,128); border:1.5px solid rgb(107,114,128); }
+/* 07-09-2026, Frank: a button sits level with the field it acts on, whatever sits under that field; the canvas follows BPA's own UX rules */
+.canvas .bpa-cols>.field-wrap:has(>.bpa-btn):not(:has(.control-label)){align-self:flex-start !important;padding-top:37px}

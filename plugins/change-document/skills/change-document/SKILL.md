@@ -17,6 +17,7 @@ description: Write a change document for an eRegistrations service the house way
 - UX and UI are key.
 - The tool speaks the eR language: Glossary, Rosetta Stone, terms list.
 - The collaboration layer, a colleague's tabs and remarks, is set aside for now. Core tool first.
+- **Two kinds of drawing, never mixed (Frank, 07-09-2026).** A screen is drawn either *as the person sees it* (the portal's look, one named example, no logic letters) or *in BPA, every component* (the canvas look, every component once, the E, V and A letters). Each drawing says its kind on its title line. The word "new" is the document's own device and stays on both. Criteria C54 to C60.
 
 ## Before anything: what is bundled with this skill
 
@@ -25,7 +26,9 @@ Everything this method needs travels with it. Paths are relative to this skill f
 | File | What it is | When you touch it |
 |---|---|---|
 | `tools/screen_truth.py` | Prints what a BPA container puts on the screen: what renders and why not, every `headerComponents`, each grid's `fieldsShownInGrid`, each panel's collapsed state, the classes that change a drawing | **Before drawing anything.** Read `tools/screen-truth-README.md` first |
-| `tools/bpa-mockup-kit.css` | The canvas-true CSS. **The style authority.** Never copy a style block out of a finished plan: a delivered plan freezes and keeps corrections this kit has since made | Every drawing |
+| `tools/bpa-mockup-kit.css` | The canvas-true CSS. **The style authority.** Never copy a style block out of a finished plan: a delivered plan freezes and keeps corrections this kit has since made | Every drawing *in BPA, every component* |
+| `tools/ds-mockup-kit.css` | The citizen look, measured on the Lesotho draft portal (25-07-2026 screenshots). Same markup classes under a `.ds` wrapper, so one drawing can wear either look | Every drawing *as the person sees it* |
+| `tools/screen-labels-check.py` | Every label on a citizen screen must exist on its form's BPA canvas; two drawings of one form must not drift. Wrap a citizen screen in `<div class="ds" data-form="…">…<!--/ds-->` and the canvas in `<div class="canvas" data-form="…">…<!--/canvas-->` | Before delivery |
 | `tools/token-audit.py` | Must return 0 before delivery | Before delivery |
 | `tools/slop-check.py` | Strips the machine smell. Must return 0 | Before delivery |
 | `tools/vocabulary-check.py` + `tools/terms.md` | The eRegistrations vocabulary. Grid never table, the GDB by its name | Before delivery |
@@ -37,12 +40,13 @@ Everything this method needs travels with it. Paths are relative to this skill f
 | `knowledge/feedback-er-implementation-plan-style.md` | The style law, dated, as the reviews produced it | When in doubt on form |
 | `knowledge/leaflet-editing-spirit.md` | How every sentence is written | While writing |
 
-**The three checks that gate delivery**, all three must return 0:
+**The four checks that gate delivery**, all four must return 0:
 
 ```
 python3 tools/token-audit.py <your file>
 python3 tools/slop-check.py <your file>
 python3 tools/vocabulary-check.py <your file>
+python3 tools/screen-labels-check.py <your file>
 ```
 
 **What you also need, and this skill does not carry:** the BPA, GDB and DS MCP servers, from the same marketplace, with a profile for the instance you are working on. Without them there is no live reading, and a drawing that is not read from the live service is not a contract.

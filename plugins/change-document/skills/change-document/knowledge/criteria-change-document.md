@@ -276,6 +276,44 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C53. Group headings in the rail in small capital letters.** In the left pane, a heading that groups items (Business, Licence and activities, The officer desk) is set in small capitals, muted; the items under it in normal case.
 > "the change-b version is better in the left pane, because the titles are in capital letters. It's better than what we have for the time being, so we should adopt this in our style." (03-09-2026)
 
+## 7-ter. Criteria from the session of 07-09-2026
+
+**C54. Two kinds of drawing, never mixed.** A change document draws a screen either *as the person sees it* (the portal's look, one named example, the fields the registry holds, no logic letters) or *in BPA, every component* (the canvas look, every component once, hidden ones drawn as BPA shows them, the E, V and A letters on this drawing only). Each drawing names its kind on its title line. The word "new" stays on both: it is the document's own device, not the platform's. The kit carries one stylesheet per kind (`tools/ds-mockup-kit.css`, `tools/bpa-mockup-kit.css`) and a check that every label on a citizen screen exists on its form's canvas (`tools/screen-labels-check.py`).
+> "I would rather have two screens, one for BPA and one for DS, rather than mixing, because here on what we have, we have a kind of mixture. We have parts DS and we see the determinants on BPA." (07-09-2026)
+
+**C55. A field the registry holds nothing for is not shown; it is asked once.** On the citizen screen, the record shows only recorded fields; the empty ones are asked under What is missing, through the same emptiness determinant with the opposite effect. A group with nothing in it hides with its title. The one exception, on his word: the identity number stays shown empty in the evidence case, because that emptiness is why evidence is asked.
+> "You show everything that is in the registry and everything that is not there with an indication that nothing is recorded. Then there is a new section called 'what is missing' where you can fill it in. It's a kind of duplication and makes it more complex to see it twice. So why don't you just not show any field for which there is no information and keep showing it as you do now in the 'what is missing' section?" (07-09-2026) · on the identity line: "b, show it" (07-09-2026)
+
+**C56. A whole new block says "new" once.** On the block, at its top right; never on each part inside it, never on the fold title above it.
+> "the whole recover a business block is new, put here and not in the subsections" (07-09-2026)
+
+**C57. A note sits just before what it explains.** The note on the two addresses sits before the address group, not at the top of the block.
+> "it looks strange to have the comment in blue at the top, it should be just before the address section" (07-09-2026)
+
+**C58. The screens line in its own colour.** The line that counts the screens and holds the fold control is a tinted strip (the light blue of the ticked tab), so the control reads apart from the prose.
+> "this should be in a different color to make the page more readable" (07-09-2026)
+
+**C59. The letters sit in their circles, top right of what they qualify.** A word pass in the style never renames a class the drawings use: the 03-09 pass renamed the three placement rules and every E, V, A fell to the top left as plain text for four days.
+> "the effect icon is oddly placed" · "all V, E and other icons badly shown" (07-09-2026)
+
+**C60. The arrow that closes the left menu keeps the section.** The control under the pointer must be the control that acts: the first menu line, a full-width block drawn after the arrow, was taking its clicks and changing the section.
+> "When I close the left pane I don't stay on the same tab" · "and i cant close the pane anyway" (07-09-2026)
+
+**C61. A letter only where the effect differs from the default; a shape is a mask, not a validation.** A field whose default is activate, enable and show carries no E: the letter sits on the component the determinant acts on (the panel the dashboard button opens). A number's shape is an input mask on the field, not a validation rule with a message.
+> "There's no effect. This is the default field. There's no specific effect. The effect is shown when it is different from the default which is activate, enabled and show." · "why using the validation logical feature in e-registrations, which is a bit complex to use, rather than a mask?" (07-09-2026)
+
+**C62. A bot is named with its table, its key, what it returns and when it runs.** "Runs the four read bots in order" says nothing. Each bot: its name as the bot grid names it, the GDB table it reads or writes, the key it uses, the hidden field or block it fills, and the moment it runs (a button, the form opening, a desk).
+> "Describe the four bots more precisely here. It's very difficult to understand what you mentioned." (07-09-2026)
+
+**C63. A button sits level with the field it acts on, and the canvas follows BPA's own UX rules.** Whatever sits under the field (a key line, a description), the button's row is the input's row, measured centre on centre. More widely: a drawing in the BPA look obeys the UX rules BPA itself applies; never a layout BPA would not produce.
+> "The button should be aligned with the field. Don't forget this. This is a rule. I think you should apply all the same UX rules which are applied in BPA." (07-09-2026)
+
+**C64. Screen titles telegraphic.** No leading article; the outcome as a clause and its consequence after a colon: "Record found carries applicant's national ID number: it is theirs".
+> "I will just remove the and I would talk in telegraphic style." (07-09-2026)
+
+**C65. Every hidden field says what it is for.** On a canvas, hidden fields are grouped by nature under column titles (from the login · from the search · for the write bots), and each carries one line: what it holds, filled by which bot or formula, read by which determinant or bot. A human and an AI reading the canvas must understand every element without asking.
+> "we need to know what these hidden fields are for. give indications in the title of the block or regroup by nature in different columns and give indications in title of columns. A human and an AI reading the BPA should understand all elements easily" (07-09-2026)
+
 ## 8. The spirit in ten lines
 
 Drawn from every session of the document, 18-08 to 02-09-2026. Each line is a rule to apply while writing or drawing, with the sessions that show it.
