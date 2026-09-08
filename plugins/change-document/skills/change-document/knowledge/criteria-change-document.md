@@ -321,6 +321,21 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C67. The turning point of a path is lifted.** The block where the outcome changes for the person, here where the record cannot be confirmed as theirs and evidence is asked, is not drawn as one row among others: it gets its own titled block ("Prove this record is yours"), and its message sits in the portal's red box with a bold first sentence. Every device used is one the portal itself draws; nothing is invented to make it prominent.
 > "This section, which is very important, be made more prominent. It's not the case yet, so make it more prominent and visible." (08-09-2026, second ask)
 
+**C68. The page holds one copy of everything.** No hidden layer, no second pane, no "try" beside the agreed text. A hidden copy is where edits land by mistake and where reviewers read the wrong version: on 08-09-2026 the two reviewers built eight findings on the hidden Julien pane, and an evening of edits to the effects table had gone into it while the page showed the old one. When a colleague's layer is set aside, it leaves the page; the repository keeps it.
+> "delete J pane yes" (08-09-2026)
+
+**C69. Measure the data before drawing a rule on it.** A mask, a shape, a "known" case, an automatic road: each is drawn only after the store it acts on has been read whole and counted. The mask A9999/99999 fitted 1,450 of the 6,036 numbers it was meant to accept; the identity numbers of the old licences were passports 93 times in 100 while the login verifies ID cards; the automatic road on the business path stood on a free-text column where 1,373 numbers exist nowhere. The evidence note is written first, the drawing follows it, and every count on the page is computed from the drawings by script, never typed.
+> "i said no to the mask" · "officer" (08-09-2026)
+
+**C70. The prose that lists the logic is checked against the canvases by a machine.** The effects table, the bot grid and the counts are the canvases' letters written out; they drift the moment a drawing changes. `tools/logic-check.py` compares every E name, every bot named in a note and the two counts with the table and the grid, and returns 0 before delivery, beside the four other checks.
+> the consistency reviewer, 08-09-2026: "the prose that sits behind the drawings has not followed them"
+
+**C71. Two reviews before the build, then a third from another house.** When the drawings are settled, a consistency reviewer (current against end situation, decisions against every sentence, bots, letters, hidden block, labels, phases) and an adversarial reviewer (the citizen, the officer, the registry, the platform with the tier-0 rules, the plan, the builder) read the page as published, read-only, each writing one findings file with a scenario, a place and a one-line repair per finding. Findings that hinge on a fact are verified before acting; the ones that stand go into the page, the refuted ones are kept with their evidence, the trail sits in the handover. Then a Codex reviewer at the highest effort reads the repaired page. Two of tonight's forty adversarial findings were refuted by the live service; seventy-four were applied.
+> "ask an agent to make an adversarial review of this change proposal" · "ask a codex Sol high level agent to make an adversarial review" (08-09-2026)
+
+**C72. A migration of old records is proof-driven, never bulk.** Nothing is copied from the old stores into the live GDB tables. A record moves the moment its proof exists, in three tiers: automatic when the data holds the proof, one answer when one thing is missing, evidence and an officer for the rest. The live registry never holds a record without an owner; what nobody claims never pollutes it; progress is counted in records tied, not rows copied.
+> "no migration needed. Confirm that." · "yes proof-driven migration" (08-09-2026)
+
 ## 8. The spirit in ten lines
 
 Drawn from every session of the document, 18-08 to 02-09-2026. Each line is a rule to apply while writing or drawing, with the sessions that show it.

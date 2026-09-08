@@ -37,7 +37,7 @@
 .ds .c12{flex:0 0 100%;max-width:100%;position:relative;min-width:0}
 .ds .field-wrap{position:relative;margin-bottom:20px;min-width:0}
 .ds .control-label{display:block;font-size:14px;font-weight:500;color:rgb(91,96,121);line-height:18px;padding:0 0 8px}
-.ds .control-label .req,.ds .req{color:rgb(240,104,122);font-size:0}
+.ds .control-label .req,.ds .req{color:rgb(240,104,122);font-size:0;line-height:0} /* line-height 0: a zero-size span still carries an 18px line strut and pushed the field 5px down (08-09-2026) */
 .ds .control-label .req::after,.ds .req::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:rgb(240,104,122);margin-left:6px;vertical-align:middle}
 .ds .bpa-input{display:flex;align-items:center;height:40px;border:1px solid rgb(207,210,227);border-radius:6px;padding:0 12px;font-size:16px;color:rgb(44,49,73);background:#fff;width:100%;box-sizing:border-box}
 .ds .bpa-input.computed{background:rgb(227,229,242);border-color:rgb(227,229,242);font-weight:400;color:rgb(44,49,73)}

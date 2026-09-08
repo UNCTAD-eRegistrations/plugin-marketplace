@@ -28,6 +28,7 @@ Everything this method needs travels with it. Paths are relative to this skill f
 | `tools/screen_truth.py` | Prints what a BPA container puts on the screen: what renders and why not, every `headerComponents`, each grid's `fieldsShownInGrid`, each panel's collapsed state, the classes that change a drawing | **Before drawing anything.** Read `tools/screen-truth-README.md` first |
 | `tools/bpa-mockup-kit.css` | The canvas-true CSS. **The style authority.** Never copy a style block out of a finished plan: a delivered plan freezes and keeps corrections this kit has since made | Every drawing *in BPA, every component* |
 | `tools/ds-mockup-kit.css` | The citizen look, measured on the Lesotho draft portal (25-07-2026 screenshots). Same markup classes under a `.ds` wrapper, so one drawing can wear either look | Every drawing *as the person sees it* |
+| `tools/logic-check.py` | Every determinant named by an E on a canvas has its row in the effects table; every bot named in a note has its row in the bot grid; the two counts match the drawings | Before delivery, and after every change to a drawing |
 | `tools/screen-labels-check.py` | Every label on a citizen screen must exist on its form's BPA canvas; two drawings of one form must not drift. Wrap a citizen screen in `<div class="ds" data-form="…">…<!--/ds-->` and the canvas in `<div class="canvas" data-form="…">…<!--/canvas-->` | Before delivery |
 | `tools/token-audit.py` | Must return 0 before delivery | Before delivery |
 | `tools/slop-check.py` | Strips the machine smell. Must return 0 | Before delivery |
@@ -47,7 +48,10 @@ python3 tools/token-audit.py <your file>
 python3 tools/slop-check.py <your file>
 python3 tools/vocabulary-check.py <your file>
 python3 tools/screen-labels-check.py <your file>
+python3 tools/logic-check.py <your file>
 ```
+
+The fifth check, `logic-check.py`, compares the letters on the canvases with the effects table, the bot grid and the counts (criterion C70): the prose drifts from the drawings the moment a drawing changes, and only a machine notices.
 
 **What you also need, and this skill does not carry:** the BPA, GDB and DS MCP servers, from the same marketplace, with a profile for the instance you are working on. Without them there is no live reading, and a drawing that is not read from the live service is not a contract.
 
@@ -273,6 +277,23 @@ Sitting with the reader beside him, he cut everything that was not the change it
 - **Under a screen, one line.** It carries the reason the screen looks like that, nothing else. No "what you are looking at", no history of what stood there last week, no repetition of what the drawing already shows.
 - **Never let one word carry two things.** When two numbers are in play, name both every time: *the Business ID or licence number printed on the certificate*, *the national ID or passport number recorded on the record*.
 - **A clause that only repeats the drawing is cut.** Placement, layout and position live in the screens.
+
+## The reviews before the build (Frank, 08-09-2026; criterion C71)
+
+When the drawings are settled and published, and before anything is built, three readers who did not write the page read it, read-only, and each writes one findings file under the service's `reviews/` folder:
+
+1. **A consistency reviewer** (an Opus agent, in the background): current situation against end situation; every decision of the sessions against every sentence, letter note, bot description, hidden-block note, effects row, phase line and test step; the bot grid against every bot named anywhere; every E against the effects table and the counts; the hidden block's fillers and readers; every citizen-screen label against its canvas; the phases against the drawings; the vocabulary.
+2. **An adversarial reviewer** (an Opus agent, in the background): the citizen (who gets stuck, misreads, sends a request that can only be refused), the officer (what the desk lacks to decide), the registry (duplicates, orphans, records without owner, half-way failures, rule 1), the platform (what will not work as drawn, naming the tier-0 rule), the plan (which test passes while the thing is broken), the builder (what is left to guess).
+3. **A Codex reviewer** (Sol, effort xhigh, through `/use-codex`) on the repaired page, told what the two found.
+
+The brief tells each reader the page's structure (the two kinds of drawing, where the logic sits), the evidence notes to read first, the tier-0 rules, the decisions that are settled, and the output shape: a five-line verdict, then numbered findings with severity, a scenario, the place and a one-line repair. Findings that hinge on a fact are verified before acting (on 08-09-2026, "bots cannot key on nested columns" was refuted by the live service). What stands goes into the page in one pass; what is refuted is kept with its evidence; the trail sits in the handover, finding by finding. Then the five checks, the renders, the publish, the proof.
+
+## Editing a page that exists (the lesson of 08-09-2026)
+
+- **One copy of everything** (C68). If the page carries a hidden layer, delete it before editing; an edit by first occurrence lands in the hidden copy, and a reviewer reads it as the page.
+- **Resolve every replacement by the drawing it belongs to**: which pane, which kind (`div.ds` or `div.canvas`), which `data-form`. The two kinds share their markup classes, so a string exists on both; three canvas letters landed on a citizen screen that night before the rule was written.
+- **Guard the size after every write** (assert the file did not shrink beyond what the edit removes) and keep the last good copy; a `find` that returned -1 fed a slice and cut the page to a third.
+- **Measure before you draw a rule** (C69), and **run the five checks before every publish**; prove the served page equals the recorded file.
 
 ## Verification gate before delivering
 
