@@ -221,3 +221,28 @@
 .chip { position:absolute; top:-9px; right:-6px; background:#fff; font-size:11px; font-weight:700; line-height:1; padding:2px 8px; border-radius:999px; white-space:nowrap; z-index:1; }
 .chip.new { color:rgb(37,99,235); border:1.5px solid rgb(37,99,235); }
 .chip.modified { color:rgb(107,114,128); border:1.5px solid rgb(107,114,128); }
+/* 07-09-2026, Frank: a button sits level with the field it acts on, whatever sits under that field; the canvas follows BPA's own UX rules */
+/* ----------------------------------------------------------------------------
+   G. COLUMNS, AS BPA DRAWS THEM (Frank, 07-09-2026; measured on the Lesotho
+   BPA canvas, Register a Business, Owner tab, capture of 06-08-2026)
+   One frame whose parts touch: each part a cell with its own 1px dotted
+   border rgb(156,164,176), cells abutting so two borders meet, no gutter;
+   the field inside has no box of its own; a part with no field stays
+   drawn, empty (<div class="c4 field-wrap empty"></div>); rows of one
+   Columns component 30px apart. The letter of a field sits inside its
+   part, 5px down and 12px in from the right; a letter for the Columns
+   component itself straddles the frame's top-right corner, like a panel's.
+   A row of one full-width field stays a bare component (section B).
+   Criteria C61 and C63.
+   ---------------------------------------------------------------------------- */
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap),.canvas .bpa-cols:has(>.field-wrap.empty){gap:30px 0;position:relative;margin:0 0 14px}
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap)>.field-wrap,.canvas .bpa-cols:has(>.field-wrap.empty)>.field-wrap{border:1px dotted rgb(156,164,176);border-radius:0;padding:26px 14px 12px;margin:0;box-sizing:border-box;align-self:stretch !important}
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap)>.c3,.canvas .bpa-cols:has(>.field-wrap.empty)>.c3{flex:0 0 25%;max-width:25%}
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap)>.c4,.canvas .bpa-cols:has(>.field-wrap.empty)>.c4{flex:0 0 33.3333%;max-width:33.3333%}
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap)>.c6,.canvas .bpa-cols:has(>.field-wrap.empty)>.c6{flex:0 0 50%;max-width:50%}
+.canvas .bpa-cols:has(>.field-wrap+.field-wrap)>.c8{flex:0 0 66.6667%;max-width:66.6667%}
+.canvas .bpa-cols>.field-wrap>.bpa-badges{top:5px;right:12px}
+.canvas .bpa-cols>.bpa-badges{top:-8px;right:0}
+.canvas .bpa-cols>.field-wrap.empty{min-height:103px}
+/* 07-09-2026, Frank: a button sits level with the field it acts on, centre on centre, whatever sits under that field; measured 54px above the button inside a Columns part */
+.canvas .bpa-cols>.field-wrap:has(>.bpa-btn):not(:has(.control-label)){padding-top:54px}

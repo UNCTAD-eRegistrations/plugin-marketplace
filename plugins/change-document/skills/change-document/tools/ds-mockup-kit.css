@@ -1,0 +1,87 @@
+/* ============================================================================
+   DS MOCKUP KIT: the citizen look, what the person sees in the portal.
+   Companion of bpa-mockup-kit.css. Same markup classes, scoped under .ds,
+   so one drawing can wear the BPA canvas look or the citizen look.
+
+   READ THIS FIRST, 07-09-2026.
+   A change document draws two kinds of screen and never mixes them:
+   "as the person sees it" (this kit, .ds) shows one example record with the
+   fields the registry holds and no logic letters; "in BPA, every component"
+   (bpa-mockup-kit.css) shows every component once with its E, V, A letters.
+   Frank, 07-09-2026: "two screens, one for BPA and one for DS, rather than
+   mixing".
+
+   MEASURED against the Lesotho draft portal, Register a Business, Part A,
+   headless screenshots of 25-07-2026 at 1440px (tests/e2e-2026-07-25/):
+   page ground, the white card per panel and its title, the inner block
+   border and radius, labels and the required dot, input height and border,
+   the read-only fill, the two content boxes, the pill buttons and the
+   segmented yes/no. APPROXIMATED: the font family (Figtree, the closest of
+   the five families the portal loads; not verified by computed style), the
+   exact hues (read off pixels, not a computed-style dump).
+   Not the portal's own UI, drawn by us only: .chip.new / .chip.modified.
+   ========================================================================== */
+.ds{font-family:"Figtree","Nunito Sans",system-ui,sans-serif;font-size:16px;color:rgb(44,49,73);background:rgb(244,245,250);padding:24px;border-radius:12px}
+.ds .bpa-panel{position:relative;border:0;border-radius:16px;background:#fff;box-shadow:none;margin:0 0 20px}
+.ds .bpa-panel .panel-header{background:none;color:rgb(44,49,73);padding:30px 34px 8px;font-weight:700;font-size:20px;border-radius:16px 16px 0 0;display:flex;align-items:center;gap:8px}
+.ds .bpa-panel .panel-header .chev{display:none}
+.ds .bpa-panel .panel-header .hdr{margin-left:auto;font-weight:400}
+.ds .bpa-panel .panel-body{padding:8px 34px 30px;border-radius:0 0 16px 16px}
+.ds .bpa-fieldset{position:relative;border:1px solid rgb(226,228,241);border-radius:14px;padding:26px 30px 14px;margin:0 0 22px;background:#fff}
+.ds .fieldset-legend{font-size:17px;font-weight:700;color:rgb(44,49,73);margin:0 0 18px}
+.ds .bpa-cols{display:flex;flex-wrap:wrap;gap:24px;margin:0 0 4px}
+.ds .c3{flex:0 0 calc(25% - 18px);max-width:calc(25% - 18px);position:relative;min-width:0}
+.ds .c4{flex:0 0 calc(33.33% - 16px);max-width:calc(33.33% - 16px);position:relative;min-width:0}
+.ds .c6{flex:0 0 calc(50% - 12px);max-width:calc(50% - 12px);position:relative;min-width:0}
+.ds .c8{flex:0 0 calc(66.66% - 8px);max-width:calc(66.66% - 8px);position:relative;min-width:0}
+.ds .c12{flex:0 0 100%;max-width:100%;position:relative;min-width:0}
+.ds .field-wrap{position:relative;margin-bottom:20px;min-width:0}
+.ds .control-label{display:block;font-size:14px;font-weight:500;color:rgb(91,96,121);line-height:18px;padding:0 0 8px}
+.ds .control-label .req,.ds .req{color:rgb(240,104,122);font-size:0}
+.ds .control-label .req::after,.ds .req::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:rgb(240,104,122);margin-left:6px;vertical-align:middle}
+.ds .bpa-input{display:flex;align-items:center;height:40px;border:1px solid rgb(207,210,227);border-radius:6px;padding:0 12px;font-size:16px;color:rgb(44,49,73);background:#fff;width:100%;box-sizing:border-box}
+.ds .bpa-input.computed{background:rgb(227,229,242);border-color:rgb(227,229,242);font-weight:400;color:rgb(44,49,73)}
+.ds .bpa-input.ph{color:rgb(150,155,180)}
+.ds .bpa-input.computed.ph{color:rgb(120,125,150)}
+.ds .bpa-select::after{content:"\2715\00a0\00a0\2304";margin-left:auto;color:rgb(150,155,180);font-size:12px}
+.ds .help-text{font-size:14px;color:rgb(91,96,121);margin:0 0 12px;line-height:1.4}
+.ds p.help-text[data-specimen]{font-size:14px;font-weight:500;color:rgb(91,96,121);margin:6px 0 12px}
+.ds .bpa-fieldset > p.help-text[data-specimen]:first-child{font-size:17px;font-weight:700;color:rgb(44,49,73);margin:0 0 18px}
+.ds .bpa-info-content{background:rgb(232,236,251);border-radius:12px;padding:18px 24px;margin:0 0 20px}
+.ds .bpa-info-content.quiet,.ds .bpa-info-content.grey{background:rgb(227,229,242)}
+.ds .bpa-alert{background:rgb(253,236,238);border-radius:12px;padding:18px 24px;margin:0 0 20px;color:rgb(44,49,73)}
+.ds .bpa-good{background:rgb(230,247,238);border-radius:12px;padding:18px 24px;margin:0 0 20px;color:rgb(44,49,73)}
+.ds .bpa-content-text{font-size:16px;color:rgb(44,49,73);line-height:1.5;margin:0 0 8px}
+.ds .bpa-content-text:last-child{margin-bottom:0}
+.ds .bpa-btn{display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:500;border:1.5px solid rgb(31,58,158);color:rgb(31,58,158);background:#fff;border-radius:999px;padding:9px 26px;white-space:nowrap;line-height:1.2}
+.ds .bpa-btn.solid{background:rgb(31,58,158);color:#fff;border-color:rgb(31,58,158)}
+.ds .bpa-btn.link{border:none;background:none;color:rgb(31,58,158);text-decoration:none;padding:9px 0;font-weight:500}
+.ds .bpa-btn.quiet{border-color:rgb(207,210,227);color:rgb(91,96,121)}
+.ds .bpa-file{display:block;border:1px dashed rgb(207,210,227);border-radius:12px;padding:18px 22px;font-size:14px;color:rgb(91,96,121);background:#fff}
+.ds .bpa-check{width:18px;height:18px;border:1.5px solid rgb(150,155,180);border-radius:4px;display:inline-block;flex:none;background:#fff}
+/* the yes/no radio as DS draws it: one rounded container, the chosen answer a filled navy pill, the other plain; the required dot after the container, not after the label */
+.ds .field-wrap:has(> .bpa-radio-row){display:flex;flex-wrap:wrap;align-items:center}
+.ds .field-wrap:has(> .bpa-radio-row) > .control-label{flex:0 0 100%;padding-bottom:12px}
+.ds .field-wrap:has(> .bpa-radio-row) > .control-label .req::after{display:none}
+.ds .bpa-radio-row{display:inline-flex;align-items:center;border:1px solid rgb(216,219,232);border-radius:999px;padding:4px;background:#fff;gap:0;margin:0 0 8px}
+.ds .bpa-opt{display:inline-flex;align-items:center;padding:5px 20px;border-radius:999px;font-size:16px;font-weight:500;color:rgb(44,49,73);line-height:1.2}
+.ds .bpa-opt:has(> .bpa-dot.sel){background:rgb(31,58,158);color:#fff}
+.ds .bpa-radio-row .bpa-dot{display:none}
+.ds .field-wrap:has(.req) > .bpa-radio-row + *, .ds .field-wrap:has(.req) > .bpa-radio-row::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:rgb(240,104,122);margin-left:10px}
+.ds .field-wrap:has(.req) > .bpa-radio-row{position:relative;margin-right:18px}
+.ds .field-wrap:has(.req) > .bpa-radio-row::after{position:absolute;right:-16px;top:50%;transform:translateY(-50%)}
+.ds .bpa-sub{position:relative;border:1px solid rgb(226,228,241);border-radius:14px;margin:14px 0;padding:0}
+.ds .bpa-sub .sh{font-size:17px;font-weight:700;color:rgb(44,49,73);padding:22px 30px 0}
+.ds .bpa-sub .sb{padding:16px 30px 22px}
+.ds .bpa-editgrid{border:0;border-radius:12px;padding:0;margin:6px 0 14px;position:relative}
+.ds .bpa-grid-head,.ds .bpa-grid-row{display:grid;grid-template-columns:1.5fr 1fr .9fr .8fr auto;gap:16px;align-items:center;padding:10px 4px;font-size:15px}
+.ds .bpa-grid-head{color:rgb(91,96,121);font-size:14px;font-weight:500;border-bottom:1px solid rgb(226,228,241)}
+.ds .bpa-status{display:inline-block;font-size:13px;color:rgb(91,96,121);border:1px solid rgb(207,210,227);border-radius:999px;padding:2px 12px;background:#fff}
+.ds .bpa-collapsed{position:relative;border:1px solid rgb(226,228,241);border-radius:14px;margin:14px 0;padding:18px 30px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px}
+.ds .bpa-badges,.ds .bpa-badge,.ds .compkey,.ds .tip-i,.ds .bpa-hidden{display:none}
+.ds .stamp{display:none}
+.ds .bpa-nested{margin:6px 0 4px 28px;padding-left:16px;border-left:2px solid rgb(226,228,241)}
+.ds .bpa-sub[style]{border-color:rgb(226,228,241) !important}
+.ds .bpa-sub .sb .bpa-content-text{margin:0}
+/* a button level with the field it acts on, whatever sits under that field (Frank, 07-09-2026) */
+.ds .bpa-cols>.field-wrap:has(>.bpa-btn):not(:has(.control-label)){align-self:flex-start !important;padding-top:30px}
