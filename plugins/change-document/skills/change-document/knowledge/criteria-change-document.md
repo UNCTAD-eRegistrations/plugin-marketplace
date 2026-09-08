@@ -318,6 +318,9 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C66. The outcome screens belong to the form as it opens, and the indent says it.** In the list of a form's screens, "Form as it opens" comes first and the outcome screens follow, indented under it: the same form after the search, one screen per outcome; in BPA not sub-panels but the same panel, at the level of the form as it opens. No sentence explains the dependency; the margin shows it. Never fold them under the form as sub-sections, never let them read as separate forms.
 > "They are not subsections, but they belong to it. In BPA, it's at the same level as the form as it opens." · "I don't want this text, I just want to show visually that the three sections are depending on this one and the best way is to put a margin." (08-09-2026)
 
+**C67. The turning point of a path is lifted.** The block where the outcome changes for the person, here where the record cannot be confirmed as theirs and evidence is asked, is not drawn as one row among others: it gets its own titled block ("Prove this record is yours"), and its message sits in the portal's red box with a bold first sentence. Every device used is one the portal itself draws; nothing is invented to make it prominent.
+> "This section, which is very important, be made more prominent. It's not the case yet, so make it more prominent and visible." (08-09-2026, second ask)
+
 ## 8. The spirit in ten lines
 
 Drawn from every session of the document, 18-08 to 02-09-2026. Each line is a rule to apply while writing or drawing, with the sessions that show it.
