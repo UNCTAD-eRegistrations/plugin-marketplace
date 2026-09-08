@@ -46,6 +46,19 @@ Then install plugins by name:
 
 Or browse via `/plugin > Discover`.
 
+> **The eRegistrations MCP plugins need access to a private repository.**
+> `bpa-mcp`, `ds-mcp`, `gdb-mcp`, `keycloak-mcp`, `graylog-mcp` and
+> `translations-mcp` install their server from
+> `UNCTAD-eRegistrations/MCP_eRegistrations` over SSH. That repository is
+> private and there is no public package to fall back on, so you need read
+> access to it and an SSH key on your GitHub account.
+>
+> If a server fails to start with `Permission denied (publickey)` or
+> `Repository not found`, that is repository access, not a broken plugin. Check
+> with `ssh -T git@github.com`, then ask an owner of the `UNCTAD-eRegistrations`
+> organisation for read access. The other plugins in this marketplace have no
+> such requirement.
+
 ## Installing in Kimi Code
 
 The repository is dual-format: every published plugin also ships a Kimi Code manifest
