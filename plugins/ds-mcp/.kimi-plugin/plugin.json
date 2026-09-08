@@ -12,7 +12,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-eregistrations@latest",
+        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main",
         "mcp-eregistrations-ds"
       ]
     }

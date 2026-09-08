@@ -3,7 +3,7 @@
     "BPA": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "mcp-eregistrations@latest", "mcp-eregistrations-bpa"]
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main", "mcp-eregistrations-bpa"]
     }
   }
 }

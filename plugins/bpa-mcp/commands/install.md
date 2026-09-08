@@ -32,9 +32,24 @@ Run `command -v uvx` via Bash.
 
 Do not proceed past this point until `uv`/`uvx` is confirmed.
 
+### Step 0b — Confirm access to the source repository
+
+The server is installed from a **private** repository over SSH, not from a
+public package index. Check access:
+
+```bash
+ssh -T git@github.com 2>&1 | head -1
+```
+
+If that does not greet you by GitHub username, or if the server later fails
+with a `Permission denied (publickey)` or `Repository not found` error, the
+problem is repository access, not the plugin. Ask whoever administers the
+`UNCTAD-eRegistrations` organisation to grant you read access to
+`MCP_eRegistrations`, and add an SSH key to your GitHub account.
+
 ### Step 1 — Confirm the BPA MCP server is loaded
 
-> The plugin's `.mcp.json` uses `uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa`, which auto-downloads the latest version on every startup. No manual install or upgrade is needed.
+> The plugin's `.mcp.json` uses `uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa`, which fetches the current `main` branch on every startup. No manual install or upgrade is needed — but it does require read access to that private repository (see Step 0b).
 
 Attempt to call `mcp__BPA__instance_list()`.
 
@@ -52,14 +67,14 @@ Do not proceed past this point until the BPA tools are confirmed available.
 Run the migration detector via Bash:
 
 ```
-uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa migrate 2>/dev/null
+uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa migrate 2>/dev/null
 ```
 
 - If the output says **"Nothing to migrate"** → continue to Step 3.
 - If it shows a migration plan (old `BPA-*` entries detected) → apply it:
 
   ```
-  uvx --from mcp-eregistrations@latest mcp-eregistrations-bpa migrate --apply
+  uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa migrate --apply
   ```
 
   Report the migration results to the user (profiles created, entries removed, backup details). If the output mentions restarting Claude Desktop, relay that to the user. Then continue to Step 3.
