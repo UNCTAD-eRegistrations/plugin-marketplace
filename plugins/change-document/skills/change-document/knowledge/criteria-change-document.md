@@ -315,8 +315,8 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C65. Every hidden field says what it is for.** On a canvas, hidden fields are grouped by nature under column titles (from the login · from the search · for the write bots), and each carries one line: what it holds, filled by which bot or formula, read by which determinant or bot. A human and an AI reading the canvas must understand every element without asking.
 > "we need to know what these hidden fields are for. give indications in the title of the block or regroup by nature in different columns and give indications in title of columns. A human and an AI reading the BPA should understand all elements easily" (07-09-2026)
 
-**C66. The outcome screens belong to the form as it opens.** In the list of a form's screens, "Form as it opens" comes first and the outcome screens follow it after a small gap and a one-line note: the same form after the search, one screen per outcome; in BPA they are not sub-panels but the same panel, at the level of the form as it opens. Never fold them under the form as sub-sections, never let them read as separate forms.
-> "They are not subsections, but they belong to it. In BPA, it's at the same level as the form as it opens. So I would put a small margin before … and tell us a comment before doing it." (08-09-2026)
+**C66. The outcome screens belong to the form as it opens, and the indent says it.** In the list of a form's screens, "Form as it opens" comes first and the outcome screens follow, indented under it: the same form after the search, one screen per outcome; in BPA not sub-panels but the same panel, at the level of the form as it opens. No sentence explains the dependency; the margin shows it. Never fold them under the form as sub-sections, never let them read as separate forms.
+> "They are not subsections, but they belong to it. In BPA, it's at the same level as the form as it opens." · "I don't want this text, I just want to show visually that the three sections are depending on this one and the best way is to put a margin." (08-09-2026)
 
 ## 8. The spirit in ten lines
 
