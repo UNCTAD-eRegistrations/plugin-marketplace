@@ -135,6 +135,49 @@ def git_branch(root):
     return _reported_branch(out.decode("utf-8").strip())
 
 
+def _case_insensitive_match(target):
+    """The real on-disk path that differs from `target` only by case, if any.
+
+    Walks segment by segment from the root of the resolved path, matching each
+    against the real directory entries case-insensitively. Returns None when no
+    such path exists -- i.e. the reference is genuinely pointing at nothing,
+    not merely mis-cased.
+    """
+    parts = target.split(os.sep)
+    if not parts:
+        return None
+    current = parts[0] or os.sep
+    for segment in parts[1:]:
+        if not segment:
+            continue
+        try:
+            entries = os.listdir(current)
+        except (OSError, ValueError):
+            return None
+        if segment in entries:
+            match = segment
+        else:
+            folded = [e for e in entries if e.lower() == segment.lower()]
+            if len(folded) != 1:
+                return None
+            match = folded[0]
+        current = os.path.join(current, match)
+    if current == target:
+        return None
+    return current
+
+
+def _case_only_reason(target, actual):
+    return (
+        "the project reference differs from the path on disk only by case: "
+        "it resolves to %s, but what exists is %s. This builds on a "
+        "case-folding filesystem (macOS default) and fails on a case-sensitive "
+        "one, so the pair does not build in CI. Fix the ProjectReference path "
+        "in the csproj, or rename on disk to match -- do not work around it by "
+        "renaming admin_root." % (target, actual)
+    )
+
+
 def derive(public_csproj, admin_root, branch_reader=git_branch):
     """Resolve the reference and report whether the pair holds."""
     result = {
@@ -169,6 +212,17 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
     target = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(public_csproj)), relative))
 
     if not os.path.exists(target):
+        # On a case-SENSITIVE filesystem a case-only mismatch lands here, not
+        # in the containment branch below: the path simply is not there. The
+        # cause is identical either way, so the message must be too -- else the
+        # operator gets one wrong explanation on Linux and a different wrong
+        # explanation on macOS, for the same defect in the same csproj.
+        actual = _case_insensitive_match(target)
+        if actual is not None:
+            result["valid"] = False
+            result["reason"] = _case_only_reason(target, actual)
+            return result
+
         result["valid"] = False
         result["reason"] = "referenced project does not exist at %s" % target
         return result
@@ -200,15 +254,7 @@ def derive(public_csproj, admin_root, branch_reader=git_branch):
         # Windows and is the identity on POSIX, which is where this runs.
         if target.lower().startswith(admin_root_abs.lower()):
             result["valid"] = False
-            result["reason"] = (
-                "the project reference differs from the directory on disk only "
-                "by case: reference resolves to %s, admin_root is %s. This "
-                "builds on a case-folding filesystem (macOS default) and fails "
-                "on a case-sensitive one, so the pair does not build in CI. Fix "
-                "the ProjectReference path in the csproj, or rename on disk to "
-                "match -- do not work around it by renaming admin_root."
-                % (target, admin_root_abs)
-            )
+            result["reason"] = _case_only_reason(target, admin_root_abs)
             return result
 
         result["valid"] = False

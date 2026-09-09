@@ -346,3 +346,23 @@ def test_a_genuinely_elsewhere_reference_still_says_outside(tmp_path):
     assert result["valid"] is False
     assert "outside admin_root" in result["reason"]
     assert "only by case" not in result["reason"]
+
+
+def test_a_reference_pointing_at_nothing_still_says_so(tmp_path):
+    """The control for the case diagnosis: a reference to a directory that
+    does not exist in ANY casing must keep its own reason, not be reported as
+    a casing problem."""
+    admin = tmp_path / "Admin"
+    admin.mkdir()
+    public = tmp_path / "Public" / "Project" / "Web"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\..\\Admin\\Project\\Nope\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+    result = branch_pair.derive(str(csproj), str(admin), lambda root: "b")
+    assert result["valid"] is False
+    assert "does not exist" in result["reason"]
+    assert "only by case" not in result["reason"]
