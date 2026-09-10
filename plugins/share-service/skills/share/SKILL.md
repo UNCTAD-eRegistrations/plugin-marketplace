@@ -5,11 +5,12 @@ description: >
   Use when the user asks to share, publish, or host a document, report, HTML page, or markdown file.
   Also use when the user says "share this", "publish this", or "put this online".
   Supports listing previously published documents with /share list.
+  Choose a sharing mode: public, anyone-with-the-link, password-protected, or owner-only.
 license: UNCTAD-Internal
 allowed-tools: Read, Write, Edit, Bash(curl *), Bash(cat *), Bash(ls *)
 metadata:
-  version: "1.3.0"
-  version-date: "2026-06-14"
+  version: "1.4.0"
+  version-date: "2026-09-10"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[list | <file-path>]"
 ---
@@ -42,6 +43,41 @@ Before any API call, ensure you have a publisher token:
 
 > Note: there is no need to gitignore `~/.share-token` — it is outside every repository.
 
+## Sharing Modes
+
+Every document has exactly one sharing mode, set with `share_mode` on create or update.
+
+| `share_mode` | Listed on the home page? | Who can read it |
+|---|---|---|
+| `public` | yes | anyone |
+| `link` | no | anyone holding the URL |
+| `password` | no | anyone holding the URL **and** the password |
+| `owner` | no | only a request carrying the publisher token or the management secret |
+
+**Default to `link`.** It matches what people expect from a shared link, and it is
+what the older `"visibility": "private"` always meant.
+
+**`password` requires a `password` field** of at least 6 characters. The reader opens
+the URL, gets a prompt, enters the password once, and stays unlocked on that browser
+for 12 hours. Two things to tell the user:
+
+- Send the password **separately from the link** — not in the same message.
+- The **title is still visible** without the password, because the prompt has to name
+  the document. If the title itself is sensitive, use `owner` instead.
+- Changing the password **logs out every reader** who had unlocked it.
+
+**`owner` is not shareable.** It returns `404` to anyone without the publisher token
+or the management secret — a browser cannot send either by clicking a link. Use it for
+your own reference material, never for something you intend a colleague to open.
+
+### Legacy `visibility`
+
+`"visibility"` is still accepted: `"public"` maps to `public`, `"private"` maps to
+`link`. **Send either `share_mode` or `visibility`, never both** — sending both
+returns `400 give either 'share_mode' or 'visibility', not both`.
+
+Prefer `share_mode` in new calls. The response always reports both fields.
+
 ## Commands
 
 ### `/share <file-path>` — Publish a file
@@ -58,14 +94,19 @@ Before any API call, ensure you have a publisher token:
    About to share:
    - Title: <title>
    - Format: <format>
-   - Visibility: private (unlisted — accessible only via direct link)
+   - Sharing: anyone with the link (unlisted)
    - Size: <file size in KB>
    - Preview: <first 200 characters of content>...
 
-   Publish this document? (The URL will be accessible to anyone with the link)
+   Publish this document? Anyone with the link will be able to read it.
+   Say "password" to protect it, or "public" to list it on the home page.
    ```
 
    Wait for the user to confirm. If they say no, stop.
+
+   If the user asks for a password, ask them for one (at least 6 characters) and
+   publish with `"share_mode": "password"`. Do **not** invent a password for them —
+   they have to be able to tell their readers what it is.
 
 5. Detect metadata from context:
    - **project**: Use the current git repo name or directory name as a project tag (e.g., `tz` for Tanzania, `rw` for Rwanda, `jm` for Jamaica). If unsure, leave empty.
@@ -82,7 +123,7 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
     "title": "<title>",
     "format": "<html|md>",
     "content": "<file-contents>",
-    "visibility": "private",
+    "share_mode": "link",
     "project": "<project-tag-if-known>",
     "doc_type": "<type-if-known>",
     "tags": "<comma-separated-tags>"
@@ -114,8 +155,14 @@ By default the document gets a random 10-character id and a URL like `/d/a1b2c3d
 To replace the content of an already-published document **at the same URL** (instead of creating a new one), POST again with `short_code` plus the document's `secret`:
 
 - Send `short_code` set to the document's id-or-slug, and either the management secret (`sk_...`) or the publisher Bearer token, to `POST /api/documents` (or `POST /upload`). On `POST /api/documents` the JSON field is named `secret`; on the `POST /upload` form the field is named `management_secret`.
-- **Overwrites**: `title`, `content`, `format`, `visibility`.
+- **Overwrites**: `title`, `content`, `format`.
 - **Preserves**: `created_at`, `project`, `doc_type`, `agent_session`, `tags`, `pinned` (and the publisher).
+- **Sharing is never weakened by an update.** Passing `"visibility": "public"` will
+  publish it, and passing `"visibility": "private"` will unlist a public document —
+  but neither will downgrade a `password` or `owner` document to `link`. To change a
+  restricted document's mode you must say so explicitly with `share_mode`.
+- Re-uploading a password-protected document does **not** require re-supplying the
+  password; the existing one keeps working.
 - Returns `200` with `{id, url, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
 - **Cannot combine `slug` with `short_code`** — doing so returns `400 cannot use slug with short_code`. Use `slug` to create a new document; use `short_code` to update an existing one.
 - Other errors: `401` if neither `secret` nor a publisher Bearer token is supplied, `403` if the caller doesn't own the document, `404` if `short_code` matches no document.
@@ -127,7 +174,9 @@ curl -s -X GET "https://share.eregistrations.dev/api/me/documents?page=1&limit=2
   -H "Authorization: Bearer $(cat ~/.share-token)"
 ```
 
-Display as a table: title, format, visibility, created date, URL.
+Display as a table: title, format, sharing mode, created date, URL. Use the
+`share_mode` field, not `visibility` — `visibility` cannot tell a password-protected
+document from a freely linkable one, since both report `private`.
 
 ### `/share` (no arguments) — Publish from context
 
@@ -160,10 +209,45 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
     "title": "Tanzania Migration Report",
     "format": "md",
     "content": "# Migration Report\n...",
-    "visibility": "private",
+    "share_mode": "link",
     "slug": "tz-migration-report"
   }'
-# -> 201 {"id":"tz-migration-report","url":".../d/tz-migration-report","secret":"sk_...","visibility":"private","created_at":"..."}
+# -> 201 {"id":"tz-migration-report","url":".../d/tz-migration-report","secret":"sk_...","share_mode":"link","visibility":"private","created_at":"..."}
+```
+
+### Create a password-protected document
+
+```bash
+curl -s -X POST https://share.eregistrations.dev/api/documents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
+  -d '{
+    "title": "Kenya Access Review",
+    "format": "md",
+    "content": "# Access Review\n...",
+    "share_mode": "password",
+    "password": "<at least 6 characters>",
+    "slug": "ke-access-review"
+  }'
+# -> 201 {"id":"ke-access-review", ..., "share_mode":"password","visibility":"private", ...}
+```
+
+Then tell the user: send the link and the password through separate messages.
+
+### Change the sharing mode of an existing document
+
+```bash
+# Password-protect it (or rotate an existing password — this logs out every reader)
+curl -s -X PATCH https://share.eregistrations.dev/api/documents/ke-access-review \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
+  -d '{"share_mode":"password","password":"<new password>"}'
+
+# Open it back up to anyone with the link
+curl -s -X PATCH https://share.eregistrations.dev/api/documents/ke-access-review \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(cat ~/.share-token)" \
+  -d '{"share_mode":"link"}'
 ```
 
 ### Update an existing document in place
@@ -180,7 +264,7 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
     "content": "# Migration Report — updated\n...",
     "visibility": "public"
   }'
-# -> 200 {"id":"tz-migration-report","url":".../d/tz-migration-report","visibility":"public","created_at":"...","updated_at":"..."}
+# -> 200 {"id":"tz-migration-report","url":".../d/tz-migration-report","share_mode":"public","visibility":"public","created_at":"...","updated_at":"..."}
 ```
 
 ## Important Notes
@@ -188,7 +272,8 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
 - **Max content size**: 5 MB
 - **Max title length**: 200 characters
 - **Formats**: Only `html` and `md` are supported
-- **Visibility**: Default is `private` (unlisted — accessible only via direct link). To make a document appear in the public listing, the user must explicitly request `"visibility": "public"`.
+- **Sharing**: Default to `"share_mode": "link"` — unlisted, readable by anyone with the URL. Use `password` when the content needs protecting, `public` to list it on the home page, and `owner` only for material nobody else needs to open. See [Sharing Modes](#sharing-modes).
+- **Passwords are not recoverable.** The service stores only a bcrypt hash, so a forgotten password has to be replaced with a new one, which logs out everyone currently reading.
 - **Rate limit**: 10 publishes per minute per IP. If you get 429, wait and retry.
 - The management secret is shown only once at creation. It allows deleting or updating the document without the publisher token.
 - The publisher token also allows managing all documents published with it.
@@ -201,7 +286,14 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
 - **413**: Content too large — inform the user of the 5 MB limit.
 - **429**: Rate limited — wait 60 seconds and retry once.
 - **422**: Content contains detected secrets (API keys, passwords, private keys) — review and remove sensitive data before sharing.
-- **400**: Validation error — check title, format, and content fields. Also returned for an invalid slug (`invalid slug: <reason>`) or when `slug` is combined with `short_code` (`cannot use slug with short_code`).
+- **400**: Validation error — check title, format, and content fields. Also returned for an invalid slug (`invalid slug: <reason>`), when `slug` is combined with `short_code` (`cannot use slug with short_code`), or for an inconsistent sharing request:
+  - `give either 'share_mode' or 'visibility', not both`
+  - `password required for the password share mode`
+  - `password too short` (minimum 6 characters)
+  - `password only applies to the password share mode`
+  - `share mode invalid` — must be `public`, `link`, `password` or `owner`
+- **401 on `GET /d/{id}`**: the document is password-protected and this request has not unlocked it. That is the reader's prompt, not an error in your call.
+- **404 on a document you just published**: you probably used `share_mode: "owner"`, which hides the document from everyone without a credential. Re-publish as `link` or `password` if someone else needs to read it.
 - **403**: On an update-in-place, the caller doesn't own the document — use the correct `secret` or publisher token.
 - **404**: On an update-in-place, `short_code` matches no existing document.
 - **409**: The requested slug is already in use (`URL already in use`) — choose a different slug.
