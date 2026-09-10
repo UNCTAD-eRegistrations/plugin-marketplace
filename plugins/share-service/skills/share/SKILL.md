@@ -79,6 +79,13 @@ material; do not treat it as private from the people who run the service.
 `link`. **Send either `share_mode` or `visibility`, never both** — sending both
 returns `400 give either 'share_mode' or 'visibility', not both`.
 
+**`visibility` cannot move a `password` or `owner` document.** It has no way to
+express those modes, so a `PATCH` sending it against one is refused with
+`400 use 'share_mode' to change the sharing of a password-protected or owner-only
+document`. Use `share_mode` for those — including to unlist them, which is the case
+most likely to catch you out: `{"visibility":"private"}` looks like the obvious way
+to say "unlist this", and it is the one thing that will not work.
+
 Prefer `share_mode` in new calls. Every response reports both fields, so you can
 confirm which mode a document actually ended up in.
 
@@ -169,7 +176,7 @@ To replace the content of an already-published document **at the same URL** (ins
   which also clears any stored password.
 - Re-uploading a password-protected document does **not** require re-supplying the
   password; the existing one keeps working.
-- Returns `200` with `{id, url, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
+- Returns `200` with `{id, url, share_mode, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
 - **Cannot combine `slug` with `short_code`** — doing so returns `400 cannot use slug with short_code`. Use `slug` to create a new document; use `short_code` to update an existing one.
 - Other errors: `401` if neither `secret` nor a publisher Bearer token is supplied, `403` if the caller doesn't own the document, `404` if `short_code` matches no document.
 
@@ -300,6 +307,7 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
   - `'password' requires share_mode 'password'` — sent a `password` alongside
     `visibility`, or with no mode at all
   - `share mode invalid` — must be `public`, `link`, `password` or `owner`
+  - `use 'share_mode' to change the sharing of a password-protected or owner-only document` — sent a bare `visibility` against a restricted document
 - **401 on `GET /d/{id}`**: the document is password-protected and this request has not unlocked it. That is the reader's prompt, not an error in your call.
 - **404 on a document you just published**: you probably used `share_mode: "owner"`, which hides the document from everyone without a credential. Re-publish as `link` or `password` if someone else needs to read it.
 - **403**: On an update-in-place, the caller doesn't own the document — use the correct `secret` or publisher token.
