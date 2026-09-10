@@ -303,9 +303,12 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
   - `give either 'share_mode' or 'visibility', not both`
   - `password required for the password share mode`
   - `password too short` (minimum 6 characters)
-  - `password only applies to the password share mode`
-  - `'password' requires share_mode 'password'` — sent a `password` alongside
-    `visibility`, or with no mode at all
+  - `'password' requires share_mode 'password'` — on **publish**, sent a
+    `password` alongside `visibility` or with no mode at all
+  - `password only applies to the password share mode` — on **`PATCH`**, the same
+    mistake, and also sending a `password` with a mode that is not `password`.
+    The password is refused rather than accepted-and-ignored, so a 200 here
+    always means the protection you asked for was actually applied
   - `share mode invalid` — must be `public`, `link`, `password` or `owner`
   - `use 'share_mode' to change the sharing of a password-protected or owner-only document` — sent a bare `visibility` against a restricted document
 - **401 on `GET /d/{id}`**: the document is password-protected and this request has not unlocked it. That is the reader's prompt, not an error in your call.
