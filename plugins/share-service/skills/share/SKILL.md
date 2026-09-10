@@ -52,7 +52,7 @@ Every document has exactly one sharing mode, set with `share_mode` on create or 
 | `public` | yes | anyone |
 | `link` | no | anyone holding the URL |
 | `password` | no | anyone holding the URL **and** the password |
-| `owner` | no | only a request carrying the publisher token or the management secret |
+| `owner` | no | the publisher token, the management secret, or any share-service admin |
 
 **Default to `link`.** It matches what people expect from a shared link, and it is
 what the older `"visibility": "private"` always meant.
@@ -66,9 +66,12 @@ for 12 hours. Two things to tell the user:
   the document. If the title itself is sensitive, use `owner` instead.
 - Changing the password **logs out every reader** who had unlocked it.
 
-**`owner` is not shareable.** It returns `404` to anyone without the publisher token
-or the management secret — a browser cannot send either by clicking a link. Use it for
-your own reference material, never for something you intend a colleague to open.
+**`owner` is not shareable, but it is not private from admins.** It returns `404` to
+anyone who sends neither the publisher token nor the management secret, and a browser
+cannot send either by clicking a link — so a colleague you send the URL to gets a 404.
+**A logged-in share-service admin can still read it from a plain browser click**, since
+an admin session overrides per-document access. Use `owner` for your own reference
+material; do not treat it as private from the people who run the service.
 
 ### Legacy `visibility`
 
@@ -76,7 +79,8 @@ your own reference material, never for something you intend a colleague to open.
 `link`. **Send either `share_mode` or `visibility`, never both** — sending both
 returns `400 give either 'share_mode' or 'visibility', not both`.
 
-Prefer `share_mode` in new calls. The response always reports both fields.
+Prefer `share_mode` in new calls. Every response reports both fields, so you can
+confirm which mode a document actually ended up in.
 
 ## Commands
 
@@ -157,10 +161,12 @@ To replace the content of an already-published document **at the same URL** (ins
 - Send `short_code` set to the document's id-or-slug, and either the management secret (`sk_...`) or the publisher Bearer token, to `POST /api/documents` (or `POST /upload`). On `POST /api/documents` the JSON field is named `secret`; on the `POST /upload` form the field is named `management_secret`.
 - **Overwrites**: `title`, `content`, `format`.
 - **Preserves**: `created_at`, `project`, `doc_type`, `agent_session`, `tags`, `pinned` (and the publisher).
-- **Sharing is never weakened by an update.** Passing `"visibility": "public"` will
-  publish it, and passing `"visibility": "private"` will unlist a public document —
-  but neither will downgrade a `password` or `owner` document to `link`. To change a
-  restricted document's mode you must say so explicitly with `share_mode`.
+- **An update never weakens sharing.** `"visibility": "private"` unlists a public
+  document, and `"visibility": "public"` publishes one that was already open — but
+  neither flag can loosen a `password` or `owner` document. That is deliberate: a
+  stale `"visibility": "public"` left in a script would otherwise strip the gate and
+  return success. To loosen a restricted document you must say so with `share_mode`,
+  which also clears any stored password.
 - Re-uploading a password-protected document does **not** require re-supplying the
   password; the existing one keeps working.
 - Returns `200` with `{id, url, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
@@ -291,6 +297,8 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
   - `password required for the password share mode`
   - `password too short` (minimum 6 characters)
   - `password only applies to the password share mode`
+  - `'password' requires share_mode 'password'` — sent a `password` alongside
+    `visibility`, or with no mode at all
   - `share mode invalid` — must be `public`, `link`, `password` or `owner`
 - **401 on `GET /d/{id}`**: the document is password-protected and this request has not unlocked it. That is the reader's prompt, not an error in your call.
 - **404 on a document you just published**: you probably used `share_mode: "owner"`, which hides the document from everyone without a credential. Re-publish as `link` or `password` if someone else needs to read it.
