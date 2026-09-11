@@ -25,6 +25,15 @@
 > Every branch is now single, so `version_branch` is always hardcoded; the
 > probe's `branch_hint` only ever says `retired-roxana-image`. **Appendix B**
 > lists the changes.
+>
+> **Superseded in part (2026-09-11): the HTTP release stamps are gone.** A
+> later change (`eRegulations-deploy` `feature/release-stamp-off-http`) removes
+> `/release.json`, `/version.json` and the `Server: Kestrel` header from the
+> 7.x images and adds a gate-exempt `/health`. The clause above that the gate
+> "exempts `/release.json`", and the reasoning that a roxana image is "the only
+> 7.x build without `/release.json`", no longer hold. `/health` is now the
+> gate-exempt 7.x signal and `/release.json` a transitional fallback for images
+> built before the change. **Appendix E** carries the re-grounding.
 
 > This repository is public. Nothing in this spec, the skill, its routing table,
 > its samples or its tests may carry a host address, a credential, a VPN name,
@@ -68,7 +77,7 @@ It is the `bugfix` dispatch target that `ereg-router` Step 5 currently lists as
 | Gate ordering | `gates.py` runs right after resolution; no host contact before `host_posture` passes | Probe first, gate later |
 | Defect catalogue location (2026-09-11, C-1, revised D-5) | Private repository `UNCTAD-eRegistrations/eregulations-knowledge-base`, fetched at runtime with the operator's `gh` credential and cached; the public table keeps the three gotchas and `surface-defaults.json` | rules committed to the public repo; moving the whole plugin to a private marketplace; a hand-copied local file (kept only as a manual override) |
 | Scope of lines (2026-09-11, D-1) | 7.x only; anything else is refused with no override | OUT-OF-SCOPE tickets with an audited override |
-| Line authority (D-2) | A `200` from `/release.json` is the application answering and decides the line; the overlay decides host and posture | "more restrictive of overlay and probe" (C-6's remedy rewrite is superseded) |
+| Line authority (D-2) | A `200` from the application's health/stamp probe (`/health`, or `/release.json` on an image built before the change) is the application answering and decides the line; the overlay decides host and posture | "more restrictive of overlay and probe" (C-6's remedy rewrite is superseded) |
 | Pre-filing check (C-5) | A read-only disprove pass by a fresh subagent between validate and file | The self-scan of Step 9 alone |
 
 ## What is reused, and from where
@@ -200,9 +209,10 @@ a reporter asking for a legacy-line capability is refused at Step 1.
 
 **Line rule (D-2), the one place it is defined.** Two sources say what line
 a host is on: the operator overlay (`version`) and the probe. A `200` from
-`/release.json` is the application itself answering, so when the probe
-decides, its answer is the line. The overlay decides host and posture, never
-the line against a probe that answered.
+the application's health/stamp probe (`/health`, or `/release.json` on an
+image built before the stamp removal) is the application itself answering, so
+when the probe decides, its answer is the line. The overlay decides host and
+posture, never the line against a probe that answered.
 
 | Overlay | Probe | `version_major` sent to the gate | Outcome |
 | --- | --- | --- | --- |
@@ -233,25 +243,39 @@ Contract of `probe_surface.py` (D-3: it answers one question, *is this host on
 - **GET only, anonymous.** It never sends `Authorization`, a cookie, or a body,
   never follows a login redirect, and never calls `/api/tariffs/*` (which on
   `main` proxies to an external rate-limited API with the instance's key).
-- **`/release.json` first, and it is exempt from the Basic-auth gate.** `200`
-  with `track: admin-api-core` → C 7.x; `200` with a version on a public host
-  → B 7.x `main`; `{"release": …}` only → admin-web (hop). The `release`
-  (else `version`) value is exposed as `release`. A `401` carrying
-  `WWW-Authenticate: Basic realm="eRegulations"` on any **later** probe, after
-  `/release.json` answered `404`, is the signature of a Public image built from
-  the retired roxana branch (the only 7.x build without `/release.json` and
-  with a gate): `surface: B, line: 7.x, branch_hint: retired-roxana-image`,
-  stop. If `/release.json` was unreachable rather than `404`, the gate still
-  says B 7.x but `branch_hint` stays `null` with an `unresolved` note.
+- **`/health` first — the new gate-exempt 7.x signal.** `200` JSON
+  `{"status": "ok"}` → C 7.x (admin-api), `release: null`, done. `200` text
+  `ok` → new Public **or** admin-web: fetch `/` and read `window.__env`;
+  `apiUrl` present → admin-web → hop to that admin-api (`allow_hop`); absent →
+  B 7.x `main`, `release: null`. A `401` carrying `WWW-Authenticate: Basic
+  realm="eRegulations"` means the gate did **not** exempt `/health`, so this is
+  not a new `main`; fall through to `/release.json` to tell an old `main` from
+  a roxana image. `404`/other → fall through.
+- **`/release.json` next — transitional, for images built before the stamp
+  removal, still gate-exempt on those.** `200` with `track: admin-api-core` →
+  C 7.x (old admin-api), `release` from the body; `200` with a version on a
+  public host → B 7.x `main` (old image), `release` from the body;
+  `{"release": …}` only → admin-web (hop). A `401` here **and** a `401` from
+  `/health` at step 1 is the signature of a Public image built from the retired
+  roxana branch, which ships neither endpoint so its gate intercepts both:
+  `surface: B, line: 7.x, branch_hint: retired-roxana-image`, stop. If a Basic
+  gate was seen on one endpoint but the other was merely unreachable (not a
+  clean `404`/`401`), the gate still says B 7.x with `branch_hint: null` and an
+  `unresolved` note (old-vs-roxana undecidable). The `release` (else `version`)
+  value of a `200` `/release.json` is exposed as `release`; **`release` is
+  `null` whenever only `/health` answered**, because the new images do not
+  expose the release over HTTP.
 - **Three hosts, not one.** Admin-api, admin-web (SPA nginx) and Public are
   separate hosts with no path prefix. When the base URL answers as admin-web
-  (`/release.json` → `{"release": …}` only, `/health` → text `ok`), the script
-  reads `window.__env.apiUrl` from the admin-web index (browser-reachable by
-  design) and probes that second host for Surface C; `--api-url` overrides.
-  Only when neither is reachable does it emit `surface: SPA`.
-- **Not 7.x is one answer.** After `/release.json` did not answer `200` and no
-  Basic gate appeared: swagger with `api/permission` → C 7.x (a `/release.json`
-  hidden by a proxy); swagger with `api/user` and no `api/permission` → C,
+  (`/health` → text `ok` with a `window.__env.apiUrl` in the index, or an old
+  `/release.json` → `{"release": …}` only), the script reads
+  `window.__env.apiUrl` from the admin-web index (browser-reachable by design)
+  and probes that second host for Surface C; `--api-url` overrides. Only when
+  neither is reachable does it emit `surface: SPA`.
+- **Not 7.x is one answer.** After neither `/health` nor `/release.json`
+  answered `200` and no Basic gate appeared: swagger with `api/permission` →
+  C 7.x (a health/stamp endpoint hidden by a proxy); swagger with `api/user`
+  and no `api/permission` → C,
   `not-7.x`; a swagger or `/Country` answer shaped like ERegWebApi → A,
   `not-7.x`; `/api/isauthenticated` answering `200`/`401` without any 7.x
   signature → B, `not-7.x`. No `--procedure-id`, no `/Home/CustomCss`, no
@@ -332,10 +356,13 @@ Gotchas: rules may carry `closing_state_hint` ∈ `NOT_A_BUG`,
 pre-launch gate on Public 7.x (`BASIC_AUTH_ENABLED`) is configuration, not a
 defect (`NOT_A_BUG`); the five B 7.x defects `api-surfaces.md` §8 marks
 "fixed on `main` between 2026-09-05 and 2026-09-11 — do not re-report" are
-`FIXED` rules whose remedy is "read the release from `/release.json`; if older
-than 7.4.2 redeploy from `channel/stable`"; a retired roxana image is
-`WONT_FIX` (redeploy, never patch). No rule's keywords contain a credential
-pair; `test_issue_routing_table.py` checks the shape.
+`FIXED` rules whose remedy is "determine the running release with the operator
+command `eregulations instance show <slug>` (the `/fleet` `running.releases`) —
+it is no longer served over HTTP; if older than 7.4.2 redeploy from
+`channel/stable`; if 7.4.2 or later and still reproducing, file it as a
+regression with whatever release the operator can supply"; a retired roxana
+image is `WONT_FIX` (redeploy, never patch). No rule's keywords contain a
+credential pair; `test_issue_routing_table.py` checks the shape.
 
 ### Step 6 — Claims
 
@@ -561,7 +588,7 @@ The SSH and docker patterns are used only in `execute` lane, read-only, after
 | `test_issue_routing_table.py` | rules = public table ∪ loaded overlay (the fixture in CI, the fetched file locally); ids unique across both; every public rule has a non-null `closing_state_hint`; resolution order flag → env → fetch → cache → local → none, with a stub `gh` runner: a failing fetch falls back to the cache and names the reason, no `gh` is "not loaded", a malformed source raises naming it; the fetch is `gh api` with the raw accept header and nothing else; every rule well-formed; repo names in the known set of eight, candidate repos among the six targets; `line` is exactly `["7.x"]`; `version_branch` is `main`; ≥1 discriminator unique per surface; `closing_state_hint` ∈ {null, NOT_A_BUG, INTENTIONAL_DESIGN, WONT_FIX, FIXED}; no keyword shaped like `user:password` |
 | `test_issue_route.py` | no overlay → surface default at `low` with `overlay_loaded: false` and `overlay_ref: none`; `overlay_ref` passes through; `security` passes through from the rule; deterministic scoring; discriminators weigh double; `confidence` by the stated rules; ties → `low` with all repos; the surface filter excludes rules; `line: unknown` caps at `medium`; `branch_hint: retired-roxana-image` forces the `WONT_FIX` gotcha |
 | corpus (the loaded overlay's `corpus` plus the public gotcha corpus, ≥1 entry per keyword-matched rule, each with `surface`/`line`) | each symptom routes to its intended rule with a unique winner among filtered rules |
-| `test_issue_probe_surface.py` (stub opener injected, as `fleet_resolve.py` does) | each §1.1 row yields `7.x`, `not-7.x` or `unknown` as documented; `/release.json` `200` decides `main` even when every other probe is gated and exposes `release`; a Basic-auth `401` after `/release.json` `404` yields `retired-roxana-image` and stops; admin-web answer triggers the `apiUrl` hop; a 6.x admin-api, an ERegWebApi and a legacy Public each yield `not-7.x` without any procedure-id, `CustomCss` or spelling request; no request is ever non-GET or carries `Authorization`; timeouts become `unresolved` and `unknown`, never `7.x` |
+| `test_issue_probe_surface.py` (stub opener injected, as `fleet_resolve.py` does) | each §1.1 row yields `7.x`, `not-7.x` or `unknown` as documented; `/health` is probed first — `200` JSON `{"status":"ok"}` → C 7.x, `200` text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop when `window.__env` carries one), `release` `null` on either; `/release.json` `200` still decides `main` on an old image and exposes `release`; a Basic `401` on **both** `/health` and `/release.json` yields `retired-roxana-image` and stops, while a gate on one endpoint with the other unreachable yields B 7.x `branch_hint: null` + `unresolved`; a 6.x admin-api, an ERegWebApi and a legacy Public each yield `not-7.x` without any procedure-id, `CustomCss` or spelling request; no request is ever non-GET or carries `Authorization`; timeouts become `unresolved` and `unknown`, never `7.x` |
 | `test_issue_redact.py` | every listed pattern is redacted; a URL query value under `pwd`/`password`/`token`/`key`/`secret` is redacted while other parameters survive; `strip_query` drops query and fragment; a clean string is untouched |
 | `test_issue_gate_cases.py` (imports `gates.py` through `conftest.py`, relative path, works in CI's per-suite runs) | line rule D-2: overlay 7 + probe unknown → 7; overlay 7 + probe not-7.x → not 7 → `unsupported_version: block`, refused; overlay 5 + probe 7.x → 7 → pass with `version_mismatch: true`; overlay 5 + probe unknown → block; posture `compromised` → `host_posture: block`; the feature context is judged on `unsupported_version` only and passes on 7.x |
 
@@ -677,8 +704,8 @@ the public marketplace, which a runtime fetch removes.
 | # | Decision | Effect |
 | --- | --- | --- |
 | D-1 | **7.x only.** A host that is not on 7.x is refused: no OUT-OF-SCOPE ticket, no override, no `audit.py` entry, no Jira; a local `NOTES.md` at most. Surface A (ERegWebApi) has no 7.x and is refused outright. | Step 5 second pass is terminal; Steps 8–10 never see a legacy line; the legacy sample is dropped; `line` enum is `7.x, unknown` |
-| D-2 | **The application decides its line.** A `200` from `/release.json` beats the overlay's `version`; the overlay keeps host and posture. Overlay lower than probe → pass with `version_mismatch: true` and a drift remedy "correct the overlay". Overlay 7 but probe `not-7.x` → refused. Probe `unknown` → the overlay's word, said as unconfirmed. | Replaces "more restrictive of overlay and probe" and supersedes C-6's remedy rewrite (`--annotate` dropped) |
-| D-3 | **The probe answers 7.x / not-7.x / unknown.** `/release.json` first, then the Basic gate signature, then one not-7.x reading per surface. No `--procedure-id`, `/Home/CustomCss`, `usecontactpage` or spelling probes. | Smaller probe, fewer requests to a host, fewer test rows |
+| D-2 | **The application decides its line** (endpoint superseded by E-2: `/health`, `/release.json` only on pre-2026-09-11 images). A `200` from the app's health/stamp probe beats the overlay's `version`; the overlay keeps host and posture. Overlay lower than probe → pass with `version_mismatch: true` and a drift remedy "correct the overlay". Overlay 7 but probe `not-7.x` → refused. Probe `unknown` → the overlay's word, said as unconfirmed. | Replaces "more restrictive of overlay and probe" and supersedes C-6's remedy rewrite (`--annotate` dropped) |
+| D-3 | **The probe answers 7.x / not-7.x / unknown.** `/health` first, then `/release.json` for images built before the stamp removal, then the both-endpoints-gated roxana signature, then one not-7.x reading per surface. No `--procedure-id`, `/Home/CustomCss`, `usecontactpage` or spelling probes. | Smaller probe, fewer requests to a host, fewer test rows (re-grounded off the HTTP stamps in Appendix E) |
 | D-4 | **Every rule is `main`.** `line` is always `["7.x"]`, `version_branch` always `main`; `version_branch_by_line` and the line dimension of `surface-defaults.json` go; Surface A and `eRegulations-4.0-API` leave the routing targets. | Table tests simplify; 27 overlay rules + 3 public |
 | D-5 | **Overlay from the private repository.** `rules.py` resolves flag → env → `gh api` fetch of `defects.json` from `UNCTAD-eRegistrations/eregulations-knowledge-base` → cache → local file → not loaded with the reason; `overlay_ref` in the ticket. The repository was created on 2026-09-11 with the 27-rule seed, the 19 legacy rules under `legacy/`, and, since D-9, the whole `api-surfaces.md`. | No per-operator copy; access is repository membership; CI keeps the fixture |
 | D-6 | **PR 79 scrubbed at its tip, not in its history (corrected, then superseded by D-9).** Moving §8 alone was not enough: the endpoint tables kept describing open 7.x weaknesses, and the first four commits kept the old §8. | See D-9 |
@@ -689,3 +716,27 @@ the public marketplace, which a runtime fetch removes.
 Rejected on the way: moving the whole `eregulations` plugin to a private
 marketplace (a second marketplace and CI for what one `gh api` call gives;
 recommended first, withdrawn once the runtime fetch was on the table).
+
+## Appendix E — Re-grounding off the HTTP release stamps (2026-09-11)
+
+A later change on `eRegulations-deploy` (`feature/release-stamp-off-http`,
+verified) removes the HTTP release stamps from every 7.x service. The probe
+contract was keyed on `/release.json`; this appendix re-grounds it on `/health`,
+which survives. Everything the earlier revision (Appendix B, D-2, D-3, the
+`FIXED`-gotcha remedy) says about `/release.json` being *the* 7.x signal is
+superseded by the rows below; `/release.json` remains only as a transitional
+fallback.
+
+| # | What changed on the fleet | Effect on this skill |
+| --- | --- | --- |
+| E-1 | `feature/release-stamp-off-http` removes `/release.json`, `/version.json` and the `Server: Kestrel` header from the 7.x images | the probe no longer depends on any of the three; a new image answers `/release.json`→404, `/version.json`→404, no `Server` header |
+| E-2 | A new gate-exempt `GET /health` is added: admin-api → `200` JSON `{"status":"ok"}`; Public and admin-web → `200` text `ok`; anonymous, `Cache-Control: no-store` | `/health` is the new 7.x signal, probed **first**; JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop) |
+| E-3 | On new images the Basic-auth gate exempts `/health` (not `/release.json`); a gated new `main` answers `/health` `200` through the gate | a gated new `main` is decided at step 1 by `/health` `200`; the old rule "`/release.json` decides through the gate" holds only for images built before the change |
+| E-4 | `/release.json` still answers `200` on images built before the change, exempt from their gate | kept as a transitional fallback: `track: admin-api-core`→C 7.x, a version on a public host→B 7.x `main`, `{"release":…}`→admin-web; it is the only source of `release` |
+| E-5 | The retired roxana image ships neither `/health` nor `/release.json`, so its gate intercepts both | roxana stays detectable: a Basic `401` on **both** endpoints → `branch_hint: retired-roxana-image`; a gate on one with the other unreachable → B 7.x `branch_hint: null` + `unresolved` |
+| E-6 | New images expose no release over HTTP, so `release` is `null` on any host that answered only `/health` | the `FIXED`/regression call can no longer read `/release.json`; the operator supplies the release with `eregulations instance show <slug>` (the provisioner `/fleet` `running.releases`), and a still-reproducing `FIXED` defect with no available release is filed as a regression. `release` stays in the probe output, populated only from an old image's `/release.json` |
+
+**Dependency handshake.** This re-grounding and the `eRegulations-deploy` app-image
+change are coupled: their plan Task 6 gates the app-image changes on this skill
+work, so the skill accepts **both** the new (`/health`) and old (`/release.json`)
+signals throughout the rollout, when both image generations run at once.

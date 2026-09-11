@@ -91,7 +91,7 @@ python3 -m pytest plugins/eregulations/skills/merged-eregulations-translations-i
 git status --short   # expect only the untracked .claude/ directory
 ```
 
-Write the router number down — call it **R** (107 or 110, depending on whether PR #76 is in `main`). Tasks 8 and 9 state their expected totals as `R + 19 + 82`; if R is anything else, say so in that task's commit message.
+Write the router number down — call it **R** (107 or 110, depending on whether PR #76 is in `main`). Tasks 8 and 9 state their expected totals as `R + 19 + 83`; if R is anything else, say so in that task's commit message.
 
 ---
 
@@ -1222,7 +1222,7 @@ Every rule is traceable to `api-surfaces.md` in the private knowledge base (§8 
   ],
   "version_branch": "main",
   "read_via": "git show main:instances/_template/.env.example",
-  "first_evidence_source": "401 + WWW-Authenticate: Basic realm=\"eRegulations\" on GET / of the public site while /release.json still answers 200",
+  "first_evidence_source": "401 + WWW-Authenticate: Basic realm=\"eRegulations\" on GET / of the public site while /health answers 200 (or /release.json 200 on a pre-2026-09-11 image)",
   "also_check_and_disprove": [
    "This is the pre-launch gate (main since 7.3.2), configuration not a defect; there is no built-in credential, so an empty BASIC_AUTH_USERS refuses everyone — check the list before anything else."
   ],
@@ -1254,9 +1254,9 @@ Every rule is traceable to `api-surfaces.md` in the private knowledge base (§8 
   ],
   "version_branch": "main",
   "read_via": "git show main:Project/WebAppCore/ (procedure.resume.js; locate with git ls-tree)",
-  "first_evidence_source": "GET /release.json on the instance: fixed on main by #58 (2026-09-05..11)",
+  "first_evidence_source": "the release the instance runs (operator: `eregulations instance show <slug>`): fixed on main by #58 (2026-09-05..11)",
   "also_check_and_disprove": [
-   "Read the release from /release.json; older than 7.4.2 → redeploy from channel/stable, do not file. 7.4.2 or later and still reproducible → a regression: file with the release in the title."
+   "Confirm the running release (operator: `eregulations instance show <slug>`; the HTTP release stamp is gone since 2026-09-11). Older than 7.4.2 → redeploy from channel/stable, do not file. 7.4.2 or later and still reproducible → a regression: file with the release in the title."
   ],
   "closing_state_hint": "FIXED",
   "memory_ref": "api-surfaces#8 B 7.x main (fixed list)"
@@ -1284,7 +1284,7 @@ Every rule is traceable to `api-surfaces.md` in the private knowledge base (§8 
   ],
   "version_branch": "main",
   "read_via": "git show main:docs/ (redeploy procedure; channel/stable pins)",
-  "first_evidence_source": "probe: /release.json 404, then the Basic-auth gate on a later probe → image built from the retired dot-net8-roxana-user-rights branch (the only gated 7.x build without /release.json)",
+  "first_evidence_source": "probe: a Basic-auth 401 on BOTH /health and /release.json (neither is gate-exempt) → image built from the retired dot-net8-roxana-user-rights branch (the only gated 7.x build serving neither health endpoint; new main answers /health 200, an old main answers /release.json 200)",
   "also_check_and_disprove": [
    "Never patch the retired branch (34 commits not on main). Redeploy the instance from channel/stable and re-probe; only file what still reproduces on main."
   ],
@@ -1840,14 +1840,16 @@ git commit -m "feat(eregulations-issue): deterministic routing with corpus"
 ```python
 # plugins/eregulations/skills/eregulations-issue/tests/test_issue_probe_surface.py
 """The probe is the only network code in the skill. These tests pin the rules
-the spec makes non-negotiable (D-3): GET only and never an Authorization
-header; /release.json first, because it is exempt from the Basic-auth gate and
-decides `main` even on a fully gated host; a Basic 401 after /release.json
-answered 404 is a retired roxana image, not a branch to file against; every
-legacy host is one answer, `not-7.x`, reached without any procedure, stylesheet
-or spelling request; an undecidable line is reported as unknown, never picked
-in the permissive direction -- because the line feeds the unsupported_version
-gate."""
+the spec makes non-negotiable (D-3, re-grounded in Appendix E): GET only and
+never an Authorization header; /health first, because it is the new gate-exempt
+7.x signal that answers through the Basic-auth gate; /release.json only as a
+transitional fallback for images built before the stamp removal; a Basic 401 on
+BOTH /health and /release.json is a retired roxana image (it ships neither
+endpoint), not a branch to file against; every legacy host is one answer,
+`not-7.x`, reached without any procedure, stylesheet or spelling request; an
+undecidable line is reported as unknown, never picked in the permissive
+direction -- because the line feeds the unsupported_version gate. `release` is
+null whenever only /health answered."""
 from __future__ import annotations
 
 import json
@@ -1882,66 +1884,121 @@ def _j(obj, status=200):
     return (status, {"content-type": "application/json"}, json.dumps(obj))
 
 
-def test_release_json_track_admin_api_core_is_c7():
-    out = ps.probe(API, Stub({API + "/release.json": _j({"track": "admin-api-core", "version": "7.4.2", "release": "7.4.2"})}))
+def _text(body="ok", status=200):
+    return (status, {"content-type": "text/plain", "cache-control": "no-store"}, body)
+
+
+def test_admin_api_health_json_is_c7():
+    """The new gate-exempt /health on admin-api answers JSON {"status":"ok"};
+    nothing else is probed and there is no release over HTTP."""
+    stub = Stub({API + "/health": _j({"status": "ok"})})
+    out = ps.probe(API, stub)
     assert (out["surface"], out["line"], out["branch_hint"]) == ("C", "7.x", None)
+    assert out["release"] is None
+    assert stub.calls == [API + "/health"]
 
 
-def test_release_json_on_public_is_b7_main():
-    out = ps.probe(PUB, Stub({PUB + "/release.json": _j({"version": "7.4.2", "release": "7.4.2"})}))
-    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
-
-
-def test_gated_main_is_decided_by_release_json_alone():
-    stub = Stub({PUB + "/release.json": _j({"version": "7.4.2", "release": "7.4.2"})}, default=BASIC)
+def test_public_health_text_is_b7_main():
+    """New Public answers /health text `ok`; with no window.__env it is B 7.x, release null."""
+    stub = Stub({PUB + "/health": _text("ok")})
     out = ps.probe(PUB, stub)
     assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
-    assert stub.calls == [PUB + "/release.json"]
+    assert out["release"] is None
+    assert stub.calls == [PUB + "/health", PUB + "/"]
 
 
-def test_basic_401_after_release_404_is_retired_image_and_stops():
-    stub = Stub({PUB + "/release.json": (404, {}, "")}, default=BASIC)
-    out = ps.probe(PUB, stub)
-    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", ps.RETIRED)
-    assert stub.calls == [PUB + "/release.json", PUB + "/health"]
-
-
-def test_basic_401_with_release_unreachable_is_b7_undecided():
-    class Flaky(Stub):
-        def __call__(self, url, timeout):
-            self.calls.append(url)
-            return None if url.endswith("/release.json") else ps.Response(*BASIC[:1], {"www-authenticate": BASIC[1]["WWW-Authenticate"]}, "")
-    out = ps.probe(PUB, Flaky({}))
-    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
-    assert any("release.json" in u for u in out["unresolved"])
-
-
-def test_admin_web_hops_to_api_url_from_env_script():
+def test_admin_web_health_text_hops_via_env():
     index = '<html><script>window.__env={"apiUrl":"%s"}</script></html>' % API
-    stub = Stub({ADM + "/release.json": _j({"release": "7.4.2"}),
+    stub = Stub({ADM + "/health": _text("ok"),
                  ADM + "/": (200, {"content-type": "text/html"}, index),
-                 API + "/release.json": _j({"track": "admin-api-core", "version": "7.4.1"})})
+                 API + "/health": _j({"status": "ok"})})
     out = ps.probe(ADM, stub)
     assert (out["surface"], out["line"]) == ("C", "7.x")
     assert any(e["host"] == API for e in out["evidence"])
 
 
-def test_admin_web_without_reachable_api_is_spa():
-    stub = Stub({ADM + "/release.json": _j({"release": "7.4.2"}), ADM + "/": (200, {"content-type": "text/html"}, "<html>no env</html>")})
+def test_admin_web_env_but_api_unreachable_is_spa():
+    index = '<html><script>window.__env={"apiUrl":"%s"}</script></html>' % API
+
+    class Flaky(Stub):
+        def __call__(self, url, timeout):
+            self.calls.append(url)
+            if url.startswith(API):
+                return None
+            status, headers, body = self.mapping.get(url, self.default)
+            return ps.Response(status, {k.lower(): v for k, v in headers.items()}, body)
+
+    stub = Flaky({ADM + "/health": _text("ok"), ADM + "/": (200, {"content-type": "text/html"}, index)})
     out = ps.probe(ADM, stub)
     assert (out["surface"], out["line"], out["branch_hint"]) == ("SPA", "7.x", None)
     assert out["unresolved"]
 
 
 def test_api_url_flag_overrides_hop():
-    stub = Stub({ADM + "/health": (200, {"content-type": "text/plain"}, "ok"),
+    stub = Stub({ADM + "/health": _text("ok"),
                  API + "/swagger/v1/swagger.json": _j({"paths": {"/api/user": {}}})})
     out = ps.probe(ADM, stub, api_url=API)
     assert (out["surface"], out["line"]) == ("C", ps.NOT7)
 
 
-def test_health_json_ok_is_c7():
-    assert ps.probe(API, Stub({API + "/health": _j({"status": "ok"})}))["surface"] == "C"
+def test_gated_new_main_is_decided_by_health_alone():
+    """On a new image /health is gate-exempt, so a fully gated public host still
+    answers /health 200 text ok -> B 7.x main; only /health and / are touched."""
+    stub = Stub({PUB + "/health": _text("ok")}, default=BASIC)
+    out = ps.probe(PUB, stub)
+    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
+    assert out["release"] is None
+    assert stub.calls == [PUB + "/health", PUB + "/"]
+
+
+def test_gated_old_main_is_decided_by_release_json():
+    """An old image has no /health (the gate 401s it) but /release.json is still
+    gate-exempt -> B 7.x main, release from the body."""
+    stub = Stub({PUB + "/release.json": _j({"version": "7.4.2", "release": "7.4.2"})}, default=BASIC)
+    out = ps.probe(PUB, stub)
+    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
+    assert out["release"] == "7.4.2"
+    assert stub.calls == [PUB + "/health", PUB + "/release.json"]
+
+
+def test_roxana_both_gated_is_retired_image_and_stops():
+    """The retired roxana image ships neither endpoint, so its gate intercepts
+    both: a Basic 401 on /health AND /release.json -> retired-roxana-image, stop."""
+    stub = Stub({}, default=BASIC)
+    out = ps.probe(PUB, stub)
+    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", ps.RETIRED)
+    assert out["release"] is None
+    assert stub.calls == [PUB + "/health", PUB + "/release.json"]
+
+
+def test_gate_on_one_stamp_with_the_other_unreachable_is_b7_undecided():
+    class Flaky(Stub):
+        def __call__(self, url, timeout):
+            self.calls.append(url)
+            if url.endswith("/release.json"):
+                return None
+            status, headers, body = self.mapping.get(url, self.default)
+            return ps.Response(status, {k.lower(): v for k, v in headers.items()}, body)
+
+    stub = Flaky({PUB + "/health": BASIC})
+    out = ps.probe(PUB, stub)
+    assert (out["surface"], out["line"], out["branch_hint"]) == ("B", "7.x", None)
+    assert out["unresolved"]
+
+
+def test_release_json_track_admin_api_core_when_health_absent():
+    """Transitional fallback: /health 404 but /release.json still names the admin-api."""
+    stub = Stub({API + "/release.json": _j({"track": "admin-api-core", "version": "7.4.1", "release": "7.4.1"})})
+    out = ps.probe(API, stub)
+    assert (out["surface"], out["line"], out["branch_hint"]) == ("C", "7.x", None)
+    assert out["release"] == "7.4.1"
+
+
+def test_release_populated_from_old_release_json_and_null_on_health_only():
+    populated = ps.probe(PUB, Stub({PUB + "/release.json": _j({"version": "7.4.1"})}))
+    assert (populated["surface"], populated["line"], populated["release"]) == ("B", "7.x", "7.4.1")
+    health_only = ps.probe(PUB, Stub({PUB + "/health": _text("ok")}))
+    assert health_only["release"] is None
 
 
 def test_swagger_variants():
@@ -1991,28 +2048,22 @@ def test_never_calls_tariffs_and_default_opener_sends_no_authorization():
     stub = Stub({PUB + "/api/isauthenticated": (401, {}, "")})
     ps.probe(PUB, stub)
     assert not any("/api/tariffs" in c for c in stub.calls)
-    req = ps.build_request(PUB + "/release.json")
+    req = ps.build_request(PUB + "/health")
     assert req.get_method() == "GET"
     assert not req.has_header("Authorization") and not req.has_header("Cookie")
 
 
 def test_evidence_is_redacted_including_host():
-    stub = Stub({PUB + "/release.json": (500, {"content-type": "text/plain"}, "db at 192.0.2.9 refused")})
+    stub = Stub({PUB + "/health": (500, {"content-type": "text/plain"}, "db at 192.0.2.9 refused")})
     assert "192.0.2.9" not in json.dumps(ps.probe(PUB, stub))
     assert "192.0.2.7" not in json.dumps(ps.probe("http://192.0.2.7", Stub({})))
 
 
-def test_empty_release_json_is_not_admin_web():
+def test_empty_release_json_is_b7_not_admin_web():
     stub = Stub({PUB + "/release.json": _j({})})
     out = ps.probe(PUB, stub)
-    assert out["surface"] != "SPA" and (PUB + "/") not in stub.calls
-
-
-def test_release_string_is_exposed():
-    out = ps.probe(PUB, Stub({PUB + "/release.json": _j({"version": "7.4.2", "release": "7.4.2"})}))
-    assert out["release"] == "7.4.2"
-    assert ps.probe(PUB, Stub({PUB + "/release.json": _j({"version": "7.4.1"})}))["release"] == "7.4.1"
-    assert ps.probe(PUB, Stub({PUB + "/release.json": (404, {}, "")}))["release"] is None
+    assert out["surface"] == "B" and out["surface"] != "SPA"
+    assert (PUB + "/") not in stub.calls
 
 
 def test_nothing_decisive_is_unknown():
@@ -2031,28 +2082,33 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'probe_surface'`
 ```python
 # plugins/eregulations/skills/eregulations-issue/scripts/probe_surface.py
 """Read-only identification of an eRegulations host: which surface (A/B/C/SPA)
-and whether it is on 7.x, following api-surfaces.md §1.1 (private knowledge base copy,
-7.4.2 tips). The line is one of three answers (spec D-3): "7.x", "not-7.x" or
-"unknown". The skill refuses anything that is not 7.x, so the probe never
-tells 4.x, 5.x and 6.x apart and sends no procedure, stylesheet or spelling
-request.
+and whether it is on 7.x, following api-surfaces.md §1.1 (private knowledge base
+copy) as re-grounded off the HTTP release stamps (spec Appendix E). The line is
+one of three answers (spec D-3): "7.x", "not-7.x" or "unknown". The skill
+refuses anything that is not 7.x, so the probe never tells 4.x, 5.x and 6.x
+apart and sends no procedure, stylesheet or spelling request.
 
 Rules that are not negotiable:
 - GET only, anonymous. No Authorization, no Cookie, no body, no redirects
   into a login page. Never /api/tariffs/* (rate-limited external proxy).
-- /release.json first: it is exempt from the Basic-auth gate, so it decides
-  `main` even on a fully gated host, and it exposes the running release.
-- A 401 carrying WWW-Authenticate: Basic realm="eRegulations" on any later
-  probe, after /release.json answered 404, is a Public image built from the
-  retired roxana branch (the only gated 7.x build without /release.json):
-  branch_hint RETIRED, stop. If /release.json was unreachable, say B 7.x with
-  branch_hint None and an unresolved note.
+- /health first: it is the new gate-exempt 7.x signal, so it answers through
+  the Basic-auth gate. JSON {"status":"ok"} -> C 7.x; text "ok" -> a new
+  Public B site or admin-web (disambiguated by window.__env). release is null
+  when only /health answered: the new images expose no release over HTTP.
+- /release.json next, only for images built before the stamp removal (still
+  gate-exempt on those): track admin-api-core -> C 7.x, a version on a public
+  host -> B 7.x main, {"release":...} -> admin-web (hop); it is the only source
+  of the release string.
+- A Basic 401 on BOTH /health and /release.json is a Public image built from
+  the retired roxana branch (it ships neither endpoint, so its gate intercepts
+  both): branch_hint RETIRED, stop. A gate on one endpoint with the other
+  merely unreachable -> B 7.x, branch_hint None, an unresolved note.
 - Admin-api, admin-web and public are three hosts. An admin-web answer makes
   the script read window.__env.apiUrl from the index and probe that host.
 - Not 7.x is one answer: swagger with api/user and no api/permission -> C
   not-7.x; a swagger or /Country shaped like ERegWebApi -> A not-7.x;
   /api/isauthenticated answering 200/401 without any 7.x signature -> B
-  not-7.x, provided /release.json actually answered (a 404); if it was
+  not-7.x, provided /release.json actually answered (a clean 404); if it was
   unreachable the absence proves nothing and the line stays unknown.
 - Undecidable stays undecided: line "unknown" + an `unresolved` entry. unknown
   is not 7.x: the gate then runs on the overlay's word (spec D-2).
@@ -2077,12 +2133,6 @@ RETIRED = "retired-roxana-image"
 LINES = ("7.x", NOT7, "unknown")
 USER_AGENT = "eregulations-issue-probe (read-only)"
 _ENV_RE = re.compile(r"window\.__env\s*=\s*(\{.*?\})", re.S)
-
-
-class _Decisive(Exception):
-    def __init__(self, surface, line, branch_hint):
-        super().__init__(surface)
-        self.surface, self.line, self.branch_hint = surface, line, branch_hint
 
 
 def build_request(url):
@@ -2112,12 +2162,19 @@ def _json(resp):
         return None
 
 
+def _is_basic(resp):
+    """A 401 carrying WWW-Authenticate: Basic realm="eRegulations" -- the gate."""
+    if resp is None or resp.status != 401:
+        return False
+    return 'basic realm="eregulations"' in resp.headers.get("www-authenticate", "").lower()
+
+
 class _Session:
     def __init__(self, opener, timeout):
         self.opener, self.timeout = opener, timeout
         self.evidence, self.unresolved = [], []
         self.release_status = {}   # base -> status of /release.json (None = unreachable)
-        self.release = None        # release string from the first 200 /release.json, for the FIXED gotchas
+        self.release = None        # release string from a 200 /release.json; None when only /health answered
 
     def get(self, base, path, note=""):
         url = base.rstrip("/") + path
@@ -2126,17 +2183,7 @@ class _Session:
             self.release_status[base] = None if resp is None else resp.status
         if resp is None:
             self.evidence.append({"host": redact.redact(base), "probe": path, "status": None, "conclusion": "unreachable or timeout"})
-            self.unresolved.append("%s: unreachable or timeout" % path)
             return None
-        www = resp.headers.get("www-authenticate", "")
-        if resp.status == 401 and 'basic realm="eregulations"' in www.lower():
-            if self.release_status.get(base) == 404:
-                self.evidence.append({"host": redact.redact(base), "probe": path, "status": 401,
-                                      "conclusion": "Basic-auth gate without /release.json -> image built from the retired roxana branch"})
-                raise _Decisive("B", "7.x", RETIRED)
-            self.evidence.append({"host": redact.redact(base), "probe": path, "status": 401, "conclusion": "Basic-auth pre-launch gate -> B 7.x"})
-            self.unresolved.append("/release.json was unreachable, so main vs a retired roxana image is undecided behind the Basic-auth gate")
-            raise _Decisive("B", "7.x", None)
         self.evidence.append({"host": redact.redact(base), "probe": path, "status": resp.status,
                               "conclusion": redact.redact((note + " " + resp.body[:200]).strip())})
         return resp
@@ -2146,26 +2193,73 @@ def _result(surface, line, branch_hint):
     return {"surface": surface, "line": line, "branch_hint": branch_hint}
 
 
-def _probe_host(s, base, api_url, allow_hop):
-    # 1. /release.json (exempt from the Basic-auth gate): the application answering
-    r = s.get(base, "/release.json")
-    j = _json(r) if r is not None and r.status == 200 else None
-    if isinstance(j, dict):
-        if s.release is None:
-            s.release = j.get("release") or j.get("version") or None
-        if j.get("track") == "admin-api-core":
-            return _result("C", "7.x", None)
-        if set(j) == {"release"}:
-            return _hop(s, base, api_url) if allow_hop else _result("SPA", "7.x", None)
+def _read_env_target(s, base, note):
+    """Read window.__env.apiUrl from an admin-web index (browser-reachable by design)."""
+    idx = s.get(base, "/", note=note)
+    m = _ENV_RE.search(idx.body) if idx is not None else None
+    env = _json(Response(200, {}, m.group(1))) if m else None
+    return env.get("apiUrl") if isinstance(env, dict) else None
+
+
+def _do_hop(s, target, allow_hop):
+    if not target:
+        s.unresolved.append("admin-web answered but no admin-api URL could be read from window.__env")
+        return _result("SPA", "7.x", None)
+    if not allow_hop:
+        return _result("SPA", "7.x", None)
+    out = _probe_host(s, target.rstrip("/"), None, allow_hop=False)
+    if out["surface"] in ("unknown", "SPA"):
+        s.unresolved.append("admin-api at the URL read from admin-web is unreachable")
+        return _result("SPA", "7.x", None)
+    return out
+
+
+def _health_ok(s, base, api_url, allow_hop):
+    """/health answered 200 text `ok`: a new Public B site or an admin-web SPA.
+    window.__env present -> admin-web -> hop; absent -> B 7.x main, release null."""
+    if api_url:
+        return _do_hop(s, api_url, allow_hop)
+    target = _read_env_target(s, base, "index (window.__env)")
+    if not target:
         return _result("B", "7.x", None)
-    # 2. /health
-    r = s.get(base, "/health")
-    if r is not None and r.status == 200:
-        j = _json(r)
+    return _do_hop(s, target, allow_hop)
+
+
+def _probe_host(s, base, api_url, allow_hop):
+    # 1. /health first -- the new gate-exempt 7.x signal.
+    h = s.get(base, "/health")
+    if h is not None and h.status == 200:
+        j = _json(h)
         if isinstance(j, dict) and j.get("status") == "ok":
             return _result("C", "7.x", None)
-        if r.body.strip() == "ok" or (isinstance(j, dict) and j.get("status") == "up"):
-            return _hop(s, base, api_url) if allow_hop else _result("SPA", "7.x", None)
+        if h.body.strip() == "ok":
+            return _health_ok(s, base, api_url, allow_hop)
+    health_basic = _is_basic(h)
+
+    # 2. /release.json -- transitional fallback for images built before the stamp removal.
+    r = s.get(base, "/release.json")
+    rj = _json(r) if r is not None and r.status == 200 else None
+    if isinstance(rj, dict):
+        if s.release is None:
+            s.release = rj.get("release") or rj.get("version") or None
+        if rj.get("track") == "admin-api-core":
+            return _result("C", "7.x", None)
+        if set(rj) == {"release"}:
+            if not allow_hop:
+                return _result("SPA", "7.x", None)
+            return _do_hop(s, api_url or _read_env_target(s, base, "admin-web index"), allow_hop)
+        return _result("B", "7.x", None)
+    release_basic = _is_basic(r)
+
+    # 2b. The Basic-auth gate ships on 7.x only. Which stamps it ate tells main from roxana.
+    if health_basic and release_basic:
+        s.evidence.append({"host": redact.redact(base), "probe": "/health + /release.json", "status": 401,
+                           "conclusion": "Basic gate on both stamps -> image built from the retired roxana branch"})
+        return _result("B", "7.x", RETIRED)
+    if health_basic or release_basic:
+        s.unresolved.append("a Basic-auth gate answered but the other stamp was unreachable, so main vs a retired roxana image is undecided")
+        return _result("B", "7.x", None)
+
     # 3. swagger: one 7.x signature, else one not-7.x reading per surface
     r = s.get(base, "/swagger/v1/swagger.json")
     j = _json(r) if r is not None and r.status == 200 else None
@@ -2185,7 +2279,7 @@ def _probe_host(s, base, api_url, allow_hop):
     j = _json(r) if r is not None and r.status == 200 else None
     if isinstance(j, dict) and "id" in j and "links" in j:
         return _result("A", NOT7, None)
-    # 5. Surface B without any 7.x signature (we only get here when /release.json was not 200)
+    # 5. Surface B without any 7.x signature (neither /health nor /release.json answered 200)
     r = s.get(base, "/api/isauthenticated")
     if r is not None and r.status in (200, 401):
         if s.release_status.get(base) is None:
@@ -2196,29 +2290,9 @@ def _probe_host(s, base, api_url, allow_hop):
     return _result("unknown", "unknown", None)
 
 
-def _hop(s, base, api_url):
-    target = api_url
-    if not target:
-        r = s.get(base, "/", note="admin-web index")
-        m = _ENV_RE.search(r.body) if r is not None else None
-        env = _json(Response(200, {}, m.group(1))) if m else None
-        target = env.get("apiUrl") if isinstance(env, dict) else None
-    if not target:
-        s.unresolved.append("admin-web answered but no admin-api URL could be read from window.__env")
-        return _result("SPA", "7.x", None)
-    out = _probe_host(s, target.rstrip("/"), None, allow_hop=False)
-    if out["surface"] in ("unknown", "SPA"):
-        s.unresolved.append("admin-api at the URL read from admin-web is unreachable")
-        return _result("SPA", "7.x", None)
-    return out
-
-
 def probe(base_url, opener=default_opener, api_url=None, timeout=5):
     s = _Session(opener, timeout)
-    try:
-        out = _probe_host(s, base_url.rstrip("/"), api_url, allow_hop=True)
-    except _Decisive as d:
-        out = _result(d.surface, d.line, d.branch_hint)
+    out = _probe_host(s, base_url.rstrip("/"), api_url, allow_hop=True)
     assert out["line"] in LINES
     out["release"] = s.release
     out["evidence"] = s.evidence
@@ -2244,7 +2318,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests**
 
 Run: `python3 -m pytest plugins/eregulations/skills/eregulations-issue/tests/test_issue_probe_surface.py -q`
-Expected: `19 passed`. `test_basic_401_after_release_404_is_retired_image_and_stops` depends on `_Session.get` recording the `/release.json` status **before** the Basic-auth check runs on the next probe; `test_gated_main_is_decided_by_release_json_alone` depends on `/release.json` being the very first request; `test_legacy_public_is_b_not_7x_without_extra_requests` proves the probe stops at the first legacy signature instead of trying to tell legacy lines apart (spec D-3).
+Expected: `20 passed`. `test_roxana_both_gated_is_retired_image_and_stops` depends on `_probe_host` probing `/health` **then** `/release.json` and seeing a Basic `401` on both before any further request; `test_gated_new_main_is_decided_by_health_alone` depends on `/health` being the very first request and gate-exempt; `test_gated_old_main_is_decided_by_release_json` proves the transitional fallback still decides `main` when `/health` is gated; `test_legacy_public_is_b_not_7x_without_extra_requests` proves the probe stops at the first legacy signature instead of trying to tell legacy lines apart (spec D-3).
 
 - [ ] **Step 5: Commit**
 
@@ -2269,7 +2343,7 @@ git commit -m "feat(eregulations-issue): read-only surface/line probe (7.4.2 pro
 ```python
 # plugins/eregulations/skills/eregulations-issue/tests/test_issue_gate_cases.py
 """The spec's line rule (D-2) in code, exercised end-to-end through the
-router's real gates.py: a 200 from /release.json is the application answering
+router's real gates.py: a 200 from the app's health/stamp probe (/health, or /release.json on a pre-2026-09-11 image) is the application answering
 and decides the line; a probe that says not-7.x makes the gate block
 non-overridably whatever the overlay says; a probe that could not decide
 leaves the overlay's word standing; a feature is judged on
@@ -2398,7 +2472,7 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'gate_context'` (if in
 probe, applying the spec's line rule (D-2) in code (router Rule 1: no gate
 decided from prose).
 
-Line rule: a 200 from /release.json is the application itself answering, so
+Line rule: a 200 from the app's health probe (/health, or /release.json on a pre-2026-09-11 image) is the application itself answering, so
 when the probe decides, its answer is the line; the overlay keeps host and
 posture, never the line against a probe that answered.
   probe 7.x     -> version_major "7"; a lower overlay is reported as
@@ -2523,7 +2597,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the whole suite**
 
 Run: `python3 -m pytest plugins/eregulations/skills/eregulations-issue/tests -q`
-Expected: `82 passed` (14 validator + 11 redact + 12 table + 14 route + 19 probe + 12 gate cases, over the fixture overlay)
+Expected: `83 passed` (14 validator + 11 redact + 12 table + 14 route + 20 probe + 12 gate cases, over the fixture overlay)
 
 - [ ] **Step 5: Commit**
 
@@ -2531,7 +2605,7 @@ Expected: `82 passed` (14 validator + 11 redact + 12 table + 14 route + 19 probe
 git add plugins/eregulations/skills/eregulations-issue/scripts/gate_context.py plugins/eregulations/skills/eregulations-issue/tests/test_issue_gate_cases.py
 git commit -m "feat(eregulations-issue): gate context with the line rule
 
-A 200 from /release.json is the application answering: the probe decides the
+A 200 from the app's health probe (/health, or /release.json on a pre-2026-09-11 image) is the application answering: the probe decides the
 line, the overlay keeps host and posture. A not-7.x reading blocks
 non-overridably; an unknown one leaves the overlay's word standing."
 ```
@@ -2682,8 +2756,10 @@ evaluation ran):
 - **Bug, `host_posture: warn`** → say the host is degraded; continue read-only.
 - **Bug, `unsupported_version: block`** on this first pass (the overlay records
   a legacy version) → note it; Step 5 re-evaluates with the probed line, which
-  is the reading that decides (a `200` from `/release.json` is the application
-  answering; a stale overlay does not refuse a host that answers 7.x).
+  is the reading that decides (a `200` from the application's health/stamp probe
+  — `/health`, or `/release.json` on an image built before the stamp removal —
+  is the application answering; a stale overlay does not refuse a host that
+  answers 7.x).
 - **Feature** → `gates.json` holds the single `unsupported_version` decision,
   `pass` by construction (a feature is always 7.x). Record
   `fleet.source_silent: ["no instance probed (feature)"]`; never copy a gate
@@ -2705,16 +2781,20 @@ python3 "$PLUGIN/skills/eregulations-issue/scripts/probe_surface.py" \
 What the probe does and does not do: GET only, anonymous, no redirects into a
 login page, never `/api/tariffs/*`. It answers one question — is this host on
 7.x, and which surface — with `line` ∈ `7.x` | `not-7.x` | `unknown`; it never
-tells legacy lines apart. `/release.json` goes first and is exempt from the
-Basic-auth gate, so a gated `main` is decided by it alone. A Basic `401` after
-`/release.json` answered `404` means an image built from the retired roxana
-branch: `branch_hint: retired-roxana-image`, and Step 5 will return the
-`WONT_FIX` gotcha (redeploy from `channel/stable`, never patch that branch).
-An admin-web host makes it read `window.__env.apiUrl` and probe the admin-api.
-`release` carries the running release when `/release.json` answered (the
-`FIXED` gotcha in Step 5 compares it with 7.4.2). When nothing decisive
-answered it says `unknown` and names what did not answer in `unresolved`;
-never pick a line yourself.
+tells legacy lines apart. `/health` goes **first**: it is the new gate-exempt
+7.x signal (spec Appendix E), so a gated `main` is decided by `/health` `200`
+alone — JSON `{"status":"ok"}` → C, text `ok` → B (or an admin-web hop).
+`/release.json` is only a transitional fallback for images built before the
+stamp removal. A Basic `401` on **both** `/health` and `/release.json` means an
+image built from the retired roxana branch (it ships neither endpoint):
+`branch_hint: retired-roxana-image`, and Step 5 will return the `WONT_FIX`
+gotcha (redeploy from `channel/stable`, never patch that branch). An admin-web
+host makes it read `window.__env.apiUrl` and probe the admin-api. `release`
+carries the running release only when an old `/release.json` answered; it is
+**`null` on the new images**, so the `FIXED` gotcha in Step 5 gets the release
+from the operator command `eregulations instance show <slug>`, not from the
+probe. When nothing decisive answered it says `unknown` and names what did not
+answer in `unresolved`; never pick a line yourself.
 
 - `line: not-7.x` → the host is not on 7.x. Finish Step 5's second gate pass
   (it records the refusal from `gates.py`, not from prose) and refuse there;
@@ -2786,12 +2866,16 @@ knowledge base repository — nothing to copy by hand. Read `route.json`:
   `null` on a tie; say so in the ticket, do not invent a path.
 - `closing_state_hint` set → a known non-defect: `NOT_A_BUG` (the Basic-auth
   pre-launch gate), `FIXED` (a B 7.x defect fixed on `main` between
-  2026-09-05 and 2026-09-11 — read the release from `/release.json`; older
-  than 7.4.2 means redeploy, not a ticket; 7.4.2+ still reproducing is a
-  regression you file **with the release in the title**), or `WONT_FIX`
-  (retired roxana image — redeploy from `channel/stable`). The release to
-  compare is `probe.json`'s `release`; `null` means `/release.json` did not
-  answer and the gotcha cannot be applied — file as a normal ticket and say so.
+  2026-09-05 and 2026-09-11 — determine the running release with the operator
+  command `eregulations instance show <slug>` (the release is no longer served
+  over HTTP); older than 7.4.2 means redeploy, not a ticket; 7.4.2+ still
+  reproducing is a regression you file **with the release in the title**), or
+  `WONT_FIX` (retired roxana image — redeploy from `channel/stable`). The
+  release to compare comes from `eregulations instance show <slug>`;
+  `probe.json`'s `release` is populated only when an old image answered
+  `/release.json`, and is `null` on the new images. If the operator cannot
+  supply a release, treat a still-reproducing `FIXED` defect as a regression
+  and file it with whatever release is available — do not silently drop it.
   Carry the hint into `closing_state`, emit and validate (Steps 7–8); Step 8
   stops there and nothing is filed, except the regression case, which clears
   `closing_state` back to `null` and continues.
@@ -3133,7 +3217,7 @@ uv run --python 3.13 --with pytest python -m pytest plugins/eregulations/skills 
 uv run --python 3.9 python -m compileall plugins/eregulations -q
 uv run --python 3.13 python scripts/validate-plugins.py 2>&1 | grep -cE "eregulations"
 ```
-Expected: `R + 19 + 82` passed on both, with R from Task 0 Step 3 — `208 passed` while PR #76 is not in `main` (107 router), `211 passed` once it is (110 router); 19 langadmin and 82 this skill over the fixture overlay; compileall silent; the last command prints `0` (and the validator's own summary line appears on stderr, proving it ran under 3.13).
+Expected: `R + 19 + 83` passed on both, with R from Task 0 Step 3 — `209 passed` while PR #76 is not in `main` (107 router), `212 passed` once it is (110 router); 19 langadmin and 83 this skill over the fixture overlay; compileall silent; the last command prints `0` (and the validator's own summary line appears on stderr, proving it ran under 3.13).
 
 If `uv` is not installed, run the same suites with `python3 -m pytest plugins/eregulations/skills -q` and record which interpreter ran in the commit message.
 
@@ -3144,14 +3228,14 @@ EREG_DEFECTS_REAL=1 python3 -m pytest plugins/eregulations/skills/eregulations-i
 python3 -c "import json,os;c=json.load(open(os.path.expanduser('~/.ereg/defects.cache.json')));print(c['sha'], len(c['data']['rules']))"
 ```
 
-Expected: `82 passed` over the fetched overlay (30 rules = 3 public + 27 fetched, 29 corpus entries = 2 gotchas + 27 fetched), and the second line prints the blob sha and `27`. Confirm `git status --short` shows nothing under `~/.ereg` (it is outside the tree) and that `grep -rlE "defects\.(local|cache)" plugins/eregulations/skills/eregulations-issue` lists only `rules.py`, `SKILL.md`, the README and the table test.
+Expected: `83 passed` over the fetched overlay (30 rules = 3 public + 27 fetched, 29 corpus entries = 2 gotchas + 27 fetched), and the second line prints the blob sha and `27`. Confirm `git status --short` shows nothing under `~/.ereg` (it is outside the tree) and that `grep -rlE "defects\.(local|cache)" plugins/eregulations/skills/eregulations-issue` lists only `rules.py`, `SKILL.md`, the README and the table test.
 
 - [ ] **Step 4: Update the README's Verified block**
 
 Append to the bullet list in `## Verified (2026-08-26)` of `plugins/eregulations/README.md`:
 
 ```markdown
-- 2026-09-11, `eregulations-issue` added: `python -m pytest plugins/eregulations/skills -q` — <R + 19 + 82, the number actually observed: 208 without PR #76, 211 with it> passed on 3.9 and 3.13 (82 in `eregulations-issue/tests`, over the fixture overlay; the same 82 over the overlay fetched from the private knowledge base with `EREG_DEFECTS_REAL=1`).
+- 2026-09-11, `eregulations-issue` added: `python -m pytest plugins/eregulations/skills -q` — <R + 19 + 83, the number actually observed: 209 without PR #76, 212 with it> passed on 3.9 and 3.13 (83 in `eregulations-issue/tests`, over the fixture overlay; the same 83 over the overlay fetched from the private knowledge base with `EREG_DEFECTS_REAL=1`).
 ```
 
 - [ ] **Step 5: Commit and open the PR**
@@ -3164,10 +3248,10 @@ gh pr create --title "eregulations 0.3.0: eregulations-issue skill" --body-file 
 Adds the `eregulations-issue` skill (bugfix dispatch target of `ereg-router`) and `/eregulations:issue`, for 7.x instances only.
 
 - resolve → gate → probe → ground → qualify → emit → validate → disprove → file; no host contact before `host_posture` passes; a host that is not on 7.x is refused, never ticketed
-- `probe_surface.py` (GET only, three hosts, `/release.json` first and gate-exempt, retired roxana images detected, `7.x` / `not-7.x` / `unknown`, release exposed), `rules.py` (public gotchas plus the defect overlay fetched from the private overlays repository with `gh`, cached, local file as a manual fallback), `route.py` (deterministic, `overlay_ref`), `redact.py` (evidence and URL), `validate_ticket.py` (schema 1.1, fleet allowlist), `gate_context.py` (the line rule: the application's own answer decides)
+- `probe_surface.py` (GET only, three hosts, `/health` first and gate-exempt with `/release.json` a transitional fallback, retired roxana images detected, `7.x` / `not-7.x` / `unknown`, release exposed only from an old `/release.json`), `rules.py` (public gotchas plus the defect overlay fetched from the private overlays repository with `gh`, cached, local file as a manual fallback), `route.py` (deterministic, `overlay_ref`), `redact.py` (evidence and URL), `validate_ticket.py` (schema 1.1, fleet allowlist), `gate_context.py` (the line rule: the application's own answer decides)
 - a read-only disprove pass by a fresh subagent before the filing question
 - router 0.2.0: `bugfix` dispatches in every lane with no blocking gate
-- 82 new tests over the fixture overlay, the same 82 over the fetched overlay; spec: docs/superpowers/specs/2026-09-11-eregulations-issue-skill-design.md
+- 83 new tests over the fixture overlay, the same 83 over the fetched overlay; spec: docs/superpowers/specs/2026-09-11-eregulations-issue-skill-design.md
 - the defect rules themselves are not in this PR: they live in the private repository and are read at runtime (spec Appendix D)
 PR
 ```
@@ -3178,9 +3262,10 @@ PR
 
 - **Spec coverage:** Steps 1–10 of the spec map to Tasks 1–7; schema 1.1 → Task 1; routing table, overlay fetch and keyword discipline → Tasks 3–4; probe contract (D-3) → Task 5; line rule (D-2) and feature gating → Task 6; router wiring → Task 8; manifests and verification → Task 9. The spec's `security` label and `PRIVATE` check → Task 7 Step 9. Redaction patterns → Task 2. The 7.x-only refusal (D-1) → Task 7 Steps 1, 3, 4 and 5.
 - **Type consistency:** `probe()` returns `surface/line/branch_hint/release/evidence/unresolved` with `line` ∈ `7.x | not-7.x | unknown`; `route.route()` reads `surface/line/branch_hint` from that file and refuses a `not-7.x` line (the skill refuses before routing); `gate_context.build_bug_context(resolve, probed_line)` reads `probe.json["line"]`; `rules.load_overlay()["ref"]` feeds `route.json["overlay_ref"]` and `qualification.overlay_ref`; `validate_ticket` enums are the source for `test_issue_routing_table.py` (`vt.SURFACES`, `vt.LINES`).
-- **Counts:** test totals per task are 14, 11, 12, 14, 19, 12 = 82 (plus router R — 107 on `main` today, 110 once PR #76 is merged — and langadmin 19 = 208 or 211); adjust the expected number in Task 6 Step 4 and Task 9 Step 3 if a test is added during execution, and say so in the commit.
+- **Counts:** test totals per task are 14, 11, 12, 14, 20, 12 = 83 (plus router R — 107 on `main` today, 110 once PR #76 is merged — and langadmin 19 = 209 or 212); adjust the expected number in Task 6 Step 4 and Task 9 Step 3 if a test is added during execution, and say so in the commit.
 - **Adversarial review of the plan (2026-09-11, two reviewers, one of them executed Tasks 1–6 in a scratch tree: 61/61 green on 3.9 and 3.13 before these amendments):** Task 0 added for the uncommitted router baseline and the credential scrub; stale sibling counts (110/19) corrected; evidence `host` redacted; feature gate filtered by `--honour feature` instead of prose; IPv6 regex no longer eats log timestamps; env-var stem anchored; `validate-plugins.py` run under 3.13; `fleet.drift` boolean enforced; credential test made structural; visibility check stops any ticket on a non-private repo; `--upgrade` repeated on the second pass; the legacy-line inference from absences was named in `unresolved` (superseded by revision D: the probe no longer infers a legacy line at all); lane detection no longer SSHes before the gate; `$RUN`/`$ROOT` assigned in every block; unverifiable `read_via` paths pointed at documented directories with `git ls-tree`; router row hands over `resolve.json` only; Kimi regeneration scoped to what the generator really touches; CI `REQUIRED_SUITES` updated; RFC 5737 test addresses. Second execution pass on the amended plan: 64/66 green; the two failures (raw base URL in the fallback `unresolved` string; credential-pair regex matching an XML transform attribute) fixed with one line each, counts corrected to 9/66/195.
 - **Third review (2026-09-11, spec Appendix C):** the defect rules and the corpus were lifted out of this document into a private overlay file (the repository is public); the plan then carried three gotchas, `surface-defaults.json`, a synthetic fixture overlay and `rules.py`; attribution trailers removed; `allowed-tools` scoped; URL query redaction and `strip_query`; `release` in the probe; a remedy-rewriting `--annotate` pass (superseded by revision D: the line rule makes a stale overlay a `pass` with `version_mismatch`, so there is no remedy to rewrite); Step 8b disprove; router row qualified with "no blocking gate"; a rebase recipe for the squash-merge case (superseded: the branch now starts from `main` and Task 0 is a plain rebase); counts 68/197 → 77/206.
 - **Re-alignment on PR 79 (2026-09-11):** `api-surfaces.md` re-read at the 7.4.2 tips changed the branch model (7.x = `main` everywhere, roxana retired, no default credential, `/release.json` gate-exempt, `/Home/CustomCss` on `main`, five B 7.x defects fixed). Task 0 rewritten as a merge of PR 79's branch; Tasks 3–5 rewritten: 49 rules with `version_branch` always from the rule and a per-line branch map (`version_branch_by_line`) for multi-line rules, five `FIXED` gotchas and one `WONT_FIX` retired-image gotcha, probe decision order `/release.json` → gate → CustomCss/usecontactpage/requirements; `--reporter-branch` and the `branch` filter removed; counts 12/18 → 68/197. **Superseded by revision D:** the per-line branch map, the legacy probe branches (`--procedure-id`, `/Home/CustomCss`, `usecontactpage`, the `requeriments` spelling probe) and the legacy rules are gone; every rule is `main`.
 - **Revision D (2026-09-11, spec Appendix D):** 7.x only — a `not-7.x` host is refused with no override, no `audit.py` entry and no Jira comment (D-1); the legacy sample and the legacy fixture rule dropped, `line` enum `7.x, unknown`, validator accepts `qualification.overlay_ref` and `qualification.disprove`; the line rule replaced the "more restrictive of overlay and probe" merge — the probe decides when `/release.json` answered, `gate_context.line_major` sends the literal `not-7` so `gates.py` blocks non-overridably, a lower overlay is a `pass` with `version_mismatch` (D-2); the probe answers `7.x | not-7.x | unknown` and lost `--procedure-id` and the legacy discriminators (D-3); every rule and `surface-defaults.json` is `main`, no line dimension, Surface A and `eRegulations-4.0-API` leave the routing targets (D-4); `rules.py` fetches `defects.json` from the private repository with one `gh api` call (blob sha and content in one response), caches it, falls back to the cache then a local file, and names the reason when nothing loads; `overlay_ref` in `route.json` and the ticket (D-5); Task 0 waits for PR 79's scrubbed revision to be squash-merged into `main` and never merges its branch, whose history still holds the old section 8 (D-6); the private repository was renamed to `eregulations-knowledge-base` and the public branch was recreated from `main` as `feature/eregulations-issue-skill` without the earlier history, so no commit hash of this repository appears in the plan; the router baseline is R = 107 on `main` today, 110 once PR #76 is merged; the disprove pass, scoped `allowed-tools`, URL redaction, `release`, router hand-off and lane-after-resolution kept (D-7); counts 77/206 → 82/211; estimate about 3 h.
+- **Re-grounding off the stamps (2026-09-11, spec Appendix E):** `eRegulations-deploy` `feature/release-stamp-off-http` removes `/release.json`, `/version.json` and the `Server: Kestrel` header from the 7.x images and adds a gate-exempt `/health`, so the probe is re-keyed on `/health` (first) with `/release.json` a transitional fallback for older images. `probe_surface.py` rewritten to the `/health`-first decision tree: JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop), a Basic `401` on **both** stamps → `retired-roxana-image`, a gate on one with the other unreachable → B 7.x `branch_hint: null` + `unresolved`. `release` is `null` on the new images, so the `FIXED`/regression call takes the release from the operator command `eregulations instance show <slug>`, not from the probe; the `FIXED`-gotcha remedy is rewritten in the spec (Step 4, D-2, D-3, ~line 335, Appendix E) and the plan (Task 5 code + tests, SKILL.md Step 4/Step 5). The probe suite grows 19 → 20; counts 82/211 → **83/212** (83 skill, R 110, langadmin 19; 209 while PR #76 is out). No change to the routing table, overlay/fetch logic, gates, redaction or the validator. Dependency handshake: `eRegulations-deploy` plan Task 6 gates their app-image change on this skill accepting both signals.
 - **D-9 (2026-09-11):** `api-surfaces.md` moved whole into the private knowledge base; PR 79 closed and replaced by #81. Task 0 now waits for #81 and checks that the knowledge base is readable; the credential-literal check on the public reference is gone; every citation names the reference instead of a repository path.
