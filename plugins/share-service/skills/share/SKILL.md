@@ -9,8 +9,8 @@ description: >
 license: UNCTAD-Internal
 allowed-tools: Read, Write, Edit, Bash(curl *), Bash(cat *), Bash(ls *)
 metadata:
-  version: "1.4.0"
-  version-date: "2026-09-10"
+  version: "1.5.0"
+  version-date: "2026-09-11"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[list | <file-path>]"
 ---
@@ -54,8 +54,9 @@ Every document has exactly one sharing mode, set with `share_mode` on create or 
 | `password` | no | anyone holding the URL **and** the password |
 | `owner` | no | the publisher token, the management secret, or any share-service admin |
 
-**Default to `link`.** It matches what people expect from a shared link, and it is
-what the older `"visibility": "private"` always meant.
+**`link` is the default** when `share_mode` is omitted. It matches what people
+expect from a shared link, and it is what the retired `"visibility": "private"`
+always meant.
 
 **`password` requires a `password` field** of at least 6 characters. The reader opens
 the URL, gets a prompt, enters the password once, and stays unlocked on that browser
@@ -73,21 +74,26 @@ cannot send either by clicking a link — so a colleague you send the URL to get
 an admin session overrides per-document access. Use `owner` for your own reference
 material; do not treat it as private from the people who run the service.
 
-### Legacy `visibility`
+### `visibility` is retired on writes
 
-`"visibility"` is still accepted: `"public"` maps to `public`, `"private"` maps to
-`link`. **Send either `share_mode` or `visibility`, never both** — sending both
-returns `400 give either 'share_mode' or 'visibility', not both`.
+**Never send `visibility` on a publish or update.** All three write endpoints
+reject it:
 
-**`visibility` cannot move a `password` or `owner` document.** It has no way to
-express those modes, so a `PATCH` sending it against one is refused with
-`400 use 'share_mode' to change the sharing of a password-protected or owner-only
-document`. Use `share_mode` for those — including to unlist them, which is the case
-most likely to catch you out: `{"visibility":"private"}` looks like the obvious way
-to say "unlist this", and it is the one thing that will not work.
+```
+400 'visibility' is no longer accepted on writes — use 'share_mode': public, link, password or owner
+```
 
-Prefer `share_mode` in new calls. Every response reports both fields, so you can
-confirm which mode a document actually ended up in.
+It is still **reported** in every response — `public` when the document is listed,
+`private` otherwise — so you can read it, just never write it. Use `share_mode` for
+anything that changes sharing, including unlisting: `{"share_mode":"link"}`, not
+`{"visibility":"private"}`.
+
+The reason matters if you are tempted to work around it. A two-valued flag cannot
+express four modes, and every attempt to map it produced a case where a caller
+asked for protection, did not get it, and saw a `200`. The field is refused rather
+than translated so that cannot recur.
+
+Omitting `share_mode` on a publish defaults to `link`.
 
 ## Commands
 
@@ -168,12 +174,10 @@ To replace the content of an already-published document **at the same URL** (ins
 - Send `short_code` set to the document's id-or-slug, and either the management secret (`sk_...`) or the publisher Bearer token, to `POST /api/documents` (or `POST /upload`). On `POST /api/documents` the JSON field is named `secret`; on the `POST /upload` form the field is named `management_secret`.
 - **Overwrites**: `title`, `content`, `format`.
 - **Preserves**: `created_at`, `project`, `doc_type`, `agent_session`, `tags`, `pinned` (and the publisher).
-- **An update never weakens sharing.** `"visibility": "private"` unlists a public
-  document, and `"visibility": "public"` publishes one that was already open — but
-  neither flag can loosen a `password` or `owner` document. That is deliberate: a
-  stale `"visibility": "public"` left in a script would otherwise strip the gate and
-  return success. To loosen a restricted document you must say so with `share_mode`,
-  which also clears any stored password.
+- **An update never changes sharing** unless you pass `share_mode`. There is no
+  longer any field that could imply a different mode than the document already
+  has, so re-uploading content is always safe. Passing `share_mode` does change
+  it, and moving away from `password` clears the stored password.
 - Re-uploading a password-protected document does **not** require re-supplying the
   password; the existing one keeps working.
 - Returns `200` with `{id, url, share_mode, visibility, created_at, updated_at}`. The URL is unchanged; only the content is replaced.
@@ -275,7 +279,7 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
     "title": "Tanzania Migration Report (v2)",
     "format": "md",
     "content": "# Migration Report — updated\n...",
-    "visibility": "public"
+    "share_mode": "public"
   }'
 # -> 200 {"id":"tz-migration-report","url":".../d/tz-migration-report","share_mode":"public","visibility":"public","created_at":"...","updated_at":"..."}
 ```
@@ -303,14 +307,12 @@ curl -s -X POST https://share.eregistrations.dev/api/documents \
   - `give either 'share_mode' or 'visibility', not both`
   - `password required for the password share mode`
   - `password too short` (minimum 6 characters)
-  - `'password' requires share_mode 'password'` — on **publish**, sent a
-    `password` alongside `visibility` or with no mode at all
-  - `password only applies to the password share mode` — on **`PATCH`**, the same
-    mistake, and also sending a `password` with a mode that is not `password`.
-    The password is refused rather than accepted-and-ignored, so a 200 here
-    always means the protection you asked for was actually applied
+  - `password only applies to the password share mode` — sent a `password` with a
+    mode that is not `password`. It is refused rather than accepted-and-ignored,
+    so a `200` always means the protection you asked for was applied
   - `share mode invalid` — must be `public`, `link`, `password` or `owner`
-  - `use 'share_mode' to change the sharing of a password-protected or owner-only document` — sent a bare `visibility` against a restricted document
+  - `'visibility' is no longer accepted on writes — use 'share_mode': …` — sent
+    the retired field on a publish or update
 - **401 on `GET /d/{id}`**: the document is password-protected and this request has not unlocked it. That is the reader's prompt, not an error in your call.
 - **404 on a document you just published**: you probably used `share_mode: "owner"`, which hides the document from everyone without a credential. Re-publish as `link` or `password` if someone else needs to read it.
 - **403**: On an update-in-place, the caller doesn't own the document — use the correct `secret` or publisher token.
