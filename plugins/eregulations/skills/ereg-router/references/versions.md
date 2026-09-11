@@ -15,9 +15,9 @@
 | Line | What it is | Status |
 | --- | --- | --- |
 | **4.x** | The original stack: `eRegulations-4.0-Admin`, `eRegulations-4.0-Public`, `eRegulations-4.0-API`. ASP.NET + SQL Server, deployed on Windows/IIS. Admin's `Unctad.eRegulations.Library` originates here and is still the project every later line references. | legacy |
-| **5.x** | Adds the Angular admin SPA (`eRegulations-5.0-Admin-SPA`) in front of the 4.x Admin API. The server-side code is still the 4.x line. | legacy |
+| **5.x** | The TradePortal variant of the 4.x stack (`tradeportal` branches): filters, new design, database changes, tariff calculation. Still .NET Framework on Windows/IIS. The Angular admin SPA (`eRegulations-5.0-Admin-SPA`) is versioned independently and talks to the .NET 8 `WebAppCore` Admin API — the 4.x/5.x Admin itself is server-rendered WebForms with no HTTP API (`api-surfaces.md` §4.1). | legacy |
 | **6.x** | The .NET 8 / EF Core 8 database-layer rework, carried on branches such as `database-layer-update-NET8`, and the point at which the stack becomes containerisable. | transitional |
-| **7.x** | The current line. The only line new work may land on. | **supported** |
+| **7.x** | The current line. The only line new work may land on. Branch `main` in every repository since 2026-09-07 (`master` stays 4.x); `channel/stable` in `eRegulations-deploy` pins the release tuple. | **supported** |
 
 ## The policy
 
@@ -67,11 +67,13 @@ deleted from this design.
 
 ## Repositories
 
+Which HTTP API each repository exposes, per line, is in `api-surfaces.md`.
+
 | Repository | Holds |
 | --- | --- |
 | `eRegulations-4.0-Admin` | the admin server and `Unctad.eRegulations.Library` — the project everything else references |
 | `eRegulations-4.0-Public` | the public portal / TradePortal web app |
-| `eRegulations-4.0-API` | the API surface |
+| `eRegulations-4.0-API` | the standalone read-only API (`ERegWebApi`) for external systems — exists on the 4.x and 6.x lines only, is not part of 7.x, and is not deployed by `eRegulations-deploy`; the 7.x HTTP APIs are the Public site's embedded `/api/*` and the Admin API (`api-surfaces.md`) |
 | `eRegulations-5.0-Admin-SPA` | the Angular admin SPA |
 | `eRegulations-Statistics` | the statistics library referenced by the public build |
 | `eRegulations-deploy` | compose files, per-instance content, and deployment docs |
