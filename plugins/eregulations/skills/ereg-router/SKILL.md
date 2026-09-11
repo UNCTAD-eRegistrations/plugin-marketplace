@@ -3,8 +3,8 @@ name: ereg-router
 description: Use when handling any eRegulations or TradePortal request — a country portal throwing errors or refusing to start, a deploy or redeploy of Admin or Public, an upgrade to 7.x, a code change across the Admin and Public repos, a new instance, or a missing or wrong translation label. Classifies the request, resolves which instance and version it concerns, detects what this environment can actually do right now, and evaluates the safety gates before any work starts. Also reachable explicitly as /eregulations:ereg.
 allowed-tools: Read, Bash, Grep, Glob, Skill
 metadata:
-  version: "0.1.0"
-  version-date: "2026-08-26"
+  version: "0.1.1"
+  version-date: "2026-09-11"
   argument-hint: "[request] or --dry-run [request]"
 ---
 
@@ -61,6 +61,24 @@ remedy is "upgrade the instance to 7.x as part of this change".
 Ask **one** question only when the *primary* is genuinely ambiguous and the two
 candidates dispatch differently (`deploy` versus `upgrade`, typically). Do not
 pick for the user, and do not ask about secondaries — add them.
+
+**If the request is about an HTTP API — calling, debugging, extending or
+migrating endpoints — read §1 of `api-surfaces.md` before classifying.** The
+reference lives in the private knowledge base; fetch it with
+`gh api repos/UNCTAD-eRegistrations/eregulations-knowledge-base/contents/api-surfaces.md -H 'Accept: application/vnd.github.raw'`.
+No access → say so and continue without it; never reconstruct it from memory.
+The platform has three unrelated surfaces (the standalone ERegWebApi, the Public
+site's embedded `/api/*`, and the Admin API behind the SPA), and which of them a
+version line even has differs: ERegWebApi is not part of 7.x. The reference
+identifies the *surface and contract* the work targets, from the checkout's shape
+(readable at any time) or from a live probe (only after Step 2 has resolved the
+host — an unresolved `posture` blocks, exactly as in Step 4 — with a `posture`
+that is not `compromised`, and Step 3 has a lane that reaches it) — never from a
+repository name. The gate `version` still comes from Step 2; a
+probe that disagrees with it does not overwrite `version` — report the
+disagreement to the user next to the resolution, and let the gates run on the
+resolved value. The reference's per-version contracts, endpoint indexes and
+known-defect list then apply to the work, still subject to the gates below.
 
 **`translations` covers two unrelated systems — split them here, not later.**
 This router's only `translations` target is the eRegulations *legacy* Admin
@@ -330,3 +348,4 @@ Use it before any consequential run, and to debug a misroute.
 | `references/resolution.md` | resolution order, overlay schema, drift, unresolved |
 | `references/versions.md` | version lineage and the 7.x-only policy (a human hint) |
 | `references/access.md` | credential and VPN profile **names** — no addresses, no values |
+| `api-surfaces.md` in `eregulations-knowledge-base` (private; fetch as in Step 1) | the three HTTP API surfaces per version line: how to identify which one you face, per-version contracts (auth, language, casing), endpoint indexes, recipes, migration notes, known defects (a code-derived hint, not a source of truth) |
