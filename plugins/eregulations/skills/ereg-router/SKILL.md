@@ -68,10 +68,12 @@ The platform has three unrelated surfaces (the standalone ERegWebApi, the Public
 site's embedded `/api/*`, and the Admin API behind the SPA), and which of them a
 version line even has differs: ERegWebApi is not part of 7.x. The reference
 identifies the *surface and contract* the work targets, from the checkout's shape
-(readable at any time) or from a live probe (only once Step 3 has a lane that
-reaches the host) — never from a repository name. The gate `version` still comes
-from Step 2; a probe that disagrees with it is drift to report (`resolution.md`),
-not a correction. The reference's per-version contracts, endpoint indexes and
+(readable at any time) or from a live probe (only after Step 2 has resolved the
+host with a `posture` that is not `compromised` and Step 3 has a lane that reaches
+it) — never from a repository name. The gate `version` still comes from Step 2; a
+probe that disagrees with it does not overwrite `version` — report the
+disagreement to the user next to the resolution, and let the gates run on the
+resolved value. The reference's per-version contracts, endpoint indexes and
 known-defect list then apply to the work, still subject to the gates below.
 
 **`translations` covers two unrelated systems — split them here, not later.**
