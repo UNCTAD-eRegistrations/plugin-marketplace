@@ -91,7 +91,7 @@ python3 -m pytest plugins/eregulations/skills/merged-eregulations-translations-i
 git status --short   # expect only the untracked .claude/ directory
 ```
 
-Write the router number down — call it **R** (107 or 110, depending on whether PR #76 is in `main`). Tasks 8 and 9 state their expected totals as `R + 19 + 83`; if R is anything else, say so in that task's commit message.
+Write the router number down — call it **R** (107 or 110, depending on whether PR #76 is in `main`). Tasks 8 and 9 state their expected totals as `R + 19 + 84`; if R is anything else, say so in that task's commit message.
 
 ---
 
@@ -1917,6 +1917,18 @@ def test_admin_web_health_text_hops_via_env():
     assert any(e["host"] == API for e in out["evidence"])
 
 
+def test_admin_web_health_json_up_hops_via_env():
+    """admin-web /health is {"status":"up"} since deploy Task 9; it is admin-web,
+    not admin-api ({"status":"ok"}), so it must hop, not classify as C directly."""
+    index = '<html><script>window.__env={"apiUrl":"%s"}</script></html>' % API
+    stub = Stub({ADM + "/health": _j({"status": "up"}),
+                 ADM + "/": (200, {"content-type": "text/html"}, index),
+                 API + "/health": _j({"status": "ok"})})
+    out = ps.probe(ADM, stub)
+    assert (out["surface"], out["line"]) == ("C", "7.x")
+    assert any(e["host"] == API for e in out["evidence"])
+
+
 def test_admin_web_env_but_api_unreachable_is_spa():
     index = '<html><script>window.__env={"apiUrl":"%s"}</script></html>' % API
 
@@ -2232,6 +2244,10 @@ def _probe_host(s, base, api_url, allow_hop):
         j = _json(h)
         if isinstance(j, dict) and j.get("status") == "ok":
             return _result("C", "7.x", None)
+        if isinstance(j, dict) and j.get("status") == "up":
+            # admin-web nginx health (text `ok` on older images, {"status":"up"} since
+            # the deploy Task 9); never Public (text `ok`) nor admin-api ({"status":"ok"}).
+            return _do_hop(s, api_url or _read_env_target(s, base, "admin-web index"), allow_hop)
         if h.body.strip() == "ok":
             return _health_ok(s, base, api_url, allow_hop)
     health_basic = _is_basic(h)
@@ -2318,7 +2334,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests**
 
 Run: `python3 -m pytest plugins/eregulations/skills/eregulations-issue/tests/test_issue_probe_surface.py -q`
-Expected: `20 passed`. `test_roxana_both_gated_is_retired_image_and_stops` depends on `_probe_host` probing `/health` **then** `/release.json` and seeing a Basic `401` on both before any further request; `test_gated_new_main_is_decided_by_health_alone` depends on `/health` being the very first request and gate-exempt; `test_gated_old_main_is_decided_by_release_json` proves the transitional fallback still decides `main` when `/health` is gated; `test_legacy_public_is_b_not_7x_without_extra_requests` proves the probe stops at the first legacy signature instead of trying to tell legacy lines apart (spec D-3).
+Expected: `21 passed`. `test_roxana_both_gated_is_retired_image_and_stops` depends on `_probe_host` probing `/health` **then** `/release.json` and seeing a Basic `401` on both before any further request; `test_gated_new_main_is_decided_by_health_alone` depends on `/health` being the very first request and gate-exempt; `test_gated_old_main_is_decided_by_release_json` proves the transitional fallback still decides `main` when `/health` is gated; `test_legacy_public_is_b_not_7x_without_extra_requests` proves the probe stops at the first legacy signature instead of trying to tell legacy lines apart (spec D-3).
 
 - [ ] **Step 5: Commit**
 
@@ -3217,7 +3233,7 @@ uv run --python 3.13 --with pytest python -m pytest plugins/eregulations/skills 
 uv run --python 3.9 python -m compileall plugins/eregulations -q
 uv run --python 3.13 python scripts/validate-plugins.py 2>&1 | grep -cE "eregulations"
 ```
-Expected: `R + 19 + 83` passed on both, with R from Task 0 Step 3 — `209 passed` while PR #76 is not in `main` (107 router), `212 passed` once it is (110 router); 19 langadmin and 83 this skill over the fixture overlay; compileall silent; the last command prints `0` (and the validator's own summary line appears on stderr, proving it ran under 3.13).
+Expected: `R + 19 + 84` passed on both, with R from Task 0 Step 3 — `210 passed` while PR #76 is not in `main` (107 router), `213 passed` once it is (110 router); 19 langadmin and 83 this skill over the fixture overlay; compileall silent; the last command prints `0` (and the validator's own summary line appears on stderr, proving it ran under 3.13).
 
 If `uv` is not installed, run the same suites with `python3 -m pytest plugins/eregulations/skills -q` and record which interpreter ran in the commit message.
 
@@ -3235,7 +3251,7 @@ Expected: `83 passed` over the fetched overlay (30 rules = 3 public + 27 fetched
 Append to the bullet list in `## Verified (2026-08-26)` of `plugins/eregulations/README.md`:
 
 ```markdown
-- 2026-09-11, `eregulations-issue` added: `python -m pytest plugins/eregulations/skills -q` — <R + 19 + 83, the number actually observed: 209 without PR #76, 212 with it> passed on 3.9 and 3.13 (83 in `eregulations-issue/tests`, over the fixture overlay; the same 83 over the overlay fetched from the private knowledge base with `EREG_DEFECTS_REAL=1`).
+- 2026-09-11, `eregulations-issue` added: `python -m pytest plugins/eregulations/skills -q` — <R + 19 + 84, the number actually observed: 210 without PR #76, 212 with it> passed on 3.9 and 3.13 (83 in `eregulations-issue/tests`, over the fixture overlay; the same 83 over the overlay fetched from the private knowledge base with `EREG_DEFECTS_REAL=1`).
 ```
 
 - [ ] **Step 5: Commit and open the PR**
@@ -3262,10 +3278,10 @@ PR
 
 - **Spec coverage:** Steps 1–10 of the spec map to Tasks 1–7; schema 1.1 → Task 1; routing table, overlay fetch and keyword discipline → Tasks 3–4; probe contract (D-3) → Task 5; line rule (D-2) and feature gating → Task 6; router wiring → Task 8; manifests and verification → Task 9. The spec's `security` label and `PRIVATE` check → Task 7 Step 9. Redaction patterns → Task 2. The 7.x-only refusal (D-1) → Task 7 Steps 1, 3, 4 and 5.
 - **Type consistency:** `probe()` returns `surface/line/branch_hint/release/evidence/unresolved` with `line` ∈ `7.x | not-7.x | unknown`; `route.route()` reads `surface/line/branch_hint` from that file and refuses a `not-7.x` line (the skill refuses before routing); `gate_context.build_bug_context(resolve, probed_line)` reads `probe.json["line"]`; `rules.load_overlay()["ref"]` feeds `route.json["overlay_ref"]` and `qualification.overlay_ref`; `validate_ticket` enums are the source for `test_issue_routing_table.py` (`vt.SURFACES`, `vt.LINES`).
-- **Counts:** test totals per task are 14, 11, 12, 14, 20, 12 = 83 (plus router R — 107 on `main` today, 110 once PR #76 is merged — and langadmin 19 = 209 or 212); adjust the expected number in Task 6 Step 4 and Task 9 Step 3 if a test is added during execution, and say so in the commit.
+- **Counts:** test totals per task are 14, 11, 12, 14, 21, 12 = 84 (plus router R — 107 on `main` today, 110 once PR #76 is merged — and langadmin 19 = 209 or 212); adjust the expected number in Task 6 Step 4 and Task 9 Step 3 if a test is added during execution, and say so in the commit.
 - **Adversarial review of the plan (2026-09-11, two reviewers, one of them executed Tasks 1–6 in a scratch tree: 61/61 green on 3.9 and 3.13 before these amendments):** Task 0 added for the uncommitted router baseline and the credential scrub; stale sibling counts (110/19) corrected; evidence `host` redacted; feature gate filtered by `--honour feature` instead of prose; IPv6 regex no longer eats log timestamps; env-var stem anchored; `validate-plugins.py` run under 3.13; `fleet.drift` boolean enforced; credential test made structural; visibility check stops any ticket on a non-private repo; `--upgrade` repeated on the second pass; the legacy-line inference from absences was named in `unresolved` (superseded by revision D: the probe no longer infers a legacy line at all); lane detection no longer SSHes before the gate; `$RUN`/`$ROOT` assigned in every block; unverifiable `read_via` paths pointed at documented directories with `git ls-tree`; router row hands over `resolve.json` only; Kimi regeneration scoped to what the generator really touches; CI `REQUIRED_SUITES` updated; RFC 5737 test addresses. Second execution pass on the amended plan: 64/66 green; the two failures (raw base URL in the fallback `unresolved` string; credential-pair regex matching an XML transform attribute) fixed with one line each, counts corrected to 9/66/195.
 - **Third review (2026-09-11, spec Appendix C):** the defect rules and the corpus were lifted out of this document into a private overlay file (the repository is public); the plan then carried three gotchas, `surface-defaults.json`, a synthetic fixture overlay and `rules.py`; attribution trailers removed; `allowed-tools` scoped; URL query redaction and `strip_query`; `release` in the probe; a remedy-rewriting `--annotate` pass (superseded by revision D: the line rule makes a stale overlay a `pass` with `version_mismatch`, so there is no remedy to rewrite); Step 8b disprove; router row qualified with "no blocking gate"; a rebase recipe for the squash-merge case (superseded: the branch now starts from `main` and Task 0 is a plain rebase); counts 68/197 → 77/206.
 - **Re-alignment on PR 79 (2026-09-11):** `api-surfaces.md` re-read at the 7.4.2 tips changed the branch model (7.x = `main` everywhere, roxana retired, no default credential, `/release.json` gate-exempt, `/Home/CustomCss` on `main`, five B 7.x defects fixed). Task 0 rewritten as a merge of PR 79's branch; Tasks 3–5 rewritten: 49 rules with `version_branch` always from the rule and a per-line branch map (`version_branch_by_line`) for multi-line rules, five `FIXED` gotchas and one `WONT_FIX` retired-image gotcha, probe decision order `/release.json` → gate → CustomCss/usecontactpage/requirements; `--reporter-branch` and the `branch` filter removed; counts 12/18 → 68/197. **Superseded by revision D:** the per-line branch map, the legacy probe branches (`--procedure-id`, `/Home/CustomCss`, `usecontactpage`, the `requeriments` spelling probe) and the legacy rules are gone; every rule is `main`.
 - **Revision D (2026-09-11, spec Appendix D):** 7.x only — a `not-7.x` host is refused with no override, no `audit.py` entry and no Jira comment (D-1); the legacy sample and the legacy fixture rule dropped, `line` enum `7.x, unknown`, validator accepts `qualification.overlay_ref` and `qualification.disprove`; the line rule replaced the "more restrictive of overlay and probe" merge — the probe decides when `/release.json` answered, `gate_context.line_major` sends the literal `not-7` so `gates.py` blocks non-overridably, a lower overlay is a `pass` with `version_mismatch` (D-2); the probe answers `7.x | not-7.x | unknown` and lost `--procedure-id` and the legacy discriminators (D-3); every rule and `surface-defaults.json` is `main`, no line dimension, Surface A and `eRegulations-4.0-API` leave the routing targets (D-4); `rules.py` fetches `defects.json` from the private repository with one `gh api` call (blob sha and content in one response), caches it, falls back to the cache then a local file, and names the reason when nothing loads; `overlay_ref` in `route.json` and the ticket (D-5); Task 0 waits for PR 79's scrubbed revision to be squash-merged into `main` and never merges its branch, whose history still holds the old section 8 (D-6); the private repository was renamed to `eregulations-knowledge-base` and the public branch was recreated from `main` as `feature/eregulations-issue-skill` without the earlier history, so no commit hash of this repository appears in the plan; the router baseline is R = 107 on `main` today, 110 once PR #76 is merged; the disprove pass, scoped `allowed-tools`, URL redaction, `release`, router hand-off and lane-after-resolution kept (D-7); counts 77/206 → 82/211; estimate about 3 h.
-- **Re-grounding off the stamps (2026-09-11, spec Appendix E):** `eRegulations-deploy` `feature/release-stamp-off-http` removes `/release.json`, `/version.json` and the `Server: Kestrel` header from the 7.x images and adds a gate-exempt `/health`, so the probe is re-keyed on `/health` (first) with `/release.json` a transitional fallback for older images. `probe_surface.py` rewritten to the `/health`-first decision tree: JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop), a Basic `401` on **both** stamps → `retired-roxana-image`, a gate on one with the other unreachable → B 7.x `branch_hint: null` + `unresolved`. `release` is `null` on the new images, so the `FIXED`/regression call takes the release from the operator command `eregulations instance show <slug>`, not from the probe; the `FIXED`-gotcha remedy is rewritten in the spec (Step 4, D-2, D-3, ~line 335, Appendix E) and the plan (Task 5 code + tests, SKILL.md Step 4/Step 5). The probe suite grows 19 → 20; counts 82/211 → **83/212** (83 skill, R 110, langadmin 19; 209 while PR #76 is out). No change to the routing table, overlay/fetch logic, gates, redaction or the validator. Dependency handshake: `eRegulations-deploy` plan Task 6 gates their app-image change on this skill accepting both signals.
+- **Re-grounding off the stamps (2026-09-11, spec Appendix E):** `eRegulations-deploy` `feature/release-stamp-off-http` removes `/release.json`, `/version.json` and the `Server: Kestrel` header from the 7.x images and adds a gate-exempt `/health`, so the probe is re-keyed on `/health` (first) with `/release.json` a transitional fallback for older images. `probe_surface.py` rewritten to the `/health`-first decision tree: JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop), a Basic `401` on **both** stamps → `retired-roxana-image`, a gate on one with the other unreachable → B 7.x `branch_hint: null` + `unresolved`. `release` is `null` on the new images, so the `FIXED`/regression call takes the release from the operator command `eregulations instance show <slug>`, not from the probe; the `FIXED`-gotcha remedy is rewritten in the spec (Step 4, D-2, D-3, ~line 335, Appendix E) and the plan (Task 5 code + tests, SKILL.md Step 4/Step 5). The probe suite grows 19 → 20; counts 82/211 → **83/212** (83 skill, R 110, langadmin 19; 210 while PR #76 is out). No change to the routing table, overlay/fetch logic, gates, redaction or the validator. Dependency handshake: `eRegulations-deploy` plan Task 6 gates their app-image change on this skill accepting both signals.
 - **D-9 (2026-09-11):** `api-surfaces.md` moved whole into the private knowledge base; PR 79 closed and replaced by #81. Task 0 now waits for #81 and checks that the knowledge base is readable; the credential-literal check on the public reference is gone; every citation names the reference instead of a repository path.

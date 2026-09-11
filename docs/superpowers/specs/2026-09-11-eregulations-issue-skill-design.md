@@ -244,7 +244,9 @@ Contract of `probe_surface.py` (D-3: it answers one question, *is this host on
   never follows a login redirect, and never calls `/api/tariffs/*` (which on
   `main` proxies to an external rate-limited API with the instance's key).
 - **`/health` first — the new gate-exempt 7.x signal.** `200` JSON
-  `{"status": "ok"}` → C 7.x (admin-api), `release: null`, done. `200` text
+  `{"status": "ok"}` → C 7.x (admin-api), `release: null`, done. `200` JSON
+  `{"status": "up"}` → admin-web (its body since the deploy Task 9; never
+  admin-api, never Public) → hop. `200` text
   `ok` → new Public **or** admin-web: fetch `/` and read `window.__env`;
   `apiUrl` present → admin-web → hop to that admin-api (`allow_hop`); absent →
   B 7.x `main`, `release: null`. A `401` carrying `WWW-Authenticate: Basic
@@ -267,8 +269,8 @@ Contract of `probe_surface.py` (D-3: it answers one question, *is this host on
   expose the release over HTTP.
 - **Three hosts, not one.** Admin-api, admin-web (SPA nginx) and Public are
   separate hosts with no path prefix. When the base URL answers as admin-web
-  (`/health` → text `ok` with a `window.__env.apiUrl` in the index, or an old
-  `/release.json` → `{"release": …}` only), the script reads
+  (`/health` → text `ok` or JSON `{"status": "up"}` with a `window.__env.apiUrl`
+  in the index, or an old `/release.json` → `{"release": …}` only), the script reads
   `window.__env.apiUrl` from the admin-web index (browser-reachable by design)
   and probes that second host for Surface C; `--api-url` overrides. Only when
   neither is reachable does it emit `surface: SPA`.
@@ -730,7 +732,7 @@ fallback.
 | # | What changed on the fleet | Effect on this skill |
 | --- | --- | --- |
 | E-1 | `feature/release-stamp-off-http` removes `/release.json`, `/version.json` and the `Server: Kestrel` header from the 7.x images | the probe no longer depends on any of the three; a new image answers `/release.json`→404, `/version.json`→404, no `Server` header |
-| E-2 | A new gate-exempt `GET /health` is added: admin-api → `200` JSON `{"status":"ok"}`; Public and admin-web → `200` text `ok`; anonymous, `Cache-Control: no-store` | `/health` is the new 7.x signal, probed **first**; JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop) |
+| E-2 | A new gate-exempt `GET /health` is added: admin-api → `200` JSON `{"status":"ok"}`; Public → `200` text `ok`; admin-web → `200` text `ok`, then JSON `{"status":"up"}` from deploy Task 9; anonymous, `Cache-Control: no-store` | `/health` is the new 7.x signal, probed **first**; JSON `{"status":"ok"}` → C 7.x, text `ok` → B 7.x `main` (or the admin-web `apiUrl` hop) |
 | E-3 | On new images the Basic-auth gate exempts `/health` (not `/release.json`); a gated new `main` answers `/health` `200` through the gate | a gated new `main` is decided at step 1 by `/health` `200`; the old rule "`/release.json` decides through the gate" holds only for images built before the change |
 | E-4 | `/release.json` still answers `200` on images built before the change, exempt from their gate | kept as a transitional fallback: `track: admin-api-core`→C 7.x, a version on a public host→B 7.x `main`, `{"release":…}`→admin-web; it is the only source of `release` |
 | E-5 | The retired roxana image ships neither `/health` nor `/release.json`, so its gate intercepts both | roxana stays detectable: a Basic `401` on **both** endpoints → `branch_hint: retired-roxana-image`; a gate on one with the other unreachable → B 7.x `branch_hint: null` + `unresolved` |
