@@ -27,7 +27,7 @@ they are neither rediscovered nor silently patched.
 2. **Version lines**: 4.x (original, .NET Framework, IIS) · 5.x (TradePortal, .NET Framework, IIS) · 6.x (.NET 8 port, transitional, officially dropped) · **7.x (the only supported line; .NET 8; Docker/Coolify on Ubuntu)**. Since 2026-09-07 the 7.x line is branch `main` in Public, Admin, SPA and Statistics (renamed from `feature/implement-advanced-user-rights`, and from `database-layer-update-NET8` for Statistics); `master` in the same repositories is still 4.x. New code goes to 7.x only. Changes to 4.x/5.x/6.x are allowed only as part of an upgrade to 7.x.
 3. **Do not infer the version from a directory or repo name.** `eRegulations-4.0-Admin` carries 7.x on `main` and 4.x on `master`. Identify by probing (§1) or by branch/file shape (§1.2). Use this skill's scripts: `scripts/fleet_resolve.py <slug>` says which line an instance runs; `scripts/branch_pair.py <public-csproj> <admin-root>` says whether the Public and Admin checkouts pair (SKILL.md Steps 2 and 4a).
 4. **Surface A does not exist on 7.x.** It is not built, not in `eRegulations-deploy`, not in any 7.x release (7.4.2 at the time of writing). If asked to add something to "the public API" on 7.x, clarify whether they mean Surface B (public site) or Surface C (admin-api).
-5. **Pairing constraint**: Public and ERegWebApi reference Admin's `Unctad.eRegulations.Library` as a project reference. Checkouts must pair or nothing compiles. The 7.x pair is Public `main` + Admin `main` + Statistics `main`: `channel/stable`'s `release.yml` pins all three by SHA per release, and Public's `release-pins.yml` pins its siblings to `main`. The former Public branch `dot-net8-roxana-user-rights` is retired (§3.6): 34 commits that never reached `main`, and everything on it that mattered was re-done on `main`.
+5. **Pairing constraint**: Public and ERegWebApi reference Admin's `Unctad.eRegulations.Library` as a project reference. Checkouts must pair or nothing compiles. The 7.x pair is Public `main` + Admin `main` + Statistics `main`: `channel/stable`'s `release.yml` pins all three build inputs (plus the SPA) by SHA per release, and Public's `release-pins.yml` pins its siblings to `main`. The former Public branch `dot-net8-roxana-user-rights` is retired (§3.6): 34 commits that never reached `main`, and everything on it that mattered was re-done on `main`.
 6. **Admin 7.x crashes at startup if `/app/media` is not mounted** (`PhysicalFileProvider` on a missing directory). Any compose you write for admin-api must bind-mount it.
 7. Nothing here was verified at runtime. Facts that depend on the compiled `Unctad.eRegulations.Library` are marked *[unverified]*.
 
@@ -47,7 +47,7 @@ Run these in order; stop at the first decisive answer.
 | `GET /Country` | `{id:1,name,links[]}` → **A** (4.x or 6.x). Then `GET /Country/Details?lang=xx` in a non-default language: translated → 4.x; untranslated → 6.x (`?lang=` broken). |
 | `GET /api/isauthenticated` | 401/`{Username…}` → **B**. Check casing of any `/api/procedure/{id}` response: `{"Id":…,"Name":…}` PascalCase → B 7.x/6.x (.NET 8); PascalCase too on 5.x (Web API 1) — distinguish by `/api/procedure/{id}/requirements` (7.x spelling) vs `/requeriments` (5.x spelling). |
 | `401` + `WWW-Authenticate: Basic realm="eRegulations"` on `/` | **B 7.x** behind the pre-launch Basic-auth gate (`BASIC_AUTH_ENABLED=true`; on `main` since 2026-09-04 (#42), shipped from release 7.3.2; before that only on the retired roxana branch). |
-| `GET /api/tariffs/search?query=` | 200/404 → B 7.x `main` (gated by `TariffsApi*` config); route not found → B 6.x, or a pre-September Public image from the retired roxana branch. |
+| `GET /api/tariffs/search?query=` | 200 → B 7.x `main` with `TariffsApi*` configured. **404 is inconclusive**: 5.x, 6.x, the retired roxana branch and an unconfigured 7.x all answer 404 here. Use `/release.json` and the `/requirements` spelling instead. |
 
 ### 1.2 Identifying a checkout
 
@@ -57,9 +57,9 @@ Run these in order; stop at the first decisive answer.
 | `ERegWebApi/Program.cs` + `appsettings.json`, no `Authorization/` folder | A 6.x (`database-layer-update-NET8`) |
 | `Project/WebApp/Global.asax.cs` with `MapHttpRoute` calls; `Api/Controllers/*.cs` (11 files) | B 4.x (`master`) |
 | `Project/WebApp/Api/{Presentation,UseCases,Data,Infrastructure}` + `AppCode/TariffsFeature.cs` | B 5.x (`tradeportal`) |
-| `Project/WebAppCore/Program.cs`; `Api/Presentation/Controllers/UserApiController.cs` **and** `TariffsController.cs`; `Middleware/BasicAuthMiddleware.cs`; `ReleaseEndpoint.cs` at the `WebAppCore` root; `Dockerfile` at the repository root | B 7.x (`main`) |
-| `Project/WebAppCore` with `UserApiController.cs` + `Middleware/BasicAuthMiddleware.cs` but **no** `TariffsController.cs` and no `ReleaseEndpoint.cs` | B 7.x retired `dot-net8-roxana-user-rights` checkout — rebase onto `main`, do not build on it (§3.6) |
-| `Project/WebAppCore` with `TariffsController.cs` + `ReleaseEndpoint.cs` but the API user controller still `UserController.cs` (and, before 2026-09-04, no `Middleware/BasicAuthMiddleware.cs`) | B 7.x `main` before 2026-09-08 (releases ≤ 7.3.3) — behind; pull |
+| `Project/WebAppCore/Program.cs`; `Api/Presentation/Controllers/UserApiController.cs` **and** `Api/Presentation/Controllers/TariffsController.cs` (not the MVC `Controllers/TariffsController.cs`, which 6.x and roxana also have); `Middleware/BasicAuthMiddleware.cs`; `ReleaseEndpoint.cs` at the `WebAppCore` root; `Dockerfile` at the repository root | B 7.x (`main`) |
+| `Project/WebAppCore` with `UserApiController.cs` + `Middleware/BasicAuthMiddleware.cs` but **no** `Api/Presentation/Controllers/TariffsController.cs` and no `ReleaseEndpoint.cs` | B 7.x retired `dot-net8-roxana-user-rights` checkout — rebase onto `main`, do not build on it (§3.6) |
+| `Project/WebAppCore` with `Api/Presentation/Controllers/TariffsController.cs` + `ReleaseEndpoint.cs` but the API user controller still `UserController.cs` (and, before 2026-09-04, no `Middleware/BasicAuthMiddleware.cs`) | B 7.x `main` before 2026-09-08 (releases ≤ 7.3.3) — behind; pull |
 | `Project/WebAppCore` without any of the above, `UserController.cs` under `Api/Presentation/Controllers` | B 6.x |
 | `Project/Website/**/*.aspx`, `eRegulationsVer3.0.sln`, no `WebAppCore` | Admin 4.x/5.x — **no HTTP API** |
 | `Project/WebAppCore/Controllers/` with `PermissionController.cs`, `AuditController.cs`, `HealthController.cs`, `Authorization/RequirePermissionAttribute.cs` | C 7.x |
@@ -172,7 +172,7 @@ GET  /swagger  (UI)   4.x spec: /swagger/docs/v1   6.x spec: /swagger/v1.1/swagg
 
 | Aspect | Contract |
 |---|---|
-| Auth | **None.** All 37 routes anonymous. No bearer scheme registered. |
+| Auth | **None.** All 50 routed actions anonymous. No bearer scheme registered. |
 | Language | Read from `Session[LANGUAGE_KEY]`; **nothing in the repo sets it** → always `ApplicationSettings:DefaultLang` *[unverified whether the Library sets it]*. `?lang=` is ignored (but still echoed into links). |
 | JSON | camelCase (framework default); dictionaries are objects. |
 | CORS | Hard-coded two-origin policy in `Program.cs` (a localhost dev origin and one external partner origin). Change `Program.cs` to add origins; nothing is configurable. |
@@ -301,7 +301,7 @@ Angular 5.x consumer facts: base URL `location.origin`; ids from the router URL;
 
 ### 3.4 Version 6.x (`database-layer-update-NET8`, .NET 8)
 
-Same routed API controllers and routes as 7.x (§3.5) **except**: no `TariffsController`, no `GET /release.json`, no `Middleware/BasicAuthMiddleware.cs`; API user controller is still `UserController` → MVC `POST /User/Logout` collides with `GET api/logout` → 405; no `UserId` claim (tickets stamped with the system id); `POST /api/currency/convert` returns 400 (not 502) on upstream failure and reads root key `CurrencyConverterAPIkey`; `GET /api/translation` returns the local dictionary only; no `GET /Home/CustomCss`.
+Same routed API controllers and routes as 7.x (§3.5) **except**: no `Api/Presentation/Controllers/TariffsController.cs` (the MVC `Controllers/TariffsController.cs` page exists), no `GET /release.json`, no `Middleware/BasicAuthMiddleware.cs`; API user controller is still `UserController` → MVC `POST /User/Logout` collides with `GET api/logout` → 405; no `UserId` claim (tickets stamped with the system id); `POST /api/currency/convert` returns 400 (not 502) on upstream failure and reads root key `CurrencyConverterAPIkey`; `GET /api/translation` returns the local dictionary only; no `GET /Home/CustomCss`.
 
 ### 3.5 Version 7.x — `main` (release 7.4.x)
 
@@ -323,7 +323,7 @@ the Public SHA that release 7.4.2 pins.
 | Role middleware | Authenticated user with **zero roles → 302 `/User/Unauthorized` on every request, API included**. CAS session token expiry/blacklist checked per request. |
 | CORS | `AllowAnyOrigin().AllowAnyMethod().WithHeaders("Content-Type")`, no credentials → anonymous routes callable cross-origin; cookie routes effectively same-origin; `RequestVerificationToken` header not allowed cross-origin. |
 | Language | `?l=` → session → `LibrarySettings:DefaultLang`. |
-| Antiforgery | Header `RequestVerificationToken`; only `POST /api/feedback/sendfeedback` validates it. |
+| Antiforgery | Header `RequestVerificationToken`; validated by `POST /api/feedback/sendfeedback` (the only API action) and by the MVC `POST /Procedure/ChangeStatus`. |
 | Health | `GET /release.json` = `/app/version.json` + `EREG_RELEASE` (mapped before `MapControllers`). The Dockerfile has no `HEALTHCHECK`; the compose healthcheck reads `/release.json` and accepts 200 or 404. |
 | Caching | None on API. `ApiInMemoryCache` registered but unused. |
 | Config | `appsettings.json` sections (env form `Section__Key`): `ConnectionStrings:{CountryDbContext,GlobalDbContext,ConsistencyDbContext,StatisticsDbContext}`; `Authorization:Cookie:{Name,Timeout}`; `AppSettings:{ConfigFolder,LocalCurrency,Country,CountryCode,City,AdminSiteUrl,StatisticsMinDate,WorkingOffline,ShowLocations,AbcActivated,FilterForProductsTab,ProductSelectorMaxResults,HJID}`; `Google:{AnalyticsAcc,TagAccessCode,MapsApiKey,TranslateContent}` (+ ad-hoc `ReCaptchaApiKey`,`ReCaptchaSecretKey`); `CurrencyConverter:ApiKey`; `LibrarySettings:{DefaultLang,PublicConfigFolder,CentralRepositoryPath,CountryName,CountryId,Currency,SystemInstanceID,PublicSiteURL,PublicSiteVersion,ErrorCodeItemDeleted,OwnershipStatusDefault,ProductsURL,ProductsWidgetURL}`; `Cas:*`; `Feedback:{SmtpServer,UseSmtpAuthentication,SmtpUserName,SmtpPassword,SmtpSSL,SmtpPort,SendFrom,SendToList[]}`; `Mail:*` (unbound). Read ad hoc, **absent from the file**: `AppSettings:AdminApiUrl`, `AppSettings:SsoSharedSecret`, `AppSettings:HSCodeApi`, `AppSettings:CrmPixelCode`, `FacebookPixelCode`, `IsNationalSystem`, `CacheSlidingTime`, `CdnDistributionUrl`, `RightDrawerOpenByDefault`, `ShowOthersFieldInFeedbackWindow`, `ShowInvestorFieldsInFeedbackWindow`, `UseContactPage`, `ExternalContactPage`, `IsUsingDifferentLogosInLeftDrawer`, `redcuba`, `IsStrictProductCodes`, `RequirementsFilterDefaultOption`. `appsettings.Development.json`/`appsettings.Docker.json` mentioned by README **do not exist**. |
@@ -346,7 +346,7 @@ POST <base>/setstatus  {StepId,StepVersion,Status,Version,Cycle,Lang,StatusComme
 GET  <base>/abc|contactzone|requirementscost     cookie
 POST /api/step/{id}/savenumberofusers {NumberOfUsers} ; POST /api/step/{id}/savelevel {LevelId}   cookie
 # TicketController / CommentController
-GET  /api/ticket/{pageId}/{menuId?}/{objectiveId}/{stepId}            cookie -> TicketDTO[]
+GET  /api/ticket/{pageId}/{menuId}/{objectiveId}/{stepId}             cookie -> TicketDTO[]   (menuId is required; send 0 for a menu-less page, #58)
 GET  /api/ticket/{pageId}/{section}/{menuId}/{objectiveId}/{stepId}   cookie (anonymous bypass until #59, 2026-09-08) -> TicketDTO[] | null
 PUT  /api/ticket ; POST /api/ticket   body TicketDTO                  cookie   creator/modifier = UserId claim
 POST /api/comment ; DELETE /api/comment/{id}                          cookie   (non-author delete → 500)
@@ -379,7 +379,7 @@ GET  /Home/CustomCss  (text/css, max-age=300) ; GET /Home/DownloadFile?filePath=
 
 ### 3.6 Retired 7.x branch — `dot-net8-roxana-user-rights`
 
-Parallel branch (merge-base `69b857c1d`, 2026-06-15) that carried the Docker-working Public until September 2026. Not a target any more: 34 commits never reached `main`, and everything operationally relevant was re-done on `main` (§3.5). A Public image hand-built from it (no `channel/stable` release ever used the branch) differs from `main` in that it **lacks** `GET /release.json`, `TariffsController`, the rate limiter, the licensed-assets gate and the `DownloadFile` containment, its `POST /Procedure/ChangeStatus` is a no-op stub answering `{success:true}`, and its Basic-auth gate falls back to a built-in `unctad:simple` pair when `BASIC_AUTH_USERS` is empty. Identify such an image with the probes in §1.1 and redeploy from `channel/stable`; do not patch the branch.
+Parallel branch (merge-base `69b857c1d`, 2026-06-15) that carried the Docker-working Public until September 2026. Not a target any more: 34 commits never reached `main`, and everything operationally relevant was re-done on `main` (§3.5). A Public image hand-built from it (no `channel/stable` release ever used the branch) differs from `main` in that it **lacks** `GET /release.json`, the API `Api/Presentation/Controllers/TariffsController.cs`, the rate limiter, the licensed-assets gate and the `DownloadFile` containment, its `POST /Procedure/ChangeStatus` is a no-op stub answering `{success:true}`, and its Basic-auth gate falls back to a hard-coded default user:password pair when `BASIC_AUTH_USERS` is empty (the value is in that branch's `Middleware/BasicAuthMiddleware.cs`; do not copy it anywhere). Identify such an image with the probes in §1.1 and redeploy from `channel/stable`; do not patch the branch.
 
 ### 3.7 Recipes (7.x)
 
@@ -400,7 +400,7 @@ curl -s -b jar -H 'Content-Type: application/json' -X POST "$B/api/law/9/setpubl
 - MVC JSON actions: `Controllers/*.cs`, base `AppCode/BaseController.cs`.
 - Angular sub-app endpoints: `angular/common/environments/environment.ts` (`$argN` placeholders) + `angular/services/**`. Rebuild with Angular CLI 9 / TypeScript 3.7.5 into `wwwroot/assets/js/angular`; do not change build flags without updating `Views/Summary/Index.cshtml`.
 - Legacy jQuery callers live under `wwwroot/assets/js/**`; several already target wrong routes (§8) — fix the JS, not the API, unless asked.
-- Keep the two 7.x branches in mind (§3.6).
+- There is one 7.x branch. A checkout matching the retired shape in §1.2 is rebased onto `main` (§3.6), never built on.
 
 ---
 
@@ -596,9 +596,9 @@ Config must match: public `AppSettings__AdminApiUrl` = the browser/server-reacha
 
 | Service | Image | Port | Host name (docs / provisioner) | Health |
 |---|---|---|---|---|
-| admin-api | `unctad/eregulations-admin-api` | 8080 | `api.<country>.tradeportal.org` / `api-<slug>.<suffix>` | `/release.json`, `/health`, `/swagger` |
-| admin-web | `unctad/eregulations-admin-web` (nginx) | 4200 | `admin.<country>…` / `admin-<slug>…` | `/health` → `ok`; injects `window.__env.apiUrl` |
-| public | `unctad/eregulations-public` | 8080 | `<country>.tradeportal.org` / `<slug>.<suffix>` | `/release.json` (compose healthcheck accepts 200 or 404) |
+| admin-api | `unctad/eregulations-admin-api` | 8080 | `api.<country>.<suffix>` (legacy scheme) / `api-<slug>.<suffix>` | `/release.json`, `/health`, `/swagger` |
+| admin-web | `unctad/eregulations-admin-web` (nginx) | 4200 | `admin.<country>.<suffix>` (legacy scheme) / `admin-<slug>.<suffix>` | `/health` → `ok`; injects `window.__env.apiUrl` |
+| public | `unctad/eregulations-public` | 8080 | `<country>.<suffix>` (legacy scheme) / `<slug>.<suffix>` | `/release.json` (compose healthcheck accepts 200 or 404) |
 | sqlserver | `mcr.microsoft.com/mssql/server:2022-latest` | 1433 | alias `eregulations-shared-sqlserver` or `eregulations-<slug>-sqlserver` on network `eregulations-shared` | `sqlcmd SELECT 1` |
 
 Coolify "Domains" format: `https://<host>:<internal port>`. No path prefixes anywhere. `channel/stable` carries `release.yml` (format 2; 7.4.2 on 2026-09-11), which pins Public, Admin, Statistics and SPA to `main` by SHA and records every image's tag and digest — read it rather than guessing which branch an image came from. `docker-compose.yml` on `main` references the `:unreleased` tags. Instance lifecycle and creation are in `docs/INSTANCE-LIFECYCLE.md` and `docs/NEW-INSTANCE.md`; the `eregulations migrate` CLI (eight resumable phases) is in the repo since 2026-09-08 although `NEW-INSTANCE.md` still calls it planned.
@@ -633,7 +633,7 @@ Smoke test after deploy: `curl -i -X POST https://api.<inst>/api/user/login -H '
 | A 4.x → A 6.x | Bearer auth gone (drop the header; expect nothing to be protected). `?lang=` ignored → deploy per-language instances or fix the session writer. Dictionaries become objects (`documentCost`). `StepModel.costs` becomes an array. `ApiServerUrl` must be set or links are host-less. Browser callers need their origin added to the hard-coded CORS policy in `Program.cs`. |
 | A (any) → 7.x | No target. Options: (a) port `ERegWebApi` to pair with the 7.x Library (its Library reference path and `SnapshotBuilder` signature already changed on 6.x); (b) expose the needed read routes on Public 7.x (`Api/Presentation`) — it already has the procedure/step read model, PascalCase; (c) expose them on admin-api with `[AllowAnonymous]` (not currently done). Decide with the product owner; record the choice. |
 | B 5.x → B 7.x | Spelling `requeriments`→`requirements`, `requerimentscost`→`requirementscost`. `/api/procedure/{id}/details` now returns the details object. `/api/login` GET is back. Currency failure 400→502. Tariffs routes answer 404 until the `TariffsApi*` settings are set. Unauthenticated cookie calls return 302 unless `X-Requested-With` is sent. Site may sit behind Basic auth. JSON stays PascalCase. |
-| C 6.x → C 7.x | Every endpoint now needs a permission; users with roles but no `RolePermissions` rows get 403 everywhere (seed permissions). `POST /api/user/refresh` available. Login response unchanged. Passwords re-hashed to bcrypt on first login (older 7.x images: SHA-256 hex compare; plugin migration hashes with `HASHBYTES('SHA2_256', CONVERT(VARCHAR(200), Password))`). New controllers: Permission, Audit, Customisation, Health. |
+| C 6.x → C 7.x | Every endpoint now needs a permission; users with roles but no `RolePermissions` rows get 403 everywhere (seed permissions). `POST /api/user/refresh` available. Login response unchanged. Passwords re-hashed to bcrypt on first login (older 7.x images: SHA-256 hex compare; the `deploying-legacy-eregulations-instance` skill's `references/phase-5-credential-hashing.md` hashes with `HASHBYTES('SHA2_256', CONVERT(VARCHAR(200), Password))`). New controllers: Permission, Audit, Customisation, Health. |
 | SPA `archive/main-2026-05` → SPA `main` | Requires C 7.x (permission endpoints on login). |
 
 ---
@@ -644,11 +644,11 @@ Security-relevant first.
 
 **C 7.x**: `TranslationController` anonymous (all translation read/write/publish). `PUT /api/step/{id}/certification`, `POST /api/objective/feedbackusers` have no permission check. Swagger + DeveloperExceptionPage in Production. `POST /api/upload` has no extension/size whitelist, files public under `/media/`. `SecretKey`/`SsoSharedSecret` placeholders in `appsettings.json`. In-memory SSO tokens + permission cache (single replica). `GET /api/media` → 400 when empty. Object-level permission enforcement is client-side except the objective tree. `openspec` permission docs stale.
 
-**B 7.x (`main` at 7.4.2)**: `GET /api/login?username=&pwd=` (credentials in URL; also 4.x). `/api/filter/search/{query}` binds `?query=`, so `common.js` (path form) always gets the full list. `edit-visibility.js` posts form-encoded to `[FromBody]` actions (likely 415). `procedure.step.js` still posts to the non-existent `/api/Procedure/{id}/SaveNumberOfUsers`. `tariffs.js` / `views/tariff-search.js` use `window.tariffsApi`, which nothing defines. `views/system-dashboard.js` and `views/consistency.reviews.js` check `data.Status` but the server emits `status`. Zero-role users redirected on API calls. Global exception filter turns MVC page errors into JSON. `README`/`CLAUDE.md` still reference a non-existent `appsettings.Docker.json`. **Fixed on `main` between 2026-09-05 and 2026-09-11 — do not re-report**: the anonymous ticket section route (#59), logout 405 and tickets stamped with the system id (#51), currency converter called with the wrong verb (#53), `/media/` prepended to absolute image URLs (#52), literal `'null'` sent as `menuId` (#58), spurious 400 on ticket creation from implicit `[Required]` (#46), `DownloadFile` path containment, big-menu hover and instance stylesheet regressions (#45, #57, #68).
+**B 7.x (`main` at 7.4.2)**: `GET /api/login?username=&pwd=` (credentials in URL; also 4.x). `/api/filter/search/{query}` binds `?query=`, so `common.js` (path form) always gets the full list. `edit-visibility.js` posts form-encoded to `[FromBody]` actions (likely 415). `procedure.step.js` still posts to the non-existent `/api/Procedure/{id}/SaveNumberOfUsers`. `tariffs.js` / `views/tariff-search.js` use `window.tariffsApi`, which nothing defines. `views/system-dashboard.js` and `views/consistency.reviews.js` check `data.Status` but the server emits `status`. Zero-role users redirected on API calls. Global exception filter turns MVC page errors into JSON. `README`/`CLAUDE.md` still reference a non-existent `appsettings.Docker.json`. **Fixed on `main` between 2026-09-05 and 2026-09-11 — do not re-report**: the anonymous ticket section route (#59), logout 405 and tickets stamped with the system id (#51), currency converter called with the wrong verb (#53), `/media/` prepended to absolute image URLs (#52), literal `'null'` sent as `menuId` (#58), spurious 400 on ticket creation from implicit `[Required]` (#45), big-menu hover and instance stylesheet regressions (#45, #57, #68). `DownloadFile` path containment predates the first read (`4e1f88d83`, 2026-08-31).
 
 **B 5.x**: `currency-converter.js` GETs a POST route (405). Wrong SaveLevel/SaveNumberOfUsers routes on legacy pages. `HsCodesFinder.cshtml` loads non-existent `assets/js/tariffs.js`. CAS JWT signature not verified. `CertifierModel.Profile` is a `UserProfileModel` with a `Password` property on an anonymous route (population unverified). `HttpException(401)` from `ApiController` likely serialises as 500.
 
-**A 6.x**: no auth; `?lang=` regression; hard-coded CORS; dev exception page in Production; never-expiring cache; Dockerfile build context; empty test project; `MenuController` `IsObjective` inversion at `ObjectiveData.cs:64`.
+**A 6.x**: no auth; `?lang=` regression; hard-coded CORS; dev exception page in Production; never-expiring cache; Dockerfile build context; empty test project; `MenuController` `IsObjective` inversion at `Business/Impl/ObjectiveData.cs:63`.
 
 **A 4.x**: no CORS/OPTIONS; process-wide "scoped" services; first-request app context; 401-as-hidden; dangling `/Steps/{id}` links; ignored `menuId`; wrong `[ResponseType]`s; misleading `CLAUDE.md`; `Web.Release.config` CAS URL line has no `xdt:Transform`.
 

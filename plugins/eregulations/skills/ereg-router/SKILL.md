@@ -66,10 +66,13 @@ pick for the user, and do not ask about secondaries — add them.
 migrating endpoints — read `references/api-surfaces.md` §1 before classifying.**
 The platform has three unrelated surfaces (the standalone ERegWebApi, the Public
 site's embedded `/api/*`, and the Admin API behind the SPA), and which of them a
-version line even has differs: ERegWebApi is not part of 7.x. Identify the
-surface and line from a probe or the checkout's shape, never from a repository
-name; the reference's per-version contracts, endpoint indexes and known-defect
-list then apply to the work, still subject to the gates below.
+version line even has differs: ERegWebApi is not part of 7.x. The reference
+identifies the *surface and contract* the work targets, from the checkout's shape
+(readable at any time) or from a live probe (only once Step 3 has a lane that
+reaches the host) — never from a repository name. The gate `version` still comes
+from Step 2; a probe that disagrees with it is drift to report (`resolution.md`),
+not a correction. The reference's per-version contracts, endpoint indexes and
+known-defect list then apply to the work, still subject to the gates below.
 
 **`translations` covers two unrelated systems — split them here, not later.**
 This router's only `translations` target is the eRegulations *legacy* Admin

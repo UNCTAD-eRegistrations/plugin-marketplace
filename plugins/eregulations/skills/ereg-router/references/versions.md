@@ -17,7 +17,7 @@
 | **4.x** | The original stack: `eRegulations-4.0-Admin`, `eRegulations-4.0-Public`, `eRegulations-4.0-API`. ASP.NET + SQL Server, deployed on Windows/IIS. Admin's `Unctad.eRegulations.Library` originates here and is still the project every later line references. | legacy |
 | **5.x** | The TradePortal variant of the 4.x stack (`tradeportal` branches): filters, new design, database changes, tariff calculation. Still .NET Framework on Windows/IIS. The Angular admin SPA (`eRegulations-5.0-Admin-SPA`) is versioned independently and talks to the .NET 8 `WebAppCore` Admin API — the 4.x/5.x Admin itself is server-rendered WebForms with no HTTP API (`api-surfaces.md` §4.1). | legacy |
 | **6.x** | The .NET 8 / EF Core 8 database-layer rework, carried on branches such as `database-layer-update-NET8`, and the point at which the stack becomes containerisable. | transitional |
-| **7.x** | The current line. The only line new work may land on. Branch `main` in every repository since 2026-09-07 (`master` stays 4.x); `channel/stable` in `eRegulations-deploy` pins the release tuple. | **supported** |
+| **7.x** | The current line. The only line new work may land on. Branch `main` in the four application repositories (Public, Admin, SPA, Statistics) since 2026-09-07 (`master` stays 4.x; `eRegulations-4.0-API` has no 7.x branch); `channel/stable` in `eRegulations-deploy` pins the release tuple. | **supported** |
 
 ## The policy
 
