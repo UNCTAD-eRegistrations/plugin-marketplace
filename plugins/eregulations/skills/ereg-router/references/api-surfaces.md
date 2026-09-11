@@ -176,7 +176,7 @@ GET  /swagger  (UI)   4.x spec: /swagger/docs/v1   6.x spec: /swagger/v1.1/swagg
 | Language | Read from `Session[LANGUAGE_KEY]`; **nothing in the repo sets it** → always `ApplicationSettings:DefaultLang` *[unverified whether the Library sets it]*. `?lang=` is ignored (but still echoed into links). |
 | JSON | camelCase (framework default); dictionaries are objects. |
 | CORS | Hard-coded two-origin policy in `Program.cs` (a localhost dev origin and one external partner origin). Change `Program.cs` to add origins; nothing is configurable. |
-| Config (`appsettings.json`) | `ConnectionStrings:{DefaultConnection,GlobalConnection,ConsistencyConnection}` — all three **required** at boot. `ApplicationSettings:{SystemInstanceID (read as `string?`, `Convert.ToInt32` → 0 when absent), DefaultLang, CountryName, Currency, PublicSiteURL, ApiServerUrl, PublicConfigFolder, CentralRepositoryPath, CdnDistributionUrl, CurrencyRefreshTime, IsLoadingStepStatus, IsNationalSystem}`. `IsAbcActivated` and `CacheSlidingTime` are dead. `ApiServerUrl` has **no fallback**: unset → links like `/Contacts/1`. Shipped file has developer-machine values. |
+| Config (`appsettings.json`) | `ConnectionStrings:{DefaultConnection,GlobalConnection,ConsistencyConnection}` — all three **required** at boot. `ApplicationSettings:{SystemInstanceID (string?, Convert.ToInt32 → 0 when absent), DefaultLang, CountryName, Currency, PublicSiteURL, ApiServerUrl, PublicConfigFolder, CentralRepositoryPath, CdnDistributionUrl, CurrencyRefreshTime, IsLoadingStepStatus, IsNationalSystem}`. `IsAbcActivated` and `CacheSlidingTime` are dead. `ApiServerUrl` has **no fallback**: unset → links like `/Contacts/1`. Shipped file has developer-machine values. |
 | Errors | `UseDeveloperExceptionPage()` is on in Production → 500s return HTML stack traces. |
 | Caching | `CountryParameters` and cost-parameter catalog cached **forever**; restart after editing staff levels/zones/cost variables. |
 | Build | Project reference `..\..\eregulations-4.0-admin-api\Project\Unctad.eRegulations.Library` (note the `-api` suffix — a different sibling folder name than 4.x). The `Dockerfile` copies only the repo root, so `dotnet restore` fails unless the build context is the parent directory. |
@@ -297,7 +297,7 @@ Config keys read on 5.x (appSettings, `Web.config` gitignored; `TariffsCacheTime
 
 Branches: `tradeportal-spa` = older snapshot of `tradeportal`, nothing extra. `tp-tariffs-calculation` = older state, no extra endpoints, lacks the tariffs 404 guard and `GoToAdmin`.
 
-Angular 5.x consumer facts: base URL `location.origin`; ids from the router URL; language from `?l=`; auth/feature flags from DOM markers (`input.checkCR`, `input.checkAB`); most services re-append `window.location.search` to GETs (the ticket service does not); translations via `GET /api/translation?l=`; ticket GET hard-codes `menuId=0`.
+Angular 5.x consumer facts: base URL `location.origin`; ids from the router URL; language from `?l=`; auth/feature flags from DOM markers (`input.checkCR`, `input.checkAB`); about half the services re-append `window.location.search` to GETs (procedure, step, step-status, document, institution, country-parameters); the ticket and currency services do not; translations via `GET /api/translation?l=`; ticket GET hard-codes `menuId=0`.
 
 ### 3.4 Version 6.x (`database-layer-update-NET8`, .NET 8)
 
