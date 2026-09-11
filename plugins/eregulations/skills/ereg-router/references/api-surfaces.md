@@ -640,13 +640,13 @@ Smoke test after deploy: `curl -i -X POST https://api.<inst>/api/user/login -H '
 
 ## 8. Known defects — do not rediscover, do not silently "fix" without a ticket
 
-The list lives in the private repository `UNCTAD-eRegistrations/eregulations-knowledgebase`
+The list lives in the private repository `UNCTAD-eRegistrations/eregulations-knowledge-base`
 (`api-surfaces-defects.md` for the prose, `defects.json` for the routing rules the
 `eregulations-issue` skill reads at runtime). This repository is public, and a list of
 open defects on lines running in production does not belong in it. Read it with
 
 ```bash
-gh api repos/UNCTAD-eRegistrations/eregulations-knowledgebase/contents/api-surfaces-defects.md -H 'Accept: application/vnd.github.raw'
+gh api repos/UNCTAD-eRegistrations/eregulations-knowledge-base/contents/api-surfaces-defects.md -H 'Accept: application/vnd.github.raw'
 ```
 
 No access → treat every symptom as unknown; do not reconstruct the list from memory.
