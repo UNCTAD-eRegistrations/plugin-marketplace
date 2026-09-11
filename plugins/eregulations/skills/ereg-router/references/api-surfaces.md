@@ -257,7 +257,7 @@ POST <base>/setstatus  body StatusChangeModel  cookie -> true | 500
 GET  <base>/abc|contactzone|requerimentscost   cookie
 POST /api/step/{id}/savenumberofusers {NumberOfUsers}   cookie
 POST /api/step/{id}/savelevel {LevelId}                 cookie
-# tickets / comments: as 4.x, but 4-segment GET is cookie, 5-segment {section} GET is anon (bypass), menuId int?
+# tickets / comments: as 4.x, but 4-segment GET is cookie, 5-segment {section} GET is anon, menuId int?
 # session
 GET /api/isauthenticated, /api/logout      (GET /api/login is commented out → use POST /User/AjaxLogin)
 # editing (cookie)
@@ -291,7 +291,7 @@ POST /objective/linear-search  form lang, filters{filterId:optionId} -> LinearOb
 POST /User/AjaxLogin  form UserName,Password[,returnUrl] -> {status:"ok"|"error",content}
 GET  /User/GoToAdmin?returnUrl=  cookie  -> 302 to {AdminSiteUrl}/auth/sso?token=  (see §5)
 GET  /User/CasLogin | /User/CasAccessToken?code=&state=   OAuth2 code flow (JWT signature NOT verified)
-GET  /Home/DownloadFile?filePath=   anon, unrestricted server-relative path
+GET  /Home/DownloadFile?filePath=   anon, server-relative path
 ```
 Config keys read on 5.x (appSettings, `Web.config` gitignored; `TariffsCacheTime` is a 7.x key that the 5.x `CLAUDE.md` mentions but no 5.x code reads): instance/urls `Country, CountryCode, City, LocalCurrency, AdminSiteUrl, AdminApiUrl, SsoSharedSecret, CdnDistributionUrl, ConfigFolder, StatisticsMinDate`; also read `GoogleTranslateContent, CrmPixelCode, FacebookPixelCode, IsUsingDifferentLogosInLeftDrawer, RightDrawerOpenByDefault, redcuba`, and `Authorization.Cookie.Name` / `Authorization.Cookie.Timeout` (throw if absent, as on 4.x); flags `AbcActivated, IsBookmarksObjectiveActivated, IsStepSummaryActivated, IsStrictProductCodes, UseContactPage, ExternalContactPage, ShowInvestorFieldsInFeedbackWindow, ShowOthersFieldInFeedbackWindow, WorkingOffline, IsNationalSystem, RequirementsFilterDefaultOption`; third-party `GoogleAnalyticsAcc, GoogleTagAccessCode, GoogleMapsApiKey, GoogleReCaptchaApiKey, GoogleReCaptchaSecretKey, HJID, CurrencyConverterAPIkey, CurrencyRefreshTime, HSCodeApi`; cache `CacheSlidingTime (30), ProductSelectorMaxResults`; CAS `ERegCASServerURL, ERegCASAuthorizationEndpoint, ERegCASTokenEndpoint, ERegCASInvalidateTokenEdpoint, ERegCASUserProfileURL, ERegCASClient, ERegCASClientSecret, ERegCASSessionCookie, CheckingCASTokenBlacklist, ERegCASTokenBlacklistEndpoint`; tariffs `TariffsApiUrl, TariffsApiUserId, TariffsApiKey, TariffsAdditionalVariableName (cylinderCapacity), TariffsAdditionalVariableHsPrefixes, TariffsAdditionalVariableMin/Max`.
 
@@ -640,19 +640,16 @@ Smoke test after deploy: `curl -i -X POST https://api.<inst>/api/user/login -H '
 
 ## 8. Known defects — do not rediscover, do not silently "fix" without a ticket
 
-Security-relevant first.
+The list lives in the private repository `UNCTAD-eRegistrations/eregulations-overlays`
+(`api-surfaces-defects.md` for the prose, `defects.json` for the routing rules the
+`eregulations-issue` skill reads at runtime). This repository is public, and a list of
+open defects on lines running in production does not belong in it. Read it with
 
-**C 7.x**: `TranslationController` anonymous (all translation read/write/publish). `PUT /api/step/{id}/certification`, `POST /api/objective/feedbackusers` have no permission check. Swagger + DeveloperExceptionPage in Production. `POST /api/upload` has no extension/size whitelist, files public under `/media/`. `SecretKey`/`SsoSharedSecret` placeholders in `appsettings.json`. In-memory SSO tokens + permission cache (single replica). `GET /api/media` → 400 when empty. Object-level permission enforcement is client-side except the objective tree. `openspec` permission docs stale.
+```bash
+gh api repos/UNCTAD-eRegistrations/eregulations-overlays/contents/api-surfaces-defects.md -H 'Accept: application/vnd.github.raw'
+```
 
-**B 7.x (`main` at 7.4.2)**: `GET /api/login?username=&pwd=` (credentials in URL; also 4.x). `/api/filter/search/{query}` binds `?query=`, so `common.js` (path form) always gets the full list. `edit-visibility.js` posts form-encoded to `[FromBody]` actions (likely 415). `procedure.step.js` still posts to the non-existent `/api/Procedure/{id}/SaveNumberOfUsers`. `tariffs.js` / `views/tariff-search.js` use `window.tariffsApi`, which nothing defines. `views/system-dashboard.js` and `views/consistency.reviews.js` check `data.Status` but the server emits `status`. Zero-role users redirected on API calls. Global exception filter turns MVC page errors into JSON. `README`/`CLAUDE.md` still reference a non-existent `appsettings.Docker.json`. **Fixed on `main` between 2026-09-05 and 2026-09-11 — do not re-report**: the anonymous ticket section route (#59), logout 405 and tickets stamped with the system id (#51), currency converter called with the wrong verb (#53), `/media/` prepended to absolute image URLs (#52), literal `'null'` sent as `menuId` (#58), spurious 400 on ticket creation from implicit `[Required]` (#45, the same PR that restored the instance stylesheet and the PDF viewer script), empty custom stylesheet (#57), big-menu hover (#68). `DownloadFile` path containment predates the first read (`4e1f88d83`, 2026-08-31).
-
-**B 5.x**: `currency-converter.js` GETs a POST route (405). Wrong SaveLevel/SaveNumberOfUsers routes on legacy pages. `HsCodesFinder.cshtml` loads non-existent `assets/js/tariffs.js`. CAS JWT signature not verified. `CertifierModel.Profile` is a `UserProfileModel` with a `Password` property on an anonymous route (population unverified). `HttpException(401)` from `ApiController` likely serialises as 500.
-
-**A 6.x**: no auth; `?lang=` regression; hard-coded CORS; dev exception page in Production; never-expiring cache; Dockerfile build context; empty test project; `MenuController` `IsObjective` inversion (`MappingType != "objective"`) at `Business/Impl/ObjectiveData.cs:64`.
-
-**A 4.x**: no CORS/OPTIONS; process-wide "scoped" services; first-request app context; 401-as-hidden; dangling `/Steps/{id}` links; ignored `menuId`; wrong `[ResponseType]`s; misleading `CLAUDE.md`; `Web.Release.config` CAS URL line has no `xdt:Transform`; the same `IsObjective` inversion as 6.x, at `Business/Impl/ObjectiveData.cs:76`.
-
-**Deploy/Monitor**: Monitor expects richer `/health` JSON from admin-api; compose overrides SPA nginx (no `/version`); `docs/ADMIN-SETUP.md` still lists `GLOBAL_DB`; the deploy repo's handover notes hold operational values in plain text — never copy them into docs, tickets or code.
+No access → treat every symptom as unknown; do not reconstruct the list from memory.
 
 ---
 
