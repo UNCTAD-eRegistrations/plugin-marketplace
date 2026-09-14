@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Criteria, the change document tool</title>
+<!-- md-twin -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>/* ==========================================================================
+   documentation-kit.css
+   Ready material for didactic pages - teaching pages, one-pagers, explainers
+   read calmly by partners and teams. Hand-written on house-token variables.
+   NO framework, NO dependency, NO @import. One file, paste and go.
+
+   Source: documentation-design.md (9 - System/ui-ux/), captured 2026-07-19.
+   Under the same two lenses as the rest of the ui-ux folder:
+     - Teletubbies: the page speaks to the eye before it is read.
+     - Kennedy: one job, hierarchy by de-emphasis, grayscale first, colour last.
+
+   LIGHT THEME ONLY - Frank's house rule. No dark mode, no
+   prefers-color-scheme, anywhere in this file. Do not add one.
+
+   HOW TO USE
+   1. <link rel="stylesheet" href="documentation-kit.css"> in <head>.
+   2. Keep §0 ROOT TOKENS and §1 RESET - every block below depends on them.
+   3. Delete whole numbered blocks in §4 BLOCKS you don't need on this page.
+      Each block is self-contained; none depend on each other.
+   4. Swap --accent (and, if the page needs its own identity, the callout
+      tint backgrounds) to the PROJECT's own palette hex. Never a CSS named
+      colour. Keep it to one accent - that is the whole point of §0.
+   5. Grayscale review before shipping: add class "review-grayscale" to
+      <body> for a moment (see §5). Anything that goes flat and unreadable
+      was leaning on colour to do a job that size/weight/space should do.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   §0 · ROOT TOKENS - the only place colour, type and space are named.
+   Everything else in this file references these with var(). That is what
+   makes "one accent colour" or "double the whitespace" a two-line edit.
+   ========================================================================== */
+
+:root {
+  /* --- colour: one ink, one soft ink, one paper, one line, one accent --- */
+  --ink:       #1a1a1a;   /* body text */
+  --ink-soft:  #666666;   /* meta, captions, de-emphasised text */
+  --paper:     #fdfdfb;   /* page background */
+  --surface:   #ffffff;   /* raised block background (segment, code figure) */
+  --line:      #e4e4e0;   /* hairline borders, dividers, table rules */
+  --accent:    #b3261e;   /* the ONE scarce colour: links, current state, emphasis */
+  /* the house contract (tokens.css): the kit's own names above stay, and
+     the contract's names sit beside them so a page that links this file
+     already holds its tokens. Every painted colour names its partner. */
+  --bg:         var(--paper);
+  --fg:         var(--ink);
+  --on-surface: var(--ink);
+  --on-accent:  #ffffff;
+  --muted:      var(--ink-soft);
+  --border:     var(--line);
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* --- semantic tints for callouts only - 3 meanings max, never a rainbow --- */
+  --info-ink:    #2b6cb0;  --info-bg:    #eef4fb;
+  --warning-ink: #b7791f;  --warning-bg: #fbf3e6;
+  --success-ink: #2f855a;  --success-bg: #eaf7ef;
+
+  /* --- three fonts, three jobs - set once, referenced everywhere --- */
+  --font-body: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;   /* prose */
+  --font-ui:   -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; /* labels, nav, controls */
+  --font-mono: 'SF Mono', 'Menlo', 'Consolas', monospace;                /* code, IDs, literal values */
+
+  /* --- type scale: house modular scale, 1.25 ratio, 5 steps + extension --- */
+  --scale-0: 0.8rem;     /* meta, captions, labels */
+  --scale-1: 1rem;       /* UI base, dense reference base */
+  --scale-2: 1.25rem;    /* lead paragraph, h4 */
+  --scale-3: 1.563rem;   /* h3 / h2 in a short page */
+  --scale-4: 2.441rem;   /* h1 / page title */
+  --scale-5: 3.052rem;   /* extension - hero figures, the one big statistic */
+
+  /* --- the two reading regimes named in the digest, as their own tokens --- */
+  --text-prose:   1.125rem;  /* 18px */
+  --leading-prose: 1.6;
+  --text-dense:   0.9375rem; /* 15px */
+  --leading-dense: 1.4;
+
+  /* --- other line-heights and small rhythm constants, all tokenised so
+     nothing in §1-§4 below is a bare number --- */
+  --leading-ui:      1.5;    /* body / UI default */
+  --leading-heading: 1.25;   /* h1-h4 */
+  --leading-tight:   1;      /* one-line figures: statistic value */
+  --rhythm-inline:   0.9em;  /* inline code, slightly under body size */
+  --rhythm-para:     1.6em;  /* paragraph / list bottom margin, prose */
+  --rhythm-indent:   1.4em;  /* list indent, prose */
+  --label-pad-y:     0.2em;
+  --label-pad-x:     0.6em;
+
+  /* --- space by duplication: .25 / .5 / 1 / 2 / 4rem - group gaps double element gaps --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 2rem;
+  --space-5: 4rem;
+
+  /* --- measures --- */
+  --measure-container: 1120px;  /* page width cap */
+  --measure-prose:     68ch;    /* reading column cap, 66-72ch */
+
+  /* --- shared geometry --- */
+  --radius: 4px;
+  --shadow-raised: 0 2px 6px rgba(0, 0, 0, .08);
+}
+
+
+/* ==========================================================================
+   §1 · RESET & BASE - minimal, not a full reset. Do not delete: everything
+   below assumes box-sizing, paper background and the UI font are already set.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--scale-1);
+  line-height: var(--leading-ui);
+  margin: 0;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: var(--leading-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+h1 { font-size: var(--scale-4); }
+h2 { font-size: var(--scale-3); }
+h3 { font-size: var(--scale-2); }
+h4 { font-size: var(--scale-1); font-family: var(--font-ui); font-weight: 700; }
+
+a { color: var(--accent); }
+
+code, kbd, samp {
+  font-family: var(--font-mono);
+  font-size: var(--rhythm-inline);
+}
+
+
+/* ==========================================================================
+   §2 · READING - how prose itself reads well (digest A.1–A.4)
+   Two body regimes that must never mix in one block: .prose for a teaching
+   paragraph, .dense for tables/specs/definitions.
+   ========================================================================== */
+
+/* A.1 - reading measure: cap at 66-72ch, never full viewport width */
+.prose {
+  max-width: var(--measure-prose);
+  margin-inline: auto;
+}
+
+/* A.2 - prose regime: comfortable reading size and line height */
+.prose {
+  font-family: var(--font-body);
+  font-size: var(--text-prose);
+  line-height: var(--leading-prose);
+  color: var(--ink);
+}
+
+/* A.2 - dense regime: reference material, tighter and smaller */
+.dense {
+  font-family: var(--font-ui);
+  font-size: var(--text-dense);
+  line-height: var(--leading-dense);
+  color: var(--ink);
+}
+
+/* A.3 - generous paragraph rhythm: silence between ideas reads as organised */
+.prose p { margin: 0 0 var(--rhythm-para) 0; }
+.prose h2 { margin-top: var(--space-5); }
+.prose h3 { margin-top: var(--space-4); }
+.prose ul, .prose ol { margin: 0 0 var(--rhythm-para) 0; padding-left: var(--rhythm-indent); }
+.prose li { margin-bottom: var(--space-2); }
+.prose li:last-child { margin-bottom: 0; }
+
+
+/* ==========================================================================
+   §3 · ORIENTATION - never let a long page lose the reader (digest B.5–B.8)
+   ========================================================================== */
+
+/* B.8 - container: cap the page width. Padding shrinks one step on mobile
+   so text doesn't sit flush against the edge of a phone screen. */
+.container {
+  max-width: var(--measure-container);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+@media (max-width: 600px) {
+  .container { padding: 0 var(--space-3); }
+}
+
+/* B.8 - text column: cap the prose column tighter, inside the container */
+.text-column {
+  max-width: var(--measure-prose);
+  margin: 0 auto;
+}
+
+/* B.7 - sticky page header: one slim line, no logo clutter */
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-2) 0;
+}
+.page-header .container {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.page-header .title {
+  font-family: var(--font-ui);
+  font-size: var(--scale-1);
+  font-weight: 700;
+  color: var(--ink);
+}
+.page-header .meta {
+  font-family: var(--font-ui);
+  font-size: var(--scale-0);
+  color: var(--ink-soft);
+}
+
+
+/* B.7-bis — a TALL header (title + prose) must never freeze: it eats the screen and
+   the reader cannot consult what is below (Frank, 15-08-2026). Use .page-intro for it;
+   .page-header stays sticky only for the slim one-line bar it was written for. */
+.page-intro {
+  position: static;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-4) 0 var(--space-3);
+}
+
+/* B.5 - on-this-page rail: sticky beside the content, collapses on narrow
+   screens. Markup once as <details class="on-this-page" open>, no JS:
+     <details class="on-this-page" open>
+       <summary>On this page</summary>
+       <nav><a href="#id">Heading</a> ...</nav>
+     </details>
+   The summary is hidden at desktop width (rail is always open, no toggle
+   needed); it reappears as a real toggle once the layout goes narrow. */
+.on-this-page {
+  position: sticky;
+  top: var(--space-5);
+  align-self: start;
+  font-family: var(--font-ui);
+  font-size: var(--scale-0);
+  border: none;
+}
+.on-this-page > summary {
+  display: none;
+}
+.on-this-page .rail-label {
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: var(--space-2);
+}
+.on-this-page nav { display: flex; flex-direction: column; }
+.on-this-page a {
+  display: block;
+  padding: var(--space-1) 0;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  padding-left: var(--space-2);
+}
+.on-this-page a:hover,
+.on-this-page a.current {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+@media (max-width: 800px) {
+  .on-this-page {
+    position: static;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  .on-this-page > summary {
+    display: block;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .on-this-page nav { margin-top: var(--space-2); }
+}
+
+/* B.6 - anchor links on headings, revealed on hover. Markup:
+     <h2 id="topic">Heading <a class="anchor" href="#topic">#</a></h2> */
+h2 .anchor, h3 .anchor {
+  opacity: 0;
+  margin-left: var(--space-2);
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-weight: 400;
+}
+h2:hover .anchor, h2:focus-within .anchor,
+h3:hover .anchor, h3:focus-within .anchor {
+  opacity: 1;
+}
+
+
+/* ==========================================================================
+   §4 · BLOCKS - the document's vocabulary (digest C.9–C.18)
+   Every block below is independent. Delete the ones a given page doesn't use.
+   ========================================================================== */
+
+/* --- C.9 · segment: the topic block, turns a wall of text into topics --- */
+.segment {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4);
+  margin: var(--space-4) 0;
+}
+.segment.raised { box-shadow: var(--shadow-raised); border-color: transparent; }
+.segment > *:first-child { margin-top: 0; }
+.segment > *:last-child { margin-bottom: 0; }
+
+/* --- C.10 · callout: the one place colour earns its keep, 3 meanings max --- */
+.callout {
+  border-left: 4px solid var(--ink-soft);
+  background: #f7f7f7;
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-4) 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.callout > *:first-child { margin-top: 0; }
+.callout > *:last-child { margin-bottom: 0; }
+.callout.info    { border-left-color: var(--info-ink);    background: var(--info-bg); }
+.callout.warning { border-left-color: var(--warning-ink); background: var(--warning-bg); }
+.callout.success { border-left-color: var(--success-ink); background: var(--success-bg); }
+
+/* --- C.11 · steps: the procedure row, "first... then... finally" at a glance --- */
+.steps {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: var(--space-4) 0;
+}
+.step {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--line);
+}
+.step:last-child { border-right: none; }
+.step .num {
+  font-family: var(--font-ui);
+  font-size: var(--scale-2);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.step.active .num { color: var(--accent); }
+.step .title {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  margin-top: var(--space-1);
+}
+.step .desc {
+  font-family: var(--font-ui);
+  color: var(--ink-soft);
+  font-size: var(--scale-0);
+  margin-top: var(--space-1);
+}
+@media (max-width: 600px) {
+  .steps { flex-direction: column; }
+  .step { border-right: none; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+}
+
+/* --- C.12 · statistic: the big number a page wants remembered --- */
+.stat { margin: var(--space-4) 0; }
+.stat .value {
+  font-family: var(--font-body);
+  font-size: var(--scale-4);        /* trimmed from scale-5 so a row of figures fits one line */
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+.stat .label {
+  font-family: var(--font-ui);
+  font-size: var(--scale-0);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+  margin-top: var(--space-2);
+}
+/* even grid: all figures share one row when there's room, wrap 2-up on narrow
+   screens instead of leaving one orphan on a second line (auto-fit + minmax) */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4) var(--space-4);
+  align-items: end;
+}
+.stat-row .stat { margin: 0; }
+
+/* --- C.13 · description list: term + one-line meaning, structurally paired --- */
+dl.desc-list { margin: var(--space-4) 0; }
+dl.desc-list dt {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: var(--space-3);
+}
+dl.desc-list dt:first-child { margin-top: 0; }
+dl.desc-list dd {
+  margin: var(--space-1) 0 0 0;
+  color: var(--ink-soft);
+}
+
+/* --- C.14 · divider: named section break without a full heading --- */
+.divider {
+  display: flex;
+  align-items: center;
+  color: var(--ink-soft);
+  margin: var(--space-5) 0;
+  font-family: var(--font-ui);
+}
+.divider::before, .divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--line);
+}
+.divider span { padding: 0 var(--space-3); font-size: var(--scale-0); }
+
+/* --- C.15 · label: the status tag, one grey + one accent, nothing more --- */
+.label {
+  display: inline-block;
+  font-family: var(--font-ui);
+  padding: var(--label-pad-y) var(--label-pad-x);
+  border-radius: 3px;
+  font-size: var(--scale-0);
+  background: #eeeeee;
+  color: var(--ink-soft);
+}
+.label.accent {
+  background: color-mix(in srgb, var(--accent) 15%, white);
+  color: var(--accent);
+}
+
+/* --- C.16 · labelled code block: a filename/language tag above the block,
+   horizontal scroll, never wrap (wrapping destroys the code's own structure) --- */
+figure.code {
+  margin: var(--space-4) 0;
+}
+figure.code figcaption {
+  font-family: var(--font-mono);
+  font-size: var(--scale-0);
+  color: var(--ink-soft);
+  background: #f2f2f0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+figure.code pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: var(--space-3);
+  background: #fafafa;
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--scale-0);
+  line-height: var(--leading-dense);
+  white-space: pre;
+}
+
+/* --- C.17 · tables: sticky header, zebra rows, scroll inside their own box --- */
+.table-wrap {
+  overflow-x: auto;
+  margin: var(--space-4) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: var(--text-dense);
+  line-height: var(--leading-dense);
+}
+.table-wrap th, .table-wrap td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  font-weight: 700;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.table-wrap tbody tr:nth-child(even) { background: #faf9f7; }
+.table-wrap tbody tr:last-child td { border-bottom: none; }
+
+/* --- C.18 · before/after & two-column comparison: matched columns, equal weight --- */
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+}
+.compare > * { margin: 0; }
+.compare .compare-label {
+  font-family: var(--font-ui);
+  font-size: var(--scale-0);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-2);
+}
+@media (max-width: 700px) {
+  .compare { grid-template-columns: 1fr; }
+}
+
+
+/* ==========================================================================
+   §5 · UTILITIES - small helpers that support the two meta-rules (digest D)
+   ========================================================================== */
+
+/* D.20 - grayscale-first review: add to <body> for a moment before shipping.
+   Anything that loses its hierarchy here was leaning on colour to do work
+   that size, weight and space should have done. Remove before shipping. */
+.review-grayscale { filter: grayscale(1); }
+
+/* Light styling for <details> - the house rule requires collapsible sections
+   on any long content. Kept minimal so it never fights a page's own blocks. */
+details.collapsible {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+}
+details.collapsible summary {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--ink);
+}
+details.collapsible[open] summary { margin-bottom: var(--space-2); }
+
+/* Top-level page section, collapsible, styled as the section's own h2 -
+   for pages built entirely of <details open> sections (house rule: every
+   major section folds). Markup:
+     <details class="doc-section" id="topic" open>
+       <summary>Section title</summary>
+       ...content...
+     </details>
+   A subtle chevron via CSS border-triangle, not a text character; rotates
+   90deg open. Native <details> marker is removed on both engines. */
+details.doc-section {
+  border: none;
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  margin: 0 0 var(--space-5) 0;
+}
+details.doc-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: var(--scale-3);
+  color: var(--ink);
+  margin-bottom: var(--space-4);
+}
+details.doc-section > summary::-webkit-details-marker { display: none; }
+details.doc-section > summary::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: .5em solid var(--ink-soft);
+  border-top: .35em solid transparent;
+  border-bottom: .35em solid transparent;
+  transition: transform .15s ease;
+}
+details.doc-section[open] > summary::before { transform: rotate(90deg); }
+details.doc-section h3 { margin-top: var(--space-4); }
+details.doc-section h3:first-of-type { margin-top: 0; }
+
+
+/* ---- topnav: the booklet top menu (rule 7, the Studio pattern) ---- */
+.topnav { position: sticky; top: 0; z-index: 60; background: var(--paper); border-bottom: 1px solid var(--line); }
+.topnav-inner { max-width: var(--measure-container); margin: 0 auto; padding: var(--space-2) var(--space-4);
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.topnav .brand { font-weight: 700; text-decoration: none; color: var(--ink); font-size: var(--scale-0);
+  letter-spacing: .08em; text-transform: uppercase; font-family: var(--font-ui); }
+.topnav .brand .home { color: var(--accent); }
+.topnav-links { display: flex; gap: var(--space-3); flex-wrap: wrap; font-size: var(--scale-0); font-family: var(--font-ui); }
+.topnav-links a { color: var(--ink-soft); text-decoration: none; }
+.topnav-links a:hover { color: var(--accent); }
+
+
+body{margin:0;background:var(--bg,oklch(98.5% 0.004 90));color:var(--fg,oklch(24% 0.02 260));font-family:"Source Sans 3",system-ui,sans-serif;line-height:1.5}
+.twin{max-width:1100px;margin:0 auto;padding:2rem 2.5rem 4rem}
+.twin h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:2rem;line-height:1.15;margin:0 0 .35rem}
+.twin .src{font-size:.85rem;color:var(--muted,oklch(48% 0.02 260));margin:0 0 1.8rem}
+.twin .src a{color:inherit}
+.twin h2{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:1.45rem;margin:2.2rem 0 .6rem}
+.twin h3{font-size:1.1rem;margin:1.6rem 0 .4rem}
+.twin p,.twin li{max-width:none}
+.twin .tbl{overflow-x:auto;margin:1rem 0}
+.twin table{border-collapse:collapse;font-size:.92rem;min-width:100%}
+.twin th,.twin td{border:1px solid var(--border,oklch(88% 0.008 260));padding:.4rem .6rem;vertical-align:top;text-align:left}
+.twin th{background:var(--surface,oklch(100% 0 0));font-weight:600}
+.twin code{font-size:.9em;background:var(--surface,oklch(100% 0 0));padding:.05rem .3rem;border:1px solid var(--border,oklch(88% 0.008 260));border-radius:3px}
+.twin pre{overflow-x:auto;background:var(--surface,oklch(100% 0 0));border:1px solid var(--border,oklch(88% 0.008 260));padding:.8rem 1rem}
+.twin pre code{border:0;padding:0;background:none}
+.twin a{color:var(--accent,oklch(45% 0.12 250))}
+.twin blockquote{margin:1rem 0;padding:.2rem 1rem;border-left:3px solid var(--border,oklch(88% 0.008 260));color:var(--muted,oklch(48% 0.02 260))}
+.twin hr{border:0;border-top:1px solid var(--border,oklch(88% 0.008 260));margin:2rem 0}
+</style></head>
+<body><main class="twin">
+<h1>Criteria, the change document tool</h1>
+<p class="src">The markdown source: <a href="criteria-change-document.md">criteria-change-document.md</a>, saved 11-09-2026. This page is its twin, regenerated from it.</p>
+<p>What this file is: the tool's aim and Frank's distilled judgments, 18-08-2026 to 02-09-2026, in his own words where they exist. How sessions use it: read before writing or reviewing a change document; when Frank corrects or approves, add a numbered criterion with the why.</p>
+<h2 id="1-what-the-tool-is-for">1. What the tool is for</h2>
+<p>Frank's own framing, written 02-09-2026:</p>
+<ol type="1">
+<li>eRegistrations is a visual no-code metalanguage used by UNCTAD and other service designers to develop online services.</li>
+<li>The change document is a tool for service designers to define and implement, with AI, changes in an existing eR service.</li>
+<li>Analyzing a complex change implying numerous changes in various parts of the system demands a lot of attention and mental energy from the service designer. The tool assists in this exercise: the service designer defines the requested change in simple language, the tool analyses all changes required on the basis of the current situation and presents both in a very simple and clear way. All is visual, with as little text as possible since there is a lot of info, and only the necessary and sufficient info should be shown, not to overwhelm the service designer.</li>
+<li>The tool also presents the implementation plan in the simplest possible way, with ways for the human to follow easily.</li>
+<li>UX and UI are key since there is a lot of info and it must be as clear as possible.</li>
+<li>The tool speaks the eR language (Rosetta Stone, glossary, terms list) so the service designer understands what it says.</li>
+<li>The collaboration layer is a separate matter, see <a href="#5-set-aside-for-now">Section 5</a>.</li>
+</ol>
+<p>In his own words, across the sessions, what the tool must do and must never do:</p>
+<blockquote>
+<p>"It is a method to make a change in an e-reiteration service. We need to improve it in the sense that it must look and feel like a cookbook. It means that all words have to be very concrete, very easy to understand. We should put less information on each page and remove all words which are not necessary." (23-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"Julien, as all human beings, is somebody who cannot manage as much information as you can, so in each page there should be only the information we can put in our mental buffer." (23-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"You should not overwhelm me with documents and words. This is too much. You should be more concise." (18-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"Your writing is too jargon-y for the director. It has to be much simpler. it must also be more concise. Eliminate words which are not needed." (18-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"We need to remove all unnecessary parts. You should not comment on things; we should say things." (23-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"This document is not linked to the others. It is key and this is primary for a methodology that you issue clear documents linked with each other with an index." (18-08-2026)</p>
+</blockquote>
+<blockquote>
+<p>"What's the point of all this? What is the value added of this part? First of all, I don't understand anything." (01-09-2026)</p>
+</blockquote>
+<blockquote>
+<p>"make all sections and subsections collapsible... I should be able to read it at a glance." (01-09-2026)</p>
+</blockquote>
+<h2 id="2-who-reads-it-and-what-they-must-be-able-to-do">2. Who reads it, and what they must be able to do</h2>
+<p>The reader is a service designer: technical about eRegistrations, not a programmer, working from what the screens show. What they bring is the change in plain language, a sentence or two. What they must get back: the current situation as the live service renders it, every change the request requires, named and located, and a plan they can act on step by step.</p>
+<p>"Not overwhelmed" is Frank's own measure, not a stylistic preference: "in each page there should be only the information we can put in our mental buffer" (23-08-2026). One page holds what one head holds; folding hides detail but the top of any page must still read at a glance ("I should be able to read it at a glance", 01-09-2026). A page that needs explaining has already failed: "What's the point of all this?... I don't understand anything." (01-09-2026).</p>
+<p>The full editing spirit behind every sentence is <a href="leaflet-editing-spirit.md">leaflet-editing-spirit.md</a>: say the thing, never present the page or comment on it. This file does not repeat that rule, it extends it with what the August and September sessions settled specifically for the change document.</p>
+<h2 id="3-the-criteria">3. The criteria</h2>
+<p>The July style rules already govern writing the logic and not the configuration, his three categories (screens, bots, GDB), strict eR vocabulary, evidence-tagged claims, canvas-true drawings, collapsed sections with index chips, the phase and test grammar, and the announce-then-explain order. Full text: <a href="/Users/unctad/.claude/projects/-Users-unctad-Claude/memory/feedback-er-implementation-plan-style.md">feedback-er-implementation-plan-style.md</a>. What follows is what 18-08 to 02-09-2026 added or confirmed hard enough to freeze.</p>
+<h3 id="what-the-document-shows">What the document shows</h3>
+<p><strong>C1. One document, one index.</strong> All the parts of a change (proposal, current state, end state, migration, phases) live inside one addressable document with one clear index; scattered separate files confuse the reader.</p>
+<blockquote>
+<p>"give me one document with an index and then we'll see from there" (18-08-2026). Why: five unlinked files sent Frank in circles the same afternoon.</p>
+</blockquote>
+<p><strong>C2. The index names its own members.</strong> The index lists and links every real part of the page it opens, never a generic label standing in for them.</p>
+<blockquote>
+<p>"A good index should show what the title of this page is... this document referred to in the index so that I see what are the members of the index." (18-08-2026).</p>
+</blockquote>
+<p><strong>C3. Title says the decision.</strong> A page title names the actual question or content at stake, never a generic label.</p>
+<blockquote>
+<p>"This is not a good title find a better one" (18-08-2026).</p>
+</blockquote>
+<p><strong>C4. No premature verdict.</strong> A proposal not yet chosen is never shown as already selected.</p>
+<blockquote>
+<p>"Remove that A is selected, we have not decided yet." (18-08-2026).</p>
+</blockquote>
+<p><strong>C5. Structure follows the real world.</strong> Screens are grouped the way the world is organized, dashboard then business then its cases, licence then its cases, never by a category invented for the document.</p>
+<blockquote>
+<p>"If it is dashboard and then you put the four cases, or you put dashboard and then businesses and then case one, case two, and then licenses and activities, case one, case two" (01-09-2026). Why: settled into the document's own section order (My Dashboard Businesses, My Dashboard Licenses and Activities, the new service recovering a business, the new service recovering a licence).</p>
+</blockquote>
+<p><strong>C6. Cases are named Case 1, Case 2.</strong> Whenever a screen splits on a condition, each side gets its own plain number.</p>
+<blockquote>
+<p>"you should say case one and case two. It will be clearer." (01-09-2026).</p>
+</blockquote>
+<p><strong>C7. Change in short, four parts in order.</strong> The opening always runs Why, then What we change, then How it works, then What it touches; the tension lives inside "today", never as a part of its own (already in the style rules). Confirmed 02-09-2026 with the case bullets and digits added below.</p>
+<p><strong>C8. Bullets for the cases.</strong> Wherever the change splits into cases, each is its own bullet, never folded into a running sentence.</p>
+<blockquote>
+<p>"Put bullet points for the different cases. It will be easier." (01-09-2026).</p>
+</blockquote>
+<p><strong>C9. Digits, not spelled numbers.</strong> In the change-in-short section, counts are written as digits.</p>
+<blockquote>
+<p>"put numbers in neumbers not in letters" (01-09-2026).</p>
+</blockquote>
+<h3 id="what-it-never-shows">What it never shows</h3>
+<p><strong>C10. No GDB name to the applicant.</strong> No drawing an applicant reads may name a GDB or a legacy store; that exists for the registry only.</p>
+<blockquote>
+<p>"we should not show applicants any mention of the e-licenses July 2026 table nor of any other table. This is just for us." (02-09-2026). Confirmed: "No GDB store is named in anything an applicant reads" (02-09-2026 handover).</p>
+</blockquote>
+<p><strong>C11. No unexplained sentence.</strong> A sentence whose meaning is not obvious on first read is removed, not left for the reader to puzzle over.</p>
+<blockquote>
+<p>"remove last sentence, what does it mean?" (02-09-2026).</p>
+</blockquote>
+<p><strong>C12. No noise.</strong> An image, block or line that adds nothing is removed outright, not softened.</p>
+<blockquote>
+<p>"this creates noise (image 1) and is not useful" (01-09-2026); "Remove all. Nothing is useful. And do the same in all cards." (01-09-2026).</p>
+</blockquote>
+<p><strong>C13. No unjustified section.</strong> A section earns its place by what it changes in the reader's understanding; if it cannot say what it is for, it is cut.</p>
+<blockquote>
+<p>"What's the point of all this? What is the value added of this part? First of all, I don't understand anything." (01-09-2026).</p>
+</blockquote>
+<p><strong>C14. No invented screen name.</strong> A block or panel is named only if that is its real name on the live screen; an invented label is a defect.</p>
+<blockquote>
+<p>"We have nothing called business panel. What does it mean? Is it something you invented? This is screen, so clarify this." (01-09-2026). Why: extends the style rules' screen-truth rule from fields to named regions.</p>
+</blockquote>
+<p><strong>C15. AI instructions never sit in human text.</strong> A build note meant for the AI implementer goes in its own marked technical block, never mixed into the sentences a human reads.</p>
+<blockquote>
+<p>"If it is a bill instruction for AI, put it in an AI-only section, not for a human reader." (01-09-2026). Confirmed: "no build instruction in the human part" (kit 1.2.0, 02-09-2026).</p>
+</blockquote>
+<p><strong>C16. No unmarked audience.</strong> Every piece of text on a drawing is clearly for the applicant, the officer, or the record itself; text of unclear audience is removed. A sentence that states our reason or our data is not for the applicant even when it is true: "like most licences in OBFC digital records", "asked only when the licence carries none", "the registry never held these". Worked example (11-09-2026, Frank): a citizen line says what to do and what to give, never why the field exists.</p>
+<blockquote>
+<p>"what did you put this text? is it for us or for tghe applicant? i would remove." (02-09-2026).</p>
+</blockquote>
+<h3 id="how-it-is-drawn">How it is drawn</h3>
+<p><strong>C17. A legend entry earns its place on that screen.</strong> The legend under a drawing lists only marks that appear on it, never a universal key repeated everywhere. Confirmed, kit 1.2.0, 02-09-2026.</p>
+<p><strong>C18. One line per screen.</strong> A caption under a drawing is one line, not a paragraph. Confirmed, kit 1.2.0, 02-09-2026.</p>
+<p><strong>C19. One clear reference per number.</strong> Any number or reference named in text says plainly what it is.</p>
+<blockquote>
+<p>"which number are ou talking about? the nbr on the certif? if not it is worth explaining" (01-09-2026).</p>
+</blockquote>
+<p><strong>C20. Two numbers never share one word.</strong> When two distinct figures are at stake, they get two words, not one vague word standing for both. Confirmed, kit 1.2.0, 02-09-2026.</p>
+<p><strong>C21. Sibling inconsistency is explained, not silent.</strong> If one card in a set carries a mark that its sibling lacks, the difference is stated.</p>
+<blockquote>
+<p>"you see that there's a determinant in the first image and not on the second one. Justify why." (01-09-2026).</p>
+</blockquote>
+<p><strong>C22. Every effect and action drawn on a screen is explained.</strong> A visual device with no obvious meaning is removed or given a plain-word key.</p>
+<blockquote>
+<p>"what do these pills mean?" (01-09-2026).</p>
+</blockquote>
+<p><strong>C23. The navigation lives in one place.</strong> Once section links have a home, the left rail, they are not duplicated in a second spot on the same page.</p>
+<blockquote>
+<p>"we shliuld see the tabs only in the left column, remove from the right column, we should see there only the open tab" (02-09-2026).</p>
+</blockquote>
+<p><strong>C24. The current location is marked.</strong> The open section and the chosen view carry a visible check, not just a colour change.</p>
+<blockquote>
+<p>"the selected tab shluld be ticked" (02-09-2026).</p>
+</blockquote>
+<p><strong>C25. Reader's place is remembered.</strong> Which sections are open and which tab is chosen survives a reload; it does not reset itself.</p>
+<blockquote>
+<p>"my selection should be kept, for the time being it is refreshed with every refresh" (02-09-2026). Confirmed: "remembered in the browser between visits" (02-09-2026 handover).</p>
+</blockquote>
+<p><strong>C26. A folded rail still speaks.</strong> When the navigation narrows to icons only, each icon still evokes its section, never a blank strip.</p>
+<blockquote>
+<p>"when closed i should see icons which evoque each element" (02-09-2026).</p>
+</blockquote>
+<p><strong>C27. One control folds a whole group.</strong> A section holding subsections carries one icon that opens or closes all of them together.</p>
+<blockquote>
+<p>"for each section with subsections, show next to the section name an icon to open/close all subsections" (02-09-2026).</p>
+</blockquote>
+<p><strong>C28. Fold everywhere, glance at the top.</strong> Every section and subsection collapses, and the reader still takes the shape of the whole page in one look.</p>
+<blockquote>
+<p>"make all sections and subsections collapsible... I should be able to read it at a glance." (01-09-2026).</p>
+</blockquote>
+<p><strong>C29. A vertical index is routine, not research.</strong> Building the section navigation is a settled pattern to apply, not a problem to re-solve each time.</p>
+<blockquote>
+<p>"setting up a vertical index is a routine task" (02-09-2026).</p>
+</blockquote>
+<h3 id="the-words">The words</h3>
+<p><strong>C30. The page's own identity: kicker, then name.</strong> The page opens with a small blue capitals line naming the collaboration and its scope, the service name in plain black below it, smaller than the page title.</p>
+<blockquote>
+<p>"put this as small title (first part), maybe in capital letters and b lue and black normal fonts below for title" (23-08-2026).</p>
+</blockquote>
+<p><strong>C31. An action card stands out in a plain colour.</strong> A card whose nature differs from its siblings, something to install or act on, is marked in a flat, saturated colour, never a muted tone.</p>
+<blockquote>
+<p>"this is not orange, i want a plain orange like traffic lights" (23-08-2026).</p>
+</blockquote>
+<p><strong>C32. Purpose before content.</strong> A request is read as it usually arrives: why before what.</p>
+<blockquote>
+<p>"put why first, and adapt the second sentence" (01-09-2026).</p>
+</blockquote>
+<h3 id="the-plan-and-the-phases">The plan and the phases</h3>
+<p><strong>C33. Phase cards, tests at the end, the final test as the closing section.</strong> Already fully in the style rules; the August and September sessions add nothing new here. This change's own phases and final test remain unreviewed by Frank, see <a href="#6-settled-on-the-lesotho-change-itself">Section 6</a>.</p>
+<h3 id="the-method-read-the-live-service-screens-are-the-contract-from-the-current-situation">The method: read the live service, screens are the contract, from the current situation</h3>
+<p><strong>C34. The built service must match the document.</strong> What ships is checked against the approved screens; a mismatch is fixed, not explained away.</p>
+<blockquote>
+<p>"Remove and the built service must match them." (01-09-2026).</p>
+</blockquote>
+<p><strong>C35. A live read has an expiry, not just a stamp.</strong> A screen's read date is not a permanent label; a stale read is refreshed before the document ships, not just relabeled.</p>
+<blockquote>
+<p>"read 21 August is too old, we should read again" (01-09-2026).</p>
+</blockquote>
+<p><strong>C36. Capture what you learn.</strong> New understanding of the live service, which activities require a licence, how the legacy stores relate, is written into the country knowledge file, not just used once and dropped.</p>
+<blockquote>
+<p>"Read if this is mentioned in Lesotho MD. If it is not the case, record this information there there." (01-09-2026). Why: two new parts were added to Lesotho.md the same day (Activities and licences; the Legacy group).</p>
+</blockquote>
+<p><strong>C37. New understanding restructures, not patches.</strong> When something learned mid-session changes the design, the document's structure is redone to fit it, not bent around the old one.</p>
+<blockquote>
+<p>"take into account what you discovered now, that some activities which are missing and for which a license is requested must be dealt with specially... you need to remove all what relates to activities in this business part." (01-09-2026).</p>
+</blockquote>
+<p><strong>C38. Check the live screen before drawing it.</strong> Already in the style rules (screen-truth: draw what renders, never the definition); confirmed again in this change: a drawing said a button sat in one place and it did not.</p>
+<blockquote>
+<p>"Still wrong, the register business button is within the top line in the block. Check well in the BPM and reproduce here." (21-08-2026).</p>
+</blockquote>
+<h2 id="4-what-frank-refused">4. What Frank refused</h2>
+<ul>
+<li><strong>Colour on the invitation cards.</strong> Tried, then removed. "Finally, let's remove the green from all these sections for license and sole proprietorship when you don't see any license or any sole proprietorship." (21-08-2026)</li>
+<li><strong>A muted orange.</strong> Refused for a plain, saturated one. "this is not orange, i want a plain orange like traffic lights" (23-08-2026)</li>
+<li><strong>A second address, a preview copy of the document.</strong> Built, then refused and removed, 27-08-2026: "there is no preview copy and no second address."</li>
+<li><strong>Separate Julien's remarks and Julien's proposals sections.</strong> Tried, then folded into a try tab inside each section instead, 25-08-2026.</li>
+<li><strong>An opening paragraph, a box at the head.</strong> Removed; the head now runs straight from the title into the sections, 02-09-2026.</li>
+<li><strong>Commentary paragraphs after "what changes".</strong> Removed. "this long text after what changes is very confusing. Why should I read that? Either you remove it or just put what is important there" (01-09-2026)</li>
+<li><strong>AI build instructions inside human-facing prose.</strong> Moved to their own marked block. "If it is a bill instruction for AI, put it in an AI-only section, not for a human reader." (01-09-2026)</li>
+</ul>
+<h2 id="5-set-aside-for-now">5. Set aside for now</h2>
+<blockquote>
+<p>"Julien is an anecdotal aspect of the tool, it is an attempt, maybe premature, to make the tool collaborative, let's concentrate on the core tool first." (Frank, 02-09-2026)</p>
+</blockquote>
+<p>The collaboration layer, the try tabs per section, the shared repository, the remark tool, waits on this call. Its design record: the [25-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-25-aug-26.md) and the [27-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-shared-repository-27-aug-26.md).</p>
+<h2 id="6-settled-on-the-lesotho-change-itself">6. Settled on the Lesotho change itself</h2>
+<ul>
+<li><strong>Placement A.</strong> The invitation sits where the missing record would have been listed, confirmed twice, 18-08 and 21-08-2026. [22-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-22-aug-26.md).</li>
+<li><strong>It recovers, it does not renew.</strong> Named "Recover a Business ID or licence not shown on my dashboard", 21-08-2026. [21-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-21-aug-26.md).</li>
+<li><strong>No guide page.</strong> The dashboard button carries the destination in a hidden field, 21-08-2026. [21-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-21-aug-26.md).</li>
+<li><strong>Two identity cases, the number decides.</strong> A matching name changes nothing, 21-08-2026. [21-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-21-aug-26.md).</li>
+<li><strong>The wording of the invitations.</strong> "Find my business", "Find my licence", "Find it" for the quiet links, 21-08-2026. [22-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-22-aug-26.md).</li>
+<li><strong>Read from Legacy, not DRF.</strong> 21-08-2026. [21-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-21-aug-26.md).</li>
+<li><strong>Business ID mandatory in the licence path, ownership decided once.</strong> 02-09-2026. [02-09-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-the-document-worked-with-julien-02-sep-26.md).</li>
+<li><strong>Companies parked for another change session.</strong> 21-08-2026. [21-08-2026 handover](/Users/unctad/Claude/5 - Handovers/lesotho-renew-change-document-21-aug-26.md).</li>
+</ul>
+<h2 id="7-lessons-measured-on-the-session-of-01-and-02-09-2026">7. Lessons measured on the session of 01 and 02-09-2026</h2>
+<p>Fifty four saved changes, made by Frank line by line. Measured on the document before the session and after it, prose only, drawn screens excluded:</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th></th>
+<th>Before 01-09</th>
+<th>After 02-09</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prose words, screens excluded</td>
+<td>8,952</td>
+<td>6,432</td>
+</tr>
+<tr>
+<td>All words, screens included, Julien panes excluded</td>
+<td>10,953</td>
+<td>13,683</td>
+</tr>
+<tr>
+<td>Prose blocks removed or rewritten</td>
+<td>51 blocks, 3,889 words</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>L1. The commentary under a screen is the waste.</strong> Nearly every removed block was a paragraph under a drawn screen, opened by a bold lead: What the screen does (583 words), How this was read (499), What changes (322), What this drawing is (261), Why this screen exists (222), What we want (220), What the person sees, Why this is here, Why they exist, What it costs, What is drawn, What is not drawn, Where it stops. The screen speaks; one line under it at most (C18).</p>
+<p><strong>L2. A bold lead with a paragraph under it is commentary.</strong> The pattern that serves a reply serves no change document. The grammar Frank kept: the title, then the screen, then one line; cases as bullets (C8); digits (C9); provenance as a date and a version, never the story of the reading.</p>
+<p><strong>L3. The weight is now the screens, not the prose.</strong> Prose fell by 28 percent while the page grew by 25 percent: five licence screens were drawn. The next simplification is how screens are shown (how many at once, one section at a time, how two cases sit), not more sentence cutting.</p>
+<p><strong>L4. Restructure when you learn.</strong> Activities left the business path for the licence path the moment the licence rule was understood; sections were regrouped by where they live on screen (C5, C37).</p>
+<p><strong>L5. Markers gave way to one navigation.</strong> Legend rows, pills and the chip row went; a fixed left rail with a show-only-this button per section and a fold-all button per title took their place, and the page remembers the view (C23 to C28).</p>
+<p><strong>L6. What is still heavy after the session.</strong> Fifteen prose blocks over 60 words, 1,393 words: the three checks the screens cannot show, the tests inside the phases, Legal ground, the Legacy assessment. The For the AI part is heavy too, and it is not for the human (C15).</p>
+<h2 id="7-bis-more-criteria-from-the-sessions-of-18-08-to-27-08-2026">7-bis. More criteria, from the sessions of 18-08 to 27-08-2026</h2>
+<p>Read from the session ledgers on 02-09-2026. The evidence trail, session by session, is <a href="spirit-by-session.md">spirit-by-session.md</a>. These extend Section 3 and carry on its numbering.</p>
+<p><strong>C39. Three columns to a row.</strong> A drawn screen lays its fields the way the house lays them, two to four columns, never one field per line.</p>
+<blockquote>
+<p>"In this and in all other proposed screens you put one field per line. This is not our practice. We usually create at least two and generally three and four columns." (21-08-2026).</p>
+</blockquote>
+<p><strong>C40. No furniture the screen does not have.</strong> A drawing adds no rule, band or line that the live interface does not render.</p>
+<blockquote>
+<p>"what are these gray lines you put in the screens here they do not appear in the bpa check... modify here and modify in the rules and in the knowledge files" (21-08-2026). Why: the drawing is the contract, so an invented mark becomes a build instruction.</p>
+</blockquote>
+<p><strong>C41. Every category is named, including the ones that do not change.</strong> What the change triggers lists screens, bots, certificates, words and GDB tables, and says "no change" where nothing changes.</p>
+<blockquote>
+<p>"In the change triggers, we just see the bots, but we need to mention everything that could be triggered. Bots, certificates, what else? ... Even though there's no change, we should mention no change in certificate, no change in what else." (21-08-2026).</p>
+</blockquote>
+<p><strong>C42. A column carries the name, not the description.</strong> In a list of elements, the name column holds the element's real name, built to the naming template; what it does belongs in the description.</p>
+<blockquote>
+<p>"what you put in the column bot is confusing. Is it the name of the bot or is it what it does?" (21-08-2026).</p>
+</blockquote>
+<p><strong>C43. Show everything held, and offer to complete what is missing.</strong> Where the change reads a record, the document shows every field held and the offer to complete the gaps.</p>
+<blockquote>
+<p>"We should show here all the information we have for record in the business ID GDB. And we should offer the possibility to complete what is missing." (21-08-2026).</p>
+</blockquote>
+<p><strong>C44. Never ask what the applicant has already said.</strong> A question the flow already answered is removed from the drawn screen.</p>
+<blockquote>
+<p>"why do you propose if you want to renew a business or a license? You should know that because we have clicked either on find my sole property shape or find my license." (21-08-2026).</p>
+</blockquote>
+<p><strong>C45. Three doors, and he counts them.</strong> The index carries three cards, no more, each a door with a title to the point. A door whose page the verdicts have overtaken leaves the index; the repository keeps it. Worked example (11-09-2026): the data migration plan of 21 August left when Frank confirmed that nothing migrates, the old records are read where they sit and the live registry is written one recovered record at a time; its seven questions for the Director moved into the change document as one short grid, four settled by the drawings, three the Director's.</p>
+<blockquote>
+<p>"in each page there should be only the information we can put in our mental buffer. That's why I requested that the index be only three cards." (23-08-2026). Measured: the index page fell from 255 prose words in 21 blocks to 22 words in 2 the same day.</p>
+</blockquote>
+<p><strong>C46. No text that teaches how to read the page.</strong> A line explaining what a column means or how to read a section is removed, and the thing itself is made plain.</p>
+<blockquote>
+<p>"I don't understand what leave alone means... I think that this text is not necessary. It doesn't add anything. It just adds noise." (21-08-2026).</p>
+</blockquote>
+<p><strong>C47. A plain address.</strong> The document's address carries no machine letters.</p>
+<blockquote>
+<p>"Je ne comprends pas ce que tu dis pour le D, créons une adresse sans le D." (23-08-2026).</p>
+</blockquote>
+<p><strong>C48. The spirit is imposed in the machine, not remembered.</strong> A rule about words or noise is enforced by a checker or a hook, never by a reminder in a file.</p>
+<blockquote>
+<p>"we need to impose, in all future sessions, the spirit of removing unnecessary words, avoiding unnecessary comments, and saying things directly. This is not the case for the time being. We need to find where to impose this role deeply." (23-08-2026).</p>
+</blockquote>
+<p><strong>C49. The colleague never sees the plumbing.</strong> Whatever a colleague must install, clone or merge has already failed; he says what he wants changed and gets the document back. Held with the rest of the collaboration layer in <a href="#5-set-aside-for-now">Section 5</a>.</p>
+<blockquote>
+<p>"why do you give J teh address of the repo, why does it need it? all should be automated, why should it clone it himself... J should not know about this, thi sis technical cooking," (27-08-2026).</p>
+</blockquote>
+<p><strong>C50. The rail is the tabs.</strong> The rail names the sections; the workspace shows one section's content and never its title again; the shown one is ticked; the rail pane is white against the workspace.</p>
+<blockquote>
+<p>"The menu on the left is tabs, this is the only place where the titles appear. On the tab working space you just see this tab." (03-09-2026) Why: asked several times since 02-09; the 02-09 build kept the title rows as fold handles, so the titles stayed. Applied 03-09-2026.</p>
+</blockquote>
+<p><strong>C51. The end situation follows the object, then the person's path.</strong> Business, then Licence and activities; under each, On My Dashboard, then In the new service; the officer desk once, because ownership is decided once, on the business; Behind the screens last. Every group and case closed on a first visit; afterwards the page keeps what the operator opened.</p>
+<blockquote>
+<p>"it would probably be more logical to structure through having business and then under business having my dashboard and new service and the same for licenses activities" (03-09-2026); "by default all sections closed at beginning, after leave open those open by operator" (03-09-2026) Why: the reader follows one object end to end; it replaces the 01-09 grouping by place (dashboard first, then the service).</p>
+</blockquote>
+<p><strong>C52. The logic listing is the builder's, not the reader's.</strong> A hidden block, a list of every determinant, a "logic spelled out" grid: none of it sits in the human part. The screens carry their effects and actions; the listing lives under For the AI. A grid in the human part wraps its text inside its columns.</p>
+<blockquote>
+<p>"I don't understand what this section is for. If there's a hidden block, it should be shown in the other screens, not here... We don't need a listing of all determinants, and it's not responsive; the text is not in the blocks." (03-09-2026) Why: Behind the screens was moved whole into For the AI the same day; the human part of End situation reads Business, Licence and activities, The officer desk.</p>
+</blockquote>
+<p><strong>C53. Group headings in the rail in small capital letters.</strong> In the left pane, a heading that groups items (Business, Licence and activities, The officer desk) is set in small capitals, muted; the items under it in normal case.</p>
+<blockquote>
+<p>"the change-b version is better in the left pane, because the titles are in capital letters. It's better than what we have for the time being, so we should adopt this in our style." (03-09-2026)</p>
+</blockquote>
+<h2 id="7-ter-criteria-from-the-session-of-07-09-2026">7-ter. Criteria from the session of 07-09-2026</h2>
+<p><strong>C54. Two kinds of drawing, never mixed.</strong> A change document draws a screen either <em>as the person sees it</em> (the portal's look, one named example, the fields the registry holds, no logic letters) or <em>in BPA, every component</em> (the canvas look, every component once, hidden ones drawn as BPA shows them, the E, V and A letters on this drawing only). Each drawing names its kind on its title line. The word "new" stays on both: it is the document's own device, not the platform's. The kit carries one stylesheet per kind (<code>tools/ds-mockup-kit.css</code>, <code>tools/bpa-mockup-kit.css</code>) and a check that every label on a citizen screen exists on its form's canvas (<code>tools/screen-labels-check.py</code>).</p>
+<blockquote>
+<p>"I would rather have two screens, one for BPA and one for DS, rather than mixing, because here on what we have, we have a kind of mixture. We have parts DS and we see the determinants on BPA." (07-09-2026)</p>
+</blockquote>
+<p><strong>C55. The record shows every field, empty ones empty; What is missing asks only the empty ones.</strong> On the citizen screen the record is drawn whole, as the GDB table holds it, so the person sees at first sight what is missing; the empty fields are then asked once under What is missing, each shown by its own emptiness determinant (Show + Activate, default hidden). No hide effect on a record field, no group that hides with its title. Reversed by Frank on 07-09-2026 evening: the first shape of this criterion ("a field the registry holds nothing for is not shown") lasted one day; the reason for the reversal is that seeing the gaps on the record itself is the information the person needs first.</p>
+<blockquote>
+<p>"why not effects on all fields?" (07-09-2026) "You show everything that is in the registry and everything that is not there with an indication that nothing is recorded. Then there is a new section called 'what is missing' where you can fill it in. It's a kind of duplication and makes it more complex to see it twice. So why don't you just not show any field for which there is no information and keep showing it as you do now in the 'what is missing' section?" (07-09-2026) · on the identity line: "b, show it" (07-09-2026)</p>
+</blockquote>
+<p><strong>C56. A whole new block says "new" once.</strong> On the block, at its top right; never on each part inside it, never on the fold title above it.</p>
+<blockquote>
+<p>"the whole recover a business block is new, put here and not in the subsections" (07-09-2026)</p>
+</blockquote>
+<p><strong>C57. A note sits just before what it explains.</strong> The note on the two addresses sits before the address group, not at the top of the block.</p>
+<blockquote>
+<p>"it looks strange to have the comment in blue at the top, it should be just before the address section" (07-09-2026)</p>
+</blockquote>
+<p><strong>C58. The screens line in its own colour.</strong> The line that counts the screens and holds the fold control is a tinted strip (the light blue of the ticked tab), so the control reads apart from the prose.</p>
+<blockquote>
+<p>"this should be in a different color to make the page more readable" (07-09-2026)</p>
+</blockquote>
+<p><strong>C59. The letters sit in their circles, top right of what they qualify.</strong> A word pass in the style never renames a class the drawings use: the 03-09 pass renamed the three placement rules and every E, V, A fell to the top left as plain text for four days.</p>
+<blockquote>
+<p>"the effect icon is oddly placed" · "all V, E and other icons badly shown" (07-09-2026)</p>
+</blockquote>
+<p><strong>C60. The arrow that closes the left menu keeps the section.</strong> The control under the pointer must be the control that acts: the first menu line, a full-width block drawn after the arrow, was taking its clicks and changing the section.</p>
+<blockquote>
+<p>"When I close the left pane I don't stay on the same tab" · "and i cant close the pane anyway" (07-09-2026)</p>
+</blockquote>
+<p><strong>C61. A letter only where the effect differs from the default; a shape is a mask, not a validation.</strong> A field whose default is activate, enable and show carries no E: the letter sits on the component the determinant acts on (the panel the dashboard button opens). A number's shape is an input mask on the field, not a validation rule with a message. Worked example (07-09-2026, the record block): the E sits on the field inside the Columns part, never on the part's frame; a determinant that hides a whole group (title and its row) puts its E on the Columns component, at the frame's top-right corner, and the fields inside keep their own.</p>
+<blockquote>
+<p>"There's no effect. This is the default field. There's no specific effect. The effect is shown when it is different from the default which is activate, enabled and show." · "why using the validation logical feature in e-registrations, which is a bit complex to use, rather than a mask?" (07-09-2026)</p>
+</blockquote>
+<p><strong>C62. A bot is named with its table, its key, what it returns and when it runs.</strong> "Runs the four read bots in order" says nothing. Each bot: its name as the bot grid names it, the GDB table it reads or writes, the key it uses, the hidden field or block it fills, and the moment it runs (a button, the form opening, a desk).</p>
+<blockquote>
+<p>"Describe the four bots more precisely here. It's very difficult to understand what you mentioned." (07-09-2026)</p>
+</blockquote>
+<p><strong>C63. A button sits level with the field it acts on, and the canvas follows BPA's own UX rules.</strong> Whatever sits under the field (a key line, a description), the button's row is the input's row, measured centre on centre. More widely: a drawing in the BPA look obeys the UX rules BPA itself applies; never a layout BPA would not produce. Worked example (07-09-2026, the record block): a Columns component is one frame whose parts touch, no gutter; each part a cell with its own 1px dotted border, the field inside without a box of its own, a part with no field drawn empty; three fields spaced out as three dashed boxes read as three components, which BPA never draws. Measured on the BPA canvas, Lesotho, Register a Business, Owner tab.</p>
+<blockquote>
+<p>"The button should be aligned with the field. Don't forget this. This is a rule. I think you should apply all the same UX rules which are applied in BPA." (07-09-2026)</p>
+</blockquote>
+<p><strong>C64. Screen titles telegraphic.</strong> No leading article; the outcome as a clause and its consequence after a colon: "Record found carries applicant's national ID number: it is theirs".</p>
+<blockquote>
+<p>"I will just remove the and I would talk in telegraphic style." (07-09-2026)</p>
+</blockquote>
+<p><strong>C65. Every hidden field says what it is for.</strong> On a canvas, hidden fields are grouped by nature under column titles (from the login · from the search · for the write bots), and each carries one line: what it holds, filled by which bot or formula, read by which determinant or bot. A human and an AI reading the canvas must understand every element without asking.</p>
+<blockquote>
+<p>"we need to know what these hidden fields are for. give indications in the title of the block or regroup by nature in different columns and give indications in title of columns. A human and an AI reading the BPA should understand all elements easily" (07-09-2026)</p>
+</blockquote>
+<p><strong>C66. The outcome screens belong to the form as it opens, and the indent says it.</strong> In the list of a form's screens, "Form as it opens" comes first and the outcome screens follow, indented under it: the same form after the search, one screen per outcome; in BPA not sub-panels but the same panel, at the level of the form as it opens. No sentence explains the dependency; the margin shows it. Never fold them under the form as sub-sections, never let them read as separate forms.</p>
+<blockquote>
+<p>"They are not subsections, but they belong to it. In BPA, it's at the same level as the form as it opens." · "I don't want this text, I just want to show visually that the three sections are depending on this one and the best way is to put a margin." (08-09-2026)</p>
+</blockquote>
+<p><strong>C67. The turning point of a path is lifted.</strong> The block where the outcome changes for the person, here where the record cannot be confirmed as theirs and evidence is asked, is not drawn as one row among others: it gets its own titled block ("Prove this record is yours"), and its message sits in the portal's red box with a bold first sentence. Every device used is one the portal itself draws; nothing is invented to make it prominent.</p>
+<blockquote>
+<p>"This section, which is very important, be made more prominent. It's not the case yet, so make it more prominent and visible." (08-09-2026, second ask)</p>
+</blockquote>
+<p><strong>C68. The page holds one copy of everything.</strong> No hidden layer, no second pane, no "try" beside the agreed text. A hidden copy is where edits land by mistake and where reviewers read the wrong version: on 08-09-2026 the two reviewers built eight findings on the hidden Julien pane, and an evening of edits to the effects table had gone into it while the page showed the old one. When a colleague's layer is set aside, it leaves the page; the repository keeps it.</p>
+<blockquote>
+<p>"delete J pane yes" (08-09-2026)</p>
+</blockquote>
+<p><strong>C69. Measure the data before drawing a rule on it.</strong> A mask, a shape, a "known" case, an automatic road: each is drawn only after the store it acts on has been read whole and counted. The mask A9999/99999 fitted 1,450 of the 6,036 numbers it was meant to accept; the identity numbers of the old licences were passports 93 times in 100 while the login verifies ID cards; the automatic road on the business path stood on a free-text column where 1,373 numbers exist nowhere. The evidence note is written first, the drawing follows it, and every count on the page is computed from the drawings by script, never typed.</p>
+<blockquote>
+<p>"i said no to the mask" · "officer" (08-09-2026)</p>
+</blockquote>
+<p><strong>C70. The prose that lists the logic is checked against the canvases by a machine.</strong> The effects table, the bot grid and the counts are the canvases' letters written out; they drift the moment a drawing changes. <code>tools/logic-check.py</code> compares every E name, every bot named in a note and the two counts with the table and the grid, and returns 0 before delivery, beside the four other checks.</p>
+<blockquote>
+<p>the consistency reviewer, 08-09-2026: "the prose that sits behind the drawings has not followed them"</p>
+</blockquote>
+<p><strong>C71. Two reviews before the build, then a third from another house.</strong> When the drawings are settled, a consistency reviewer (current against end situation, decisions against every sentence, bots, letters, hidden block, labels, phases) and an adversarial reviewer (the citizen, the officer, the registry, the platform with the tier-0 rules, the plan, the builder) read the page as published, read-only, each writing one findings file with a scenario, a place and a one-line repair per finding. Findings that hinge on a fact are verified before acting; the ones that stand go into the page, the refuted ones are kept with their evidence, the trail sits in the handover. Then a Codex reviewer at the highest effort reads the repaired page. Two of tonight's forty adversarial findings were refuted by the live service; seventy-four were applied.</p>
+<blockquote>
+<p>"ask an agent to make an adversarial review of this change proposal" · "ask a codex Sol high level agent to make an adversarial review" (08-09-2026)</p>
+</blockquote>
+<p><strong>C72. A migration of old records is proof-driven, never bulk.</strong> Nothing is copied from the old stores into the live GDB tables. A record moves the moment its proof exists, in three tiers: one click when the data holds the proof (never a write bot on the shared dashboard: the person confirms and sends, no officer; Frank, 11-09-2026, 15a), one answer when one thing is missing, evidence and an officer for the rest. The live registry never holds a record without an owner; what nobody claims never pollutes it; progress is counted in records tied, not rows copied.</p>
+<blockquote>
+<p>"no migration needed. Confirm that." · "yes proof-driven migration" (08-09-2026)</p>
+</blockquote>
+<p><strong>C73. A name is recorded with the registry's own word and device.</strong> When a change lets a person name something, the drawing copies the live service's block for it, question, field, check and refusal, and uses the registry's word at every level even where it is the same word twice: on Lesotho, business name for the business and business name for the activity; the prose disambiguates by owner (the business's name, the business name for the activity), never by inventing a synonym. A name taken from an old record is proven by the record; a name the person types is proven by the certificate; a name another business holds live is refused by the system, not judged by an officer. Worked example (09-09-2026, the recovery's activity row): Frank corrected "trading name" to the registry's "business name" and chose B, the system refuses.</p>
+<blockquote>
+<p>"we say business name also for an activity" · "a name per activity is optional, not mandatory" · "B, system refuses the name" (09-09-2026)</p>
+</blockquote>
+<p><strong>C74. What is missing asks every field the live row needs and the old row does not hold.</strong> The block is drawn from the live GDB table's columns, not from the three or four fields that come to mind: on the licence path, Sector, Trading profile and District were drawn and the business name was forgotten. When the old row holds the value, it is taken and nothing is asked; when it holds none, or holds one the registry cannot accept, the field shows with its own determinant.</p>
+<blockquote>
+<p>"you consider that only 3 fields can be missing, more can be missing, for example the business name. And if the business name is there, we take it" (09-09-2026)</p>
+</blockquote>
+<p><strong>C75. A pattern in the data is not a rule of the system that produced it.</strong> A regularity read off an old store, the first letter of 6,110 Business ID numbers naming a district, is drawn as a rule only once the owner of the old system confirms it was one. Worked example (11-09-2026): the letter-to-district reading covered every live district and looked like a rule; Frank knew the old system never encoded the district in the number, and the count by letter agreed with him (Quthing 824, Leribe 155). District stays a question the person answers. Measuring (C69) says what the data holds; only the owner says what it meant.</p>
+<p><strong>C76. The facts of the old system are written by their owner, and every sentence about a shape traces to them.</strong> A change that reads old records keeps one short list of what the old system did and did not do (<code>evidence/old-system-facts.md</code>), written from the owner's answers, dated. Every sentence on the page that says what a number, a name or a code looks like, or derives one thing from another, traces to a line of that list; the reviewer brief carries the list and the instruction to attack each such sentence with an old certificate in hand, never with the new system's habits. When a decision removes a rule, the session first lists every place the assumption lives, by searching the page for its tokens (the example value, "looks like", "shape"), and the change log names them all. Worked example (11-09-2026): "no mask" (08-09) had left "a Business ID looks like A2019/03412" in the nothing-found message, in rule One and in a canvas note, through three reviews; the fact "old numbers follow no pattern; the pattern began with the new system" had never been written, so nobody could check against it.</p>
+<h2 id="8-the-spirit-in-ten-lines">8. The spirit in ten lines</h2>
+<p>Drawn from every session of the document, 18-08 to 02-09-2026. Each line is a rule to apply while writing or drawing, with the sessions that show it.</p>
+<ol type="1">
+<li><strong>One document, one index, one address.</strong> Every part of a change lives inside one addressable page whose index names its own members. 18-08, 23-08, 27-08.</li>
+<li><strong>The screen is the argument.</strong> Under a drawing, one line. A bold lead with a paragraph under it is commentary, and commentary is the waste. 20-08, 01-09, 02-09.</li>
+<li><strong>Draw what renders, where it renders.</strong> The live screen, the real button in its real place, three columns to a row, no furniture the interface does not have. 21-08.</li>
+<li><strong>Name every category the change touches, including the ones that do not change.</strong> Bots, certificates, screens, words, the GDB tables. 21-08.</li>
+<li><strong>Cases are numbered, bulleted and named.</strong> Case 1, Case 2, one bullet each, counts in digits. 01-09.</li>
+<li><strong>Everything on the page has an audience and a real name.</strong> Text for the applicant, for the officer, or for the record; a panel named only if that is its name; invented labels and unexplained pills are defects. 01-09, 02-09.</li>
+<li><strong>Restructure when you learn, do not patch.</strong> A rule understood mid-session moves whole sections, and what was learned goes into the country knowledge file. 21-08, 01-09.</li>
+<li><strong>The page keeps the reader's place.</strong> One navigation, in one column, the open section ticked, one control folding a whole group, and the view surviving a reload. 02-09.</li>
+<li><strong>Count the doors: a page holds what one head holds.</strong> The index is three cards; 255 prose words became 22 the day he counted them. 23-08.</li>
+<li><strong>Impose the spirit in the machine, not in a reminder.</strong> "We need to find where to impose this role deeply." 23-08, and the three checkers driven to zero since 22-08.</li>
+</ol>
+<p>Where the house rules pull against this, with the evidence and no resolution: the closing part of <a href="spirit-by-session.md">spirit-by-session.md</a>.</p>
+
+</main></body></html>
