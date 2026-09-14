@@ -1,5 +1,7 @@
 # Criteria, the change document tool
 
+**14-09-2026, Frank's choice C on the criteria choices page (`criteria-choices-14-09-2026.html`):** nineteen criteria merged into eight (C2, C23 → C1 · C10, C15, C52 → C16 · C20 → C19 · C14, C40, C63 → C38 · C21, C22, C59, C61 → C54 · C42 → C62 · C43, C55 → C74 · C36, C37, C75 → C76), each absorber carrying the merged wording and the absorbed criteria below it as history with Frank's words and dates; every other criterion kept as it is; no demotion, no cut (Astra's proposals of 14-09-2026 for those wait for a second choice once the drawing kit carries them as checks). The numbers C1 to C76 stay valid as references.
+
 What this file is: the tool's aim and Frank's distilled judgments, 18-08-2026 to 02-09-2026, in his own words where they exist.
 How sessions use it: read before writing or reviewing a change document; when Frank corrects or approves, add a numbered criterion with the why.
 
@@ -51,8 +53,15 @@ The July style rules already govern writing the logic and not the configuration,
 > "give me one document with an index and then we'll see from there" (18-08-2026).
 Why: five unlinked files sent Frank in circles the same afternoon.
 
-**C2. The index names its own members.** The index lists and links every real part of the page it opens, never a generic label standing in for them.
-> "A good index should show what the title of this page is... this document referred to in the index so that I see what are the members of the index." (18-08-2026).
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C2, C23):** Keep the proposal, current situation, end situation, migration and phases in one addressable document, with one left-rail index naming and linking every real part and no duplicate navigation.
+
+> *Absorbed into C1 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C2. The index names its own members.** The index lists and links every real part of the page it opens, never a generic label standing in for them.
+> > "A good index should show what the title of this page is... this document referred to in the index so that I see what are the members of the index." (18-08-2026).
+
+> *Absorbed into C1 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C23. The navigation lives in one place.** Once section links have a home, the left rail, they are not duplicated in a second spot on the same page.
+> > "we shliuld see the tabs only in the left column, remove from the right column, we should see there only the open tab" (02-09-2026).
 
 **C3. Title says the decision.** A page title names the actual question or content at stake, never a generic label.
 > "This is not a good title find a better one" (18-08-2026).
@@ -77,10 +86,6 @@ Why: settled into the document's own section order (My Dashboard Businesses, My 
 
 ### What it never shows
 
-**C10. No GDB name to the applicant.** No drawing an applicant reads may name a GDB or a legacy store; that exists for the registry only.
-> "we should not show applicants any mention of the e-licenses July 2026 table nor of any other table. This is just for us." (02-09-2026).
-Confirmed: "No GDB store is named in anything an applicant reads" (02-09-2026 handover).
-
 **C11. No unexplained sentence.** A sentence whose meaning is not obvious on first read is removed, not left for the reader to puzzle over.
 > "remove last sentence, what does it mean?" (02-09-2026).
 
@@ -90,18 +95,27 @@ Confirmed: "No GDB store is named in anything an applicant reads" (02-09-2026 ha
 **C13. No unjustified section.** A section earns its place by what it changes in the reader's understanding; if it cannot say what it is for, it is cut.
 > "What's the point of all this? What is the value added of this part? First of all, I don't understand anything." (01-09-2026).
 
-**C14. No invented screen name.** A block or panel is named only if that is its real name on the live screen; an invented label is a defect.
-> "We have nothing called business panel. What does it mean? Is it something you invented? This is screen, so clarify this." (01-09-2026).
-Why: extends the style rules' screen-truth rule from fields to named regions.
-
-**C15. AI instructions never sit in human text.** A build note meant for the AI implementer goes in its own marked technical block, never mixed into the sentences a human reads.
-> "If it is a bill instruction for AI, put it in an AI-only section, not for a human reader." (01-09-2026).
-Confirmed: "no build instruction in the human part" (kit 1.2.0, 02-09-2026).
-
 **C16. No unmarked audience.** Every piece of text on a drawing is clearly for the applicant, the officer, or the record itself; text of unclear audience is removed. A sentence that states our reason or our data is not for the applicant even when it is true: "like most licences in OBFC digital records", "asked only when the licence carries none", "the registry never held these". Worked example (11-09-2026, Frank): a citizen line says what to do and what to give, never why the field exists.
 > "what did you put this text? is it for us or for tghe applicant? i would remove." (02-09-2026).
 
 ### How it is drawn
+
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C10, C15, C52):** Give drawing text a clear audience, remove unclear text, keep GDB names and our reasons out of applicant text, say what applicants must do and give, place build instructions and logic listings under For the AI, and keep human grids' text inside their columns.
+
+> *Absorbed into C16 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C10. No GDB name to the applicant.** No drawing an applicant reads may name a GDB or a legacy store; that exists for the registry only.
+> > "we should not show applicants any mention of the e-licenses July 2026 table nor of any other table. This is just for us." (02-09-2026).
+> Confirmed: "No GDB store is named in anything an applicant reads" (02-09-2026 handover).
+
+> *Absorbed into C16 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C15. AI instructions never sit in human text.** A build note meant for the AI implementer goes in its own marked technical block, never mixed into the sentences a human reads.
+> > "If it is a bill instruction for AI, put it in an AI-only section, not for a human reader." (01-09-2026).
+> Confirmed: "no build instruction in the human part" (kit 1.2.0, 02-09-2026).
+
+> *Absorbed into C16 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C52. The logic listing is the builder's, not the reader's.** A hidden block, a list of every determinant, a "logic spelled out" grid: none of it sits in the human part. The screens carry their effects and actions; the listing lives under For the AI. A grid in the human part wraps its text inside its columns.
+> > "I don't understand what this section is for. If there's a hidden block, it should be shown in the other screens, not here... We don't need a listing of all determinants, and it's not responsive; the text is not in the blocks." (03-09-2026)
+> Why: Behind the screens was moved whole into For the AI the same day; the human part of End situation reads Business, Licence and activities, The officer desk.
 
 **C17. A legend entry earns its place on that screen.** The legend under a drawing lists only marks that appear on it, never a universal key repeated everywhere. Confirmed, kit 1.2.0, 02-09-2026.
 
@@ -110,16 +124,10 @@ Confirmed: "no build instruction in the human part" (kit 1.2.0, 02-09-2026).
 **C19. One clear reference per number.** Any number or reference named in text says plainly what it is.
 > "which number are ou talking about? the nbr on the certif? if not it is worth explaining" (01-09-2026).
 
-**C20. Two numbers never share one word.** When two distinct figures are at stake, they get two words, not one vague word standing for both. Confirmed, kit 1.2.0, 02-09-2026.
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C20):** Name every number or reference precisely, using different names for different numbers.
 
-**C21. Sibling inconsistency is explained, not silent.** If one card in a set carries a mark that its sibling lacks, the difference is stated.
-> "you see that there's a determinant in the first image and not on the second one. Justify why." (01-09-2026).
-
-**C22. Every effect and action drawn on a screen is explained.** A visual device with no obvious meaning is removed or given a plain-word key.
-> "what do these pills mean?" (01-09-2026).
-
-**C23. The navigation lives in one place.** Once section links have a home, the left rail, they are not duplicated in a second spot on the same page.
-> "we shliuld see the tabs only in the left column, remove from the right column, we should see there only the open tab" (02-09-2026).
+> *Absorbed into C19 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C20. Two numbers never share one word.** When two distinct figures are at stake, they get two words, not one vague word standing for both. Confirmed, kit 1.2.0, 02-09-2026.
 
 **C24. The current location is marked.** The open section and the chosen view carry a visible check, not just a colour change.
 > "the selected tab shluld be ticked" (02-09-2026).
@@ -163,15 +171,24 @@ Confirmed: "remembered in the browser between visits" (02-09-2026 handover).
 **C35. A live read has an expiry, not just a stamp.** A screen's read date is not a permanent label; a stale read is refreshed before the document ships, not just relabeled.
 > "read 21 August is too old, we should read again" (01-09-2026).
 
-**C36. Capture what you learn.** New understanding of the live service, which activities require a licence, how the legacy stores relate, is written into the country knowledge file, not just used once and dropped.
-> "Read if this is mentioned in Lesotho MD. If it is not the case, record this information there there." (01-09-2026).
-Why: two new parts were added to Lesotho.md the same day (Activities and licences; the Legacy group).
-
-**C37. New understanding restructures, not patches.** When something learned mid-session changes the design, the document's structure is redone to fit it, not bent around the old one.
-> "take into account what you discovered now, that some activities which are missing and for which a license is requested must be dealt with specially... you need to remove all what relates to activities in this business part." (01-09-2026).
-
 **C38. Check the live screen before drawing it.** Already in the style rules (screen-truth: draw what renders, never the definition); confirmed again in this change: a drawing said a button sat in one place and it did not.
 > "Still wrong, the register business button is within the top line in the block. Check well in the BPM and reproduce here." (21-08-2026).
+
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C14, C40, C63):** Read the live screen before drawing, reproduce its real names and rendered appearance without invented lines or bands, and follow BPA's layout rules, including button alignment with its field.
+
+> *Absorbed into C38 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C14. No invented screen name.** A block or panel is named only if that is its real name on the live screen; an invented label is a defect.
+> > "We have nothing called business panel. What does it mean? Is it something you invented? This is screen, so clarify this." (01-09-2026).
+> Why: extends the style rules' screen-truth rule from fields to named regions.
+
+> *Absorbed into C38 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C40. No furniture the screen does not have.** A drawing adds no rule, band or line that the live interface does not render.
+> > "what are these gray lines you put in the screens here they do not appear in the bpa check... modify here and modify in the rules and in the knowledge files" (21-08-2026).
+> Why: the drawing is the contract, so an invented mark becomes a build instruction.
+
+> *Absorbed into C38 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C63. A button sits level with the field it acts on, and the canvas follows BPA's own UX rules.** Whatever sits under the field (a key line, a description), the button's row is the input's row, measured centre on centre. More widely: a drawing in the BPA look obeys the UX rules BPA itself applies; never a layout BPA would not produce. Worked example (07-09-2026, the record block): a Columns component is one frame whose parts touch, no gutter; each part a cell with its own 1px dotted border, the field inside without a box of its own, a part with no field drawn empty; three fields spaced out as three dashed boxes read as three components, which BPA never draws. Measured on the BPA canvas, Lesotho, Register a Business, Owner tab.
+> > "The button should be aligned with the field. Don't forget this. This is a rule. I think you should apply all the same UX rules which are applied in BPA." (07-09-2026)
 
 ## 4. What Frank refused
 
@@ -229,18 +246,8 @@ Read from the session ledgers on 02-09-2026. The evidence trail, session by sess
 **C39. Three columns to a row.** A drawn screen lays its fields the way the house lays them, two to four columns, never one field per line.
 > "In this and in all other proposed screens you put one field per line. This is not our practice. We usually create at least two and generally three and four columns." (21-08-2026).
 
-**C40. No furniture the screen does not have.** A drawing adds no rule, band or line that the live interface does not render.
-> "what are these gray lines you put in the screens here they do not appear in the bpa check... modify here and modify in the rules and in the knowledge files" (21-08-2026).
-Why: the drawing is the contract, so an invented mark becomes a build instruction.
-
 **C41. Every category is named, including the ones that do not change.** What the change triggers lists screens, bots, certificates, words and GDB tables, and says "no change" where nothing changes.
 > "In the change triggers, we just see the bots, but we need to mention everything that could be triggered. Bots, certificates, what else? ... Even though there's no change, we should mention no change in certificate, no change in what else." (21-08-2026).
-
-**C42. A column carries the name, not the description.** In a list of elements, the name column holds the element's real name, built to the naming template; what it does belongs in the description.
-> "what you put in the column bot is confusing. Is it the name of the bot or is it what it does?" (21-08-2026).
-
-**C43. Show everything held, and offer to complete what is missing.** Where the change reads a record, the document shows every field held and the offer to complete the gaps.
-> "We should show here all the information we have for record in the business ID GDB. And we should offer the possibility to complete what is missing." (21-08-2026).
 
 **C44. Never ask what the applicant has already said.** A question the flow already answered is removed from the drawn screen.
 > "why do you propose if you want to renew a business or a license? You should know that because we have clicked either on find my sole property shape or find my license." (21-08-2026).
@@ -269,10 +276,6 @@ Why: asked several times since 02-09; the 02-09 build kept the title rows as fol
 > "it would probably be more logical to structure through having business and then under business having my dashboard and new service and the same for licenses activities" (03-09-2026); "by default all sections closed at beginning, after leave open those open by operator" (03-09-2026)
 Why: the reader follows one object end to end; it replaces the 01-09 grouping by place (dashboard first, then the service).
 
-**C52. The logic listing is the builder's, not the reader's.** A hidden block, a list of every determinant, a "logic spelled out" grid: none of it sits in the human part. The screens carry their effects and actions; the listing lives under For the AI. A grid in the human part wraps its text inside its columns.
-> "I don't understand what this section is for. If there's a hidden block, it should be shown in the other screens, not here... We don't need a listing of all determinants, and it's not responsive; the text is not in the blocks." (03-09-2026)
-Why: Behind the screens was moved whole into For the AI the same day; the human part of End situation reads Business, Licence and activities, The officer desk.
-
 **C53. Group headings in the rail in small capital letters.** In the left pane, a heading that groups items (Business, Licence and activities, The officer desk) is set in small capitals, muted; the items under it in normal case.
 > "the change-b version is better in the left pane, because the titles are in capital letters. It's better than what we have for the time being, so we should adopt this in our style." (03-09-2026)
 
@@ -281,9 +284,23 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C54. Two kinds of drawing, never mixed.** A change document draws a screen either *as the person sees it* (the portal's look, one named example, the fields the registry holds, no logic letters) or *in BPA, every component* (the canvas look, every component once, hidden ones drawn as BPA shows them, the E, V and A letters on this drawing only). Each drawing names its kind on its title line. The word "new" stays on both: it is the document's own device, not the platform's. The kit carries one stylesheet per kind (`tools/ds-mockup-kit.css`, `tools/bpa-mockup-kit.css`) and a check that every label on a citizen screen exists on its form's canvas (`tools/screen-labels-check.py`).
 > "I would rather have two screens, one for BPA and one for DS, rather than mixing, because here on what we have, we have a kind of mixture. We have parts DS and we see the determinants on BPA." (07-09-2026)
 
-**C55. The record shows every field, empty ones empty; What is missing asks only the empty ones.** On the citizen screen the record is drawn whole, as the GDB table holds it, so the person sees at first sight what is missing; the empty fields are then asked once under What is missing, each shown by its own emptiness determinant (Show + Activate, default hidden). No hide effect on a record field, no group that hides with its title. Reversed by Frank on 07-09-2026 evening: the first shape of this criterion ("a field the registry holds nothing for is not shown") lasted one day; the reason for the reversal is that seeing the gaps on the record itself is the information the person needs first.
-> "why not effects on all fields?" (07-09-2026)
-> "You show everything that is in the registry and everything that is not there with an indication that nothing is recorded. Then there is a new section called 'what is missing' where you can fill it in. It's a kind of duplication and makes it more complex to see it twice. So why don't you just not show any field for which there is no information and keep showing it as you do now in the 'what is missing' section?" (07-09-2026) · on the identity line: "b, show it" (07-09-2026)
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C21, C22, C59, C61):** Label each drawing's kind and use its kit: a citizen screen has one named example, the record's fields and no logic letters; a BPA canvas shows every component once including hidden fields; "new" stays on both; effects and actions are explained, sibling differences justified; E, V and A circles sit top-right on their components; E appears only where an effect differs from the Default behavior on Activate/Deactivate, Show/Hide or Enable/Disable; every citizen label exists on its canvas; a shape proven under C69 and C76 uses a mask rather than a validation.
+
+> *Absorbed into C54 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C21. Sibling inconsistency is explained, not silent.** If one card in a set carries a mark that its sibling lacks, the difference is stated.
+> > "you see that there's a determinant in the first image and not on the second one. Justify why." (01-09-2026).
+
+> *Absorbed into C54 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C22. Every effect and action drawn on a screen is explained.** A visual device with no obvious meaning is removed or given a plain-word key.
+> > "what do these pills mean?" (01-09-2026).
+
+> *Absorbed into C54 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C59. The letters sit in their circles, top right of what they qualify.** A word pass in the style never renames a class the drawings use: the 03-09 pass renamed the three placement rules and every E, V, A fell to the top left as plain text for four days.
+> > "the effect icon is oddly placed" · "all V, E and other icons badly shown" (07-09-2026)
+
+> *Absorbed into C54 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C61. A letter only where the effect differs from the default; a shape is a mask, not a validation.** A field whose default is activate, enable and show carries no E: the letter sits on the component the determinant acts on (the panel the dashboard button opens). A number's shape is an input mask on the field, not a validation rule with a message. Worked example (07-09-2026, the record block): the E sits on the field inside the Columns part, never on the part's frame; a determinant that hides a whole group (title and its row) puts its E on the Columns component, at the frame's top-right corner, and the fields inside keep their own.
+> > "There's no effect. This is the default field. There's no specific effect. The effect is shown when it is different from the default which is activate, enabled and show." · "why using the validation logical feature in e-registrations, which is a bit complex to use, rather than a mask?" (07-09-2026)
 
 **C56. A whole new block says "new" once.** On the block, at its top right; never on each part inside it, never on the fold title above it.
 > "the whole recover a business block is new, put here and not in the subsections" (07-09-2026)
@@ -294,20 +311,17 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C58. The screens line in its own colour.** The line that counts the screens and holds the fold control is a tinted strip (the light blue of the ticked tab), so the control reads apart from the prose.
 > "this should be in a different color to make the page more readable" (07-09-2026)
 
-**C59. The letters sit in their circles, top right of what they qualify.** A word pass in the style never renames a class the drawings use: the 03-09 pass renamed the three placement rules and every E, V, A fell to the top left as plain text for four days.
-> "the effect icon is oddly placed" · "all V, E and other icons badly shown" (07-09-2026)
-
 **C60. The arrow that closes the left menu keeps the section.** The control under the pointer must be the control that acts: the first menu line, a full-width block drawn after the arrow, was taking its clicks and changing the section.
 > "When I close the left pane I don't stay on the same tab" · "and i cant close the pane anyway" (07-09-2026)
-
-**C61. A letter only where the effect differs from the default; a shape is a mask, not a validation.** A field whose default is activate, enable and show carries no E: the letter sits on the component the determinant acts on (the panel the dashboard button opens). A number's shape is an input mask on the field, not a validation rule with a message. Worked example (07-09-2026, the record block): the E sits on the field inside the Columns part, never on the part's frame; a determinant that hides a whole group (title and its row) puts its E on the Columns component, at the frame's top-right corner, and the fields inside keep their own.
-> "There's no effect. This is the default field. There's no specific effect. The effect is shown when it is different from the default which is activate, enabled and show." · "why using the validation logical feature in e-registrations, which is a bit complex to use, rather than a mask?" (07-09-2026)
 
 **C62. A bot is named with its table, its key, what it returns and when it runs.** "Runs the four read bots in order" says nothing. Each bot: its name as the bot grid names it, the GDB table it reads or writes, the key it uses, the hidden field or block it fills, and the moment it runs (a button, the form opening, a desk).
 > "Describe the four bots more precisely here. It's very difficult to understand what you mentioned." (07-09-2026)
 
-**C63. A button sits level with the field it acts on, and the canvas follows BPA's own UX rules.** Whatever sits under the field (a key line, a description), the button's row is the input's row, measured centre on centre. More widely: a drawing in the BPA look obeys the UX rules BPA itself applies; never a layout BPA would not produce. Worked example (07-09-2026, the record block): a Columns component is one frame whose parts touch, no gutter; each part a cell with its own 1px dotted border, the field inside without a box of its own, a part with no field drawn empty; three fields spaced out as three dashed boxes read as three components, which BPA never draws. Measured on the BPA canvas, Lesotho, Register a Business, Owner tab.
-> "The button should be aligned with the field. Don't forget this. This is a rule. I think you should apply all the same UX rules which are applied in BPA." (07-09-2026)
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C42):** Give each bot its real name following the naming template in the name column, separate from its description, and state its named GDB table, key, returned values, receiving field or block and moment of execution.
+
+> *Absorbed into C62 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C42. A column carries the name, not the description.** In a list of elements, the name column holds the element's real name, built to the naming template; what it does belongs in the description.
+> > "what you put in the column bot is confusing. Is it the name of the bot or is it what it does?" (21-08-2026).
 
 **C64. Screen titles telegraphic.** No leading article; the outcome as a clause and its consequence after a colon: "Record found carries applicant's national ID number: it is theirs".
 > "I will just remove the and I would talk in telegraphic style." (07-09-2026)
@@ -342,9 +356,32 @@ Why: Behind the screens was moved whole into For the AI the same day; the human 
 **C74. What is missing asks every field the live row needs and the old row does not hold.** The block is drawn from the live GDB table's columns, not from the three or four fields that come to mind: on the licence path, Sector, Trading profile and District were drawn and the business name was forgotten. When the old row holds the value, it is taken and nothing is asked; when it holds none, or holds one the registry cannot accept, the field shows with its own determinant.
 > "you consider that only 3 fields can be missing, more can be missing, for example the business name. And if the business name is there, we take it" (09-09-2026)
 
-**C75. A pattern in the data is not a rule of the system that produced it.** A regularity read off an old store, the first letter of 6,110 Business ID numbers naming a district, is drawn as a rule only once the owner of the old system confirms it was one. Worked example (11-09-2026): the letter-to-district reading covered every live district and looked like a rule; Frank knew the old system never encoded the district in the number, and the count by letter agreed with him (Quthing 824, Leribe 155). District stays a question the person answers. Measuring (C69) says what the data holds; only the owner says what it meant.
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C43, C55):** Show the whole record without hiding its fields, with gaps visible; take accepted values from the old row; ask once under What is missing for every missing or unacceptable value the destination's columns require, each with its own determinant and a Show + Activate effect against a default hidden.
+
+> *Absorbed into C74 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C43. Show everything held, and offer to complete what is missing.** Where the change reads a record, the document shows every field held and the offer to complete the gaps.
+> > "We should show here all the information we have for record in the business ID GDB. And we should offer the possibility to complete what is missing." (21-08-2026).
+
+> *Absorbed into C74 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C55. The record shows every field, empty ones empty; What is missing asks only the empty ones.** On the citizen screen the record is drawn whole, as the GDB table holds it, so the person sees at first sight what is missing; the empty fields are then asked once under What is missing, each shown by its own emptiness determinant (Show + Activate, default hidden). No hide effect on a record field, no group that hides with its title. Reversed by Frank on 07-09-2026 evening: the first shape of this criterion ("a field the registry holds nothing for is not shown") lasted one day; the reason for the reversal is that seeing the gaps on the record itself is the information the person needs first.
+> > "why not effects on all fields?" (07-09-2026)
+> > "You show everything that is in the registry and everything that is not there with an indication that nothing is recorded. Then there is a new section called 'what is missing' where you can fill it in. It's a kind of duplication and makes it more complex to see it twice. So why don't you just not show any field for which there is no information and keep showing it as you do now in the 'what is missing' section?" (07-09-2026) · on the identity line: "b, show it" (07-09-2026)
 
 **C76. The facts of the old system are written by their owner, and every sentence about a shape traces to them.** A change that reads old records keeps one short list of what the old system did and did not do (`evidence/old-system-facts.md`), written from the owner's answers, dated. Every sentence on the page that says what a number, a name or a code looks like, or derives one thing from another, traces to a line of that list; the reviewer brief carries the list and the instruction to attack each such sentence with an old certificate in hand, never with the new system's habits. When a decision removes a rule, the session first lists every place the assumption lives, by searching the page for its tokens (the example value, "looks like", "shape"), and the change log names them all. Worked example (11-09-2026): "no mask" (08-09) had left "a Business ID looks like A2019/03412" in the nothing-found message, in rule One and in a canvas note, through three reviews; the fact "old numbers follow no pattern; the pattern began with the new system" had never been written, so nobody could check against it.
+
+**Merged wording (Frank's choice C, 14-09-2026; absorbs C36, C37, C75):** Keep dated owner answers in the facts list and new understanding in country knowledge; allow a pattern as a rule only with the owner's confirmation; trace shape claims and derivations to those facts and brief reviewers to challenge them with an old certificate; restructure when understanding changes; list every withdrawn assumption's occurrence before editing, all recorded in the change log.
+
+> *Absorbed into C76 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C36. Capture what you learn.** New understanding of the live service, which activities require a licence, how the legacy stores relate, is written into the country knowledge file, not just used once and dropped.
+> > "Read if this is mentioned in Lesotho MD. If it is not the case, record this information there there." (01-09-2026).
+> Why: two new parts were added to Lesotho.md the same day (Activities and licences; the Legacy group).
+
+> *Absorbed into C76 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C37. New understanding restructures, not patches.** When something learned mid-session changes the design, the document's structure is redone to fit it, not bent around the old one.
+> > "take into account what you discovered now, that some activities which are missing and for which a license is requested must be dealt with specially... you need to remove all what relates to activities in this business part." (01-09-2026).
+
+> *Absorbed into C76 on 14-09-2026 (Frank's choice C), kept as history:*
+> **C75. A pattern in the data is not a rule of the system that produced it.** A regularity read off an old store, the first letter of 6,110 Business ID numbers naming a district, is drawn as a rule only once the owner of the old system confirms it was one. Worked example (11-09-2026): the letter-to-district reading covered every live district and looked like a rule; Frank knew the old system never encoded the district in the number, and the count by letter agreed with him (Quthing 824, Leribe 155). District stays a question the person answers. Measuring (C69) says what the data holds; only the owner says what it meant.
 
 ## 8. The spirit in ten lines
 
