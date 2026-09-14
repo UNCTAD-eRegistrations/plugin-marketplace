@@ -4,7 +4,7 @@
 Seed of the stage-2 check (change build review), written by the page session on 14-09-2026 when Frank
 asked whether anyone had reviewed the phases: nobody had, and this check found the panel Recover a
 licence built in no step, 26 of 37 determinants named in no phase, two desk formulas missing.
-Reads the page only: the bot grid (every <td><b>name</b>), the determinants drawn (the E letters on the
+Limits: a name present anywhere in the phases is not yet a build step (a human reads the step); an outcome's test line is not checked here. Reads the page only: the bot grid (every <td><b>name</b>), the determinants drawn (the E letters on the
 canvases), the formulas counted (Changes at a glance) and a list of role and message words, and says
 which are not named inside the Phases band. Returns the number of misses; 0 is the gate.
 
@@ -33,6 +33,7 @@ def main(path):
     miss += [("formula",f) for f in forms if f.lower() not in ph]
     for k in ['registration','institution','start role','botrole','translation','publish']:
         if k not in ph: miss.append(("plan word",k))
+    if not bots or not dets: miss.append(("inventory","no bot grid or no canvas letters found: the check cannot run, so it fails (a check that skips is a false green)"))
     for kind,name in miss: print(f"  {kind} built in no named step: {name}")
     print(f"=== {path}: {len(miss)} to fix\nTOTAL: {len(miss)}"); return len(miss)
 if __name__=="__main__": sys.exit(1 if main(sys.argv[1]) else 0)

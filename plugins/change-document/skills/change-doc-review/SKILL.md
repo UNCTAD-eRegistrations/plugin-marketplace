@@ -11,7 +11,7 @@ The method, whole, with the element classes, the personas, the procedure and the
 
 ## What it answers
 
-Is the change document true, consistent and complete: the current situation against the end situation; every decision of the sessions against every sentence, letter, note, effects row, bot description, phase line and test line; the two kinds of drawing against each other; every condition read in the empty state and every effect's axes against the component's Default behavior; every outcome with a screen, every hidden field with a filler and a reader, every promise with a device; the facts of the old system behind every shape sentence; the citizen's and the officer's words; the plan's coverage. Stage 2 waits for this stage's hand-off.
+Is the change document true, consistent and complete: the current situation against the end situation; every decision of the sessions against every sentence, letter, note, effects row, bot description, phase line and test line; the two kinds of drawing against each other; every condition read in the empty state and every effect's axes against the component's Default behavior; every outcome with a screen, every hidden field with a filler and a reader, every promise with a device; the facts of the old system behind every shape sentence; the citizen's and the officer's words; the plan's coverage. Stage 1 checks the mappings, versions and catalogues as the page specifies them; stage 2 proves them live. Stage 2 waits for this stage's hand-off.
 
 ## How to run it
 
@@ -25,7 +25,7 @@ Is the change document true, consistent and complete: the current situation agai
 
 ## Refuses
 
-To review a page whose version is not recorded · to approve a sentence because it is plausible · to call a page ready while a decision is open on a sentence a citizen reads · to repair the service, publish anything to live, or change the criteria file (a criteria change goes to Frank as one lettered-choices page).
+To change the service or run a probe under a reviewer's authority (the reviewers read; the page session publishes the document's repairs; the build lane runs the probes) · to give an unconditional readiness verdict while a controlling decision, an incomplete repair or a consequential probe is unresolved · to accept a mixed citizen-and-BPA drawing, or an effect against its independent axes · to review a page whose version is not recorded · to approve a sentence because it is plausible · to change the criteria file (a disposition goes to Frank as one lettered-choices page).
 
 ## Done when
 
