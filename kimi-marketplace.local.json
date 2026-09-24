@@ -4,7 +4,7 @@
     {
       "id": "bpa-mcp",
       "displayName": "BPA MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "Install the BPA MCP server and register eRegistrations instance profiles.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -17,7 +17,7 @@
     {
       "id": "ds-mcp",
       "displayName": "DS MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "DS (Display System) MCP server for admin/ops monitoring of eRegistrations application files, workflows, payments, and documents.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -30,7 +30,7 @@
     {
       "id": "gdb-mcp",
       "displayName": "GDB MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "GDB (Generic Database Builder) MCP server for managing databases, schemas, and records in eRegistrations.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -43,7 +43,7 @@
     {
       "id": "graylog-mcp",
       "displayName": "Graylog MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "Graylog MCP server for searching and monitoring logs across eRegistrations instances.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -56,7 +56,7 @@
     {
       "id": "translations-mcp",
       "displayName": "Translations MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "Translations MCP server for eRegistrations — context-aware translation of BPA services (field labels, tooltips, DS system strings, form structure, grids), plus one-command recovery from missing translation bootstrap via translation_global_status / translation_global_reload.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -82,7 +82,7 @@
     {
       "id": "change-document",
       "displayName": "Change Document",
-      "version": "1.3.0",
+      "version": "1.5.0",
       "description": "Write a change document for an eRegistrations service the way the house does it: the screens are the contract, drawn canvas-true from the live service, with what to build listed at a glance.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -93,7 +93,7 @@
     {
       "id": "keycloak-mcp",
       "displayName": "Keycloak MCP",
-      "version": "1.65.4",
+      "version": "1.65.19",
       "description": "Install the Keycloak Admin MCP server for eRegistrations IAM management.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -106,7 +106,7 @@
     {
       "id": "devops",
       "displayName": "DevOps",
-      "version": "2.27.1",
+      "version": "2.28.0",
       "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
@@ -210,7 +210,7 @@
     {
       "id": "eregulations",
       "displayName": "Eregulations",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "One front door for eRegulations work — describe the problem in plain English, or run /eregulations:ereg, and the router sends the request to the right knowledge, resolves which instance and version it concerns, and blocks on unsafe hosts, mismatched Admin/Public branches, and unsupported versions before anything runs.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [
