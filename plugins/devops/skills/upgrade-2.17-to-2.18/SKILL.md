@@ -4,7 +4,8 @@ description: >
   Upgrade a single eRegistrations instance under
   `Conf-<UPPER_ENV>/compose/<country>/docker-stack.yml` from 2.17 to 2.18, where
   `<env>` is one of dev/test/preview/prelive/live. Bumps standard unctad images,
-  swaps the minio image and healthcheck, and removes deprecated env vars. Strict
+  moves the minio server to pgsty/silo (pinned on LIVE) with the new healthcheck,
+  and removes deprecated env vars. Strict
   mode — aborts on anything unexpected. Env-aware anomaly thresholds for
   `BUILD_TYPE` and `EREGISTRATIONS_VERSION`. LIVE invocations require a
   retype-country confirmation rail before commit (skipped in chain mode — the
@@ -19,8 +20,8 @@ license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master with a clean tracked tree. Requires an authenticated CLI for the host VCS (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
 metadata:
-  version: "1.2.1"
-  version-date: "2026-04-30"
+  version: "1.3.0"
+  version-date: "2026-09-24"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1] [CHAIN_MODE=1 CHAIN_BRANCH=<name>]"
   jira: "TOBE-17814"
@@ -28,7 +29,7 @@ metadata:
 
 # Upgrade an eRegistrations instance from 2.17 to 2.18
 
-You are performing a mechanical eRegistrations 2.17 → 2.18 upgrade of a single instance. The target file is `Conf-<UPPER_ENV>/compose/<country>/docker-stack.yml`, where `<env>` ∈ {dev, test, preview, prelive, live}. The upgrade applies five fixed transformations (image bumps, minio swap, healthcheck rewrite, two env-var deletions). The five rules are environment-invariant; only the **anomaly thresholds** in STEP 2 vary by env. Operate in **strict mode**: any anomaly pauses for explicit user confirmation, with `abort` as the default.
+You are performing a mechanical eRegistrations 2.17 → 2.18 upgrade of a single instance. The target file is `Conf-<UPPER_ENV>/compose/<country>/docker-stack.yml`, where `<env>` ∈ {dev, test, preview, prelive, live}. The upgrade applies five fixed transformations (image bumps, minio swap, healthcheck rewrite, two env-var deletions). Two things vary by env: the **anomaly thresholds** in STEP 2, and the **minio target tag** in Rule 2 (LIVE pins it, other envs float `latest`). Operate in **strict mode**: any anomaly pauses for explicit user confirmation, with `abort` as the default.
 
 The skill is invoked as `/upgrade-2.17-to-2.18` with optional positional args (see *Arguments* below). It is also routed to by the `upgrade-eregistrations-instance` orchestrator when it detects a swarm-stack instance on `unctad/*:2.17` images.
 
@@ -173,8 +174,9 @@ If the user picks `s` for an anomaly kind, remember the choice for that kind onl
 
 3. **Non-standard minio.** Either:
    - the file contains no `minio:` service block (search for `^  minio:` at indent 2), OR
-   - the `minio:` block's `image:` is not exactly `image: minio/minio:latest`, OR
-   - the `minio:` block's `test:` line is not exactly the expected `test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]` (allow whitespace variation around brackets and commas).
+   - the `minio:` block's `image:` is not one of the accepted sources: exactly `minio/minio:latest`, exactly `pgsty/minio:latest`, or `pgsty/silo:<any tag>`, OR
+   - the `minio:` block's `test:` line is not exactly the expected `test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]` (allow whitespace variation around brackets and commas), OR
+   - the `minio:` block mounts anything under `/root/.minio`. `pgsty/silo` sets `HOME=/tmp` and its entrypoint enforces it, so certificates mounted at `/root/.minio/certs` are silently ignored and MinIO comes up on plain HTTP. The fix is `--certs-dir /root/.minio/certs` on the `command:` line (setting `HOME` in `environment:` does not work). The skill does not apply it; the user decides.
 
 4. **Unexpected `EREGISTRATIONS_VERSION` value.** Any line matching `EREGISTRATIONS_VERSION=` whose RHS, after stripping surrounding double quotes, is not `<expected_EV>`.
 
@@ -182,7 +184,7 @@ If the user picks `s` for an anomaly kind, remember the choice for that kind onl
 
 If no anomalies are detected, print "No anomalies. Applying transformations." and proceed.
 
-If anomalies were detected and the user resolved them all (no `a` answer), proceed to STEP 3 and apply the transformations only to the expected occurrences (i.e. `unctad/*:2.17` lines, the standard minio image/healthcheck, exactly `EREGISTRATIONS_VERSION=<expected_EV>`, and exactly `BUILD_TYPE=<expected_BT>`). Do not auto-rewrite anomalous lines.
+If anomalies were detected and the user resolved them all (no `a` answer), proceed to STEP 3 and apply the transformations only to the expected occurrences (i.e. `unctad/*:2.17` lines, an accepted minio source image and the standard healthcheck, exactly `EREGISTRATIONS_VERSION=<expected_EV>`, and exactly `BUILD_TYPE=<expected_BT>`). Do not auto-rewrite anomalous lines.
 
 ## STEP 3: Apply the five transformations
 
@@ -191,8 +193,20 @@ Edit `<TARGET>` in place. Apply each rule across the whole file. Preserve indent
 **Rule 1 — Bump unctad image tags.**
 For every line matching `^(\s*)image:\s*unctad/([^:\s]+):2\.17\s*$`, replace `:2.17` with `:2.18`. Keep the leading whitespace and the image name verbatim. Country-specific images on non-`:2.17` tags (e.g. `unctad/mule3-kenya:DEV`) do not match and are not touched.
 
-**Rule 2 — Swap minio image.**
-Replace the line `    image: minio/minio:latest` (within the `minio:` service block) with `    image: pgsty/minio:latest`. Preserve the existing indentation (two-space, four-space, however it appears).
+**Rule 2 — Move the minio server to `pgsty/silo`.**
+MinIO no longer publishes `minio/minio` on Docker Hub, and `pgsty/minio` was renamed `pgsty/silo` (the old name is frozen at RELEASE.2026-08-04). See TOBE-18186. Within the `minio:` service block, the target image depends on env:
+
+| `<env>` | Target `image:` |
+|---|---|
+| live | `pgsty/silo:RELEASE.2026-09-16T00-00-00Z` |
+| dev, test, preview, prelive | `pgsty/silo:latest` |
+
+- **Source `minio/minio:latest` or `pgsty/minio:latest`:** replace the image with the target. Preserve the existing indentation (two-space, four-space, however it appears). Both sources are older builds than the target, so this is always an upgrade.
+- **Source already `pgsty/silo:<any tag>`:** leave the line untouched, and record "already on `pgsty/silo:<tag>`, left as is" for the PR body. Never rewrite a silo tag. Silo does not support downgrades, and the existing tag may be newer than the target: a later deliberate pin, or a `latest` the host has already pulled.
+
+LIVE pins so that a MinIO upgrade in production is a deliberate change, not a side effect of a redeploy. The pin matches the fleet's LIVE pin; when the fleet moves it, update this table in the same change.
+
+The stack's `command:` (`server /data --console-address ":9001"`) and `MINIO_*` env need no change: silo's entrypoint turns `server …` into `silo server …`, and the image keeps `bash`, `curl` and `mc`, so both healthcheck forms work.
 
 **Rule 3 — Replace minio healthcheck.**
 Within the `minio:` service block, find the `test:` line that contains `["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]` and replace it with `test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9000'"]`. Preserve the leading indentation of the original `test:` line.
@@ -300,7 +314,7 @@ In chain mode, the orchestrator owns the branch lifecycle (creation, push, PR). 
 
 5. **Open the PR — branch on `HOST`.**
 
-   Compose the body using the template in the *PR body template* reference at the bottom of this skill. Replace `<env>`, `<UPPER_ENV>`, `<country>`, `<expected_EV>`, `<expected_BT>`, and `<skipped>` (the list of anomaly kinds the user answered `s` for, if any — empty bullet "(none)" if zero).
+   Compose the body using the template in the *PR body template* reference at the bottom of this skill. Replace `<env>`, `<UPPER_ENV>`, `<country>`, `<expected_EV>`, `<expected_BT>`, `<minio_change>` (from Rule 2: "`<source>` → `<target>`", or "already on `pgsty/silo:<tag>`, left as is"), and `<skipped>` (the list of anomaly kinds the user answered `s` for, if any — empty bullet "(none)" if zero).
 
    - If `HOST=github`:
 
@@ -353,7 +367,7 @@ from eRegistrations 2.17 to 2.18.
 ## Transformations applied
 
 - Bumped every `unctad/<*>:2.17` image tag to `:2.18`.
-- Swapped `minio/minio:latest` for `pgsty/minio:latest`.
+- MinIO server: <minio_change> (TOBE-18186).
 - Replaced minio healthcheck with `CMD-SHELL bash -c 'echo > /dev/tcp/localhost/9000'`.
 - Removed `EREGISTRATIONS_VERSION=<expected_EV>` from `bpa-frontend` and `ds-backend`.
 - Removed `BUILD_TYPE=<expected_BT>` from `bpa-frontend` and `ds-backend`.
@@ -368,4 +382,10 @@ from eRegistrations 2.17 to 2.18.
 
 - [ ] CI passes.
 - [ ] Reviewer eyeballs the diff against the five fixed transformations documented in this skill (image bumps :2.17→:2.18, minio image swap, minio healthcheck rewrite, EREGISTRATIONS_VERSION line removal, BUILD_TYPE line removal).
+- [ ] Before deploying, on the host: `docker exec <minio container> cat /data/.minio.sys/format.json` does not say `"format":"fs"`. Every current MinIO build, silo included, exits FATAL on that pre-2022 layout. Read it through the container: `.minio.sys` is root-owned on the host.
+- [ ] Keep the currently cached minio image (do not prune) as the rollback path. `minio/minio` can no longer be pulled from Docker Hub.
 ```
+
+## Changelog
+
+- **1.3.0** (2026-09-24) — MinIO server moves to `pgsty/silo` instead of `pgsty/minio` (TOBE-18186): pinned `RELEASE.2026-09-16T00-00-00Z` on LIVE, `latest` elsewhere. The precondition accepts `minio/minio:latest`, `pgsty/minio:latest` and `pgsty/silo:*` instead of aborting on anything but `minio/minio:latest`; an existing silo tag is never rewritten, since silo does not support downgrades. New anomaly for mounts under `/root/.minio` (silo's `HOME=/tmp` drops TLS silently). PR test plan gains the `format.json` gate and the keep-the-cached-image rollback note.
