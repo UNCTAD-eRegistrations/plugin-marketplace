@@ -119,7 +119,7 @@
     {
       "id": "deploy",
       "displayName": "Deploy",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "description": "Self-service deployment requests on the singlewindow Coolify server.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [

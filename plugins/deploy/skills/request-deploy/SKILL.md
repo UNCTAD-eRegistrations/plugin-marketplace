@@ -7,12 +7,13 @@ description: >
   defaults, asks only what's needed, posts via `gh`.
 license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
-allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), AskUserQuestion
+allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), Bash(curl *), AskUserQuestion
 metadata:
-  version: "1.10.0"
-  version-date: "2026-08-18"
+  version: "1.11.0"
+  version-date: "2026-09-25"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "1.11.0 (2026-09-25): Added 'Watching the result' — after filing, wait for the onboarding run and probe the live URL, telling a crash-looping app (proxy 502/503/504) apart from a certificate delay. Incident (jamaica-film-platform, deploy #65): the onboarder said '✓ onboarded, likely waiting on Let's Encrypt' while app and setup crash-looped on Postgres P1000 — the compose warm-up deploy had started the database before env vars existed, so its volume kept the compose default password. Onboarder fixed in unctad-ai/deploy#66; the final message now warns never to change a database password after the first deploy. Corrected the onboarding time (about 6 min, not 15-30 s)."
     - "1.10.0 (2026-08-18): Added pre-flight Gate 3 — Runner toolchain compatibility (Rule F auto-fix). Incident (designstudio): local Gates 1–2 passed on the dev laptop's newer Node, but the nixpacks runner built with Node 22.11.0 while vite 8/rolldown require ^20.19.0 || >=22.12.0 — and npm on Node <22.12 silently skips optional deps with unsatisfied engines (npm/cli#4828), so `npm ci` exited 0 without installing @rolldown/binding-linux-x64-gnu and `vite build` died with 'Cannot find native binding'. Detection scans installed packages' engines against the runner's Node; fix pins a newer nixpkgsArchive in nixpacks.toml (repo-side, no Coolify change). Documents the NIXPACKS_NODE_VERSION=24/23 traps."
 ---
 
@@ -204,7 +205,7 @@ This path modifies the **user's app repo** — move carefully:
 5. Show the user what you'll submit and ask for confirmation.
 6. Ask about env vars (optional — "none" is fine).
 7. **Run the pre-flight build gate** (see "## Pre-flight build gate" below) — `npm ci` then `npm run build` for Node `auto-detect`/`static` repos, the runner-toolchain check (Gate 3), plus the large-file & `.dockerignore` checks for all build types. This runs **even when no auto-fix path fired** — a correctly-configured repo still needs its lockfile, build, and toolchain compatibility verified. If a gate fails and can't be auto-fixed, bail to a help issue rather than filing a deploy that will fail server-side.
-8. Post the issue. Show the URL. Done.
+8. Post the issue, then watch the result (see "## Watching the result"). Only report success once the live URL answers.
 
 The user should need to answer **at most** a couple of questions to get a deploy running. When in doubt, propose a default and let them override — **except** for the domain, which is user-facing forever and should never be auto-accepted via a checkbox-style "recommended" nudge.
 
@@ -428,24 +429,54 @@ gh issue create \
 
 Capture the issue URL from stdout. The workflow auto-renames the title to `[Deploy] <domain>` after parsing — you don't need to set a specific title yourself.
 
+## Watching the result
+
+Filing the issue is not the end: the onboarder can report "✓ onboarded" while the app is crash-looping. Its smoke check sees a self-signed certificate and blames Let's Encrypt. Check for yourself before telling the user it worked.
+
+1. Wait for the onboarding run (about 6 minutes: create, warm-up build, real build, 5-minute smoke check). One issue starts several runs (one per issue event) and all but one end `skipped`, so watch every run since the issue was opened, then read the issue's last comment. `gh run watch` blocks without a sleep loop:
+
+   ```bash
+   SINCE=$(gh issue view <N> --repo unctad-ai/deploy --json createdAt --jq .createdAt)
+   for RUN in $(gh run list --repo unctad-ai/deploy --workflow onboard-from-issue.yml --created ">=$SINCE" --json databaseId --jq '.[].databaseId'); do
+     gh run watch "$RUN" --repo unctad-ai/deploy > /dev/null
+   done
+   gh issue view <N> --repo unctad-ai/deploy --json comments --jq '.comments[-1].body' | sed '/<!--/,$d'
+   ```
+
+2. Probe the live URL twice: once normally, and once skipping certificate checks to hear what the proxy itself says.
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' --max-time 15 https://<domain>/ || true
+   curl -sk -o /dev/null -w '%{http_code}\n' --max-time 15 https://<domain>/ || true
+   ```
+
+| Normal | Skip-cert | Meaning | Tell the user |
+|---|---|---|---|
+| 200 | — | Live. | The success message below. |
+| fails | 502 / 503 / 504 | No container answers for this domain. The app is crash-looping, its build is still running, or (compose) the domain points at no service because the main service is not named `app` (Rule B). **Not** a certificate delay. | "The app was created but isn't answering. A maintainer needs to check its deployment and logs in Coolify." Name the likely cause below if it applies. |
+| fails | 200 | The app is up; the certificate is still being issued. | "Almost ready: the secure certificate takes a few more minutes." Probe once more after the user's next message. |
+
+**Likely cause for a compose app with a database:** the database volume was created with a different password. Postgres reads `POSTGRES_PASSWORD` only when its volume is empty. If the password changed after the first start, every later start is refused (`P1000`). This is fixed for new apps by unctad-ai/deploy#66. A maintainer repairs an existing app by setting the database user's password to the Coolify value (`ALTER USER postgres PASSWORD '…'` in the `db` container), which keeps the data.
+
 ## Final message to the user
 
 Short and useful:
 
 ```
-Deploy request opened: <issue URL>
-
-The onboarder runs in 15-30s. First build + Let's Encrypt cert ~3 min.
-A comment on the issue will show the live URL when it's ready.
+Deployed ✓ https://<domain>/   (checked: it answers)
+Deploy request: <issue URL>
 
 You'll need to fill these in Coolify after deploy (https://coolify.singlewindow.dev):
   - STRIPE_SECRET_KEY    (auto-replaced — had a Stripe-shaped value)
   - DATABASE_URL         (you asked for <SET-IN-COOLIFY>)
 
 Future pushes to `<branch>` will auto-redeploy.
+
+Don't change POSTGRES_PASSWORD in Coolify after this: the database keeps the first
+one, and a new value locks the app out.
 ```
 
-Drop the Coolify follow-up section if the user has no placeholders.
+Drop the Coolify follow-up section if the user has no placeholders. Keep the database-password line only for compose apps whose env vars include a database password (`POSTGRES_PASSWORD`, `MYSQL_PASSWORD`, `MARIADB_PASSWORD`, `MONGO_INITDB_ROOT_PASSWORD`). If the check in "Watching the result" did not return 200, replace the first line with what the table says to tell the user.
 
 ## Pre-flight
 
