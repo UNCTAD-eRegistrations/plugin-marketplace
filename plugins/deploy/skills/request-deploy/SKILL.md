@@ -9,10 +9,11 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), Bash(curl *), AskUserQuestion
 metadata:
-  version: "1.11.0"
-  version-date: "2026-09-25"
+  version: "1.12.0"
+  version-date: "2026-09-29"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "1.12.0 (2026-09-29): Added Rule G — compose `app` services get `init: true` (hygiene: rides along with other compose fixes, never triggers a prompt or commit on its own). Incident (erdev host): apps whose PID 1 is `npm run start` or `next-server` never reap exited child processes, so zombie processes piled up (57 in one app after five weeks). The host Docker daemon now defaults new containers to `init: true`, so deploys work either way; the explicit key keeps the fix portable and matches the merged app-repo PRs (Academy-Next#4, corridor#1, Manager-Next#2)."
     - "1.11.0 (2026-09-25): Added 'Watching the result' — after filing, wait for the onboarding run and probe the live URL, telling a crash-looping app (proxy 502/503/504) apart from a certificate delay. Incident (jamaica-film-platform, deploy #65): the onboarder said '✓ onboarded, likely waiting on Let's Encrypt' while app and setup crash-looped on Postgres P1000 — the compose warm-up deploy had started the database before env vars existed, so its volume kept the compose default password. Onboarder fixed in unctad-ai/deploy#66; the final message now warns never to change a database password after the first deploy. Corrected the onboarding time (about 6 min, not 15-30 s)."
     - "1.10.0 (2026-08-18): Added pre-flight Gate 3 — Runner toolchain compatibility (Rule F auto-fix). Incident (designstudio): local Gates 1–2 passed on the dev laptop's newer Node, but the nixpacks runner built with Node 22.11.0 while vite 8/rolldown require ^20.19.0 || >=22.12.0 — and npm on Node <22.12 silently skips optional deps with unsatisfied engines (npm/cli#4828), so `npm ci` exited 0 without installing @rolldown/binding-linux-x64-gnu and `vite build` died with 'Cannot find native binding'. Detection scans installed packages' engines against the runner's Node; fix pins a newer nixpkgsArchive in nixpacks.toml (repo-side, no Coolify change). Documents the NIXPACKS_NODE_VERSION=24/23 traps."
 ---
@@ -122,8 +123,20 @@ metadata:
    Anything left is **undeclared** and will interpolate to an empty string at compose parse time. Empty `POSTGRES_PASSWORD` → postgres refuses to init; empty `NEXTAUTH_SECRET` → app crashes on boot; etc.
    - *Fix:* during the bundled AskUserQuestion, list each undeclared var and, for each, either (a) add it to the env-vars the user will submit (offer `<GENERATE>` for anything matching `(PASSWORD|SECRET|TOKEN|KEY)$`, plain value otherwise), or (b) declare an inline default in the compose file.
 
+   **Rule G — `app` service has no `init: true`** (HYGIENE, non-blocking, rides along with other fixes).
+   The `app` service usually runs `npm run start` or `next-server` as PID 1. Neither reaps child processes that exit, so zombie processes pile up over weeks (one app on the shared host had 57). An init process (`init: true`, Docker's built-in tini) reaps them. The shared host's Docker daemon now defaults new containers to `init: true` (2026-09-29), so a deploy works with or without the key — this rule keeps the setting explicit, so it also holds if the app moves to another host. It matches what the merged app repos now carry (Academy-Next, corridor, Manager-Next).
+   - *Detect:* after Rule B, the `app` service has no `init:` key at all. If `init` is present with any value, leave it alone — someone chose it.
+   - *Fix:* insert these two lines as the first entries of the `app:` mapping, matching the file's indentation (a comment plus the key, so the reason travels with the file):
+
+     ```yaml
+     # Run a minimal init as PID 1 so exited child processes are reaped (no zombies).
+     init: true
+     ```
+   - *Never on its own:* Rule G is **not** counted in the `<N> issues that will fail the deploy` total, never raises the bundled question, and never causes a commit by itself. If Rule G is the only finding, do nothing and continue silently. It is only applied when the auto-fix path already runs for Rules A–D, in the same diff and the same commit.
+   - Skip Rule G for `dockerfile`, `auto-detect` and `static` builds — those containers are created by Coolify, and the host default already covers them.
+
    **Bundled confirmation — one `AskUserQuestion`, never free text.**
-   After running all four rules, if any finding exists, show a single question whose body enumerates every finding. The "Fix it for me" description must list the concrete edits/additions the skill will apply; the user reviews the full batch before any change is made.
+   After running Rules A–D, if any finding exists, show a single question whose body enumerates every finding. The "Fix it for me" description must list the concrete edits/additions the skill will apply; the user reviews the full batch before any change is made. `<N>` counts blocking findings only (Rules A–D); Rule G, if it applies, is listed as an extra bullet but never counted.
 
    ```
    question: "docker-compose.yml has <N> issues that will fail the deploy. How to proceed?"
@@ -138,6 +151,7 @@ metadata:
            • [Rule B] rename top-level service `<old>` → `app` (and update refs)
            • [Rule C] add `start_period: 30s` to `<service>.healthcheck` (+ bump retries to 10)
            • [Rule D] record env vars <FOO>, <BAR> to submit in the deploy issue
+           • [Rule G, extra] add `init: true` to `app` so exited processes are cleaned up
          (Only the rules that fired are listed — skip the others.)
      - label: "I'll fix it manually"
        description: "Abort. Apply the listed fixes yourself, commit+push, then re-run /request-deploy."
@@ -160,6 +174,7 @@ This path modifies the **user's app repo** — move carefully:
    - **Rule B (service rename):** change the top-level service key and update any `depends_on`, `links`, and other service references elsewhere in the file.
    - **Rule C (healthcheck `start_period`):** insert `start_period: 30s` (or `40s` for `postgres|mysql|mariadb|mongo` images) into the affected `healthcheck:` block. If `retries:` is present and `< 10`, bump it to `10`. Only add — never reduce existing values. If the healthcheck `test:` uses bare `pg_isready`, also extend it to `pg_isready -U postgres -d <db>` where `<db>` is the service's `POSTGRES_DB` (from its env block).
    - **Rule D (undeclared env vars):** this rule does NOT edit docker-compose.yml. Instead, the collected var names get appended to the env-var block the skill posts in the deploy issue (step 6 of the main flow). During the batch confirmation, show the user the proposed KEY=VALUE lines so they can override before submission.
+   - **Rule G (`init: true`):** only when the `app` service has no `init:` key **and** another rule is already editing `docker-compose.yml` (Rules A–C, or Rule D's inline-default option). Insert the comment line and `init: true` as the first entries of the `app:` mapping, using the file's own indentation. Never add it when no other edit is being made.
    - Bundle all file edits into one combined diff. Run `diff -u <old> <new>` to produce a unified diff string.
    - Show the diff to the user inline before writing. Use a second `AskUserQuestion` with `{Apply this diff / Cancel}`. Only write on explicit Apply.
 
@@ -171,7 +186,7 @@ This path modifies the **user's app repo** — move carefully:
      - `fix(compose): make deploy-ready for Coolify (expose, healthcheck, service name)`
      - `fix(compose): expose ports instead of publishing` (Rule A only)
      - `fix(compose): add healthcheck start_period for DB dependency` (Rule C only)
-   - Commit body: one line per applied rule, code + short description (self-documenting git log).
+   - Commit body: one line per applied rule, code + short description (self-documenting git log). If Rule G was applied, add a line for it (`G: init: true on app`) but never put it in the subject — it is hygiene, not the reason for the commit.
    - `git push` to the current branch's upstream (no `-u`, no branch-name argument — the upstream was verified in the guardrail step).
    - If push fails (permission, protected branch, rejected fast-forward), roll back the local commit with `git reset --hard HEAD~1`, then show the user a plain-language message: *"I made the fix locally but couldn't push it to GitHub — this branch may be protected, or a maintainer needs to let this project through. I've undone the local change. Options below."* Offer only two options: (a) "Open a help issue — a maintainer will set it up for me" and (b) "Cancel." Never ask the user to change branches or push manually.
 
@@ -181,8 +196,9 @@ This path modifies the **user's app repo** — move carefully:
 
 - **Never edit without showing the diff first** and getting explicit Apply from the user. No silent modifications.
 - **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
+- **Never prompt, commit or push for Rule G alone.** It is hygiene that rides along with a fix that is already happening; a repo whose only "finding" is a missing `init: true` deploys fine and is left untouched.
 - **Never ask the user about branches.** The user's current `HEAD` is their branch choice — commit and push there. Pushing to `main` is fine when the user is on `main`; the push-failure rollback path handles the protected-branch case without ever exposing the word "branch" to the user.
-- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D run `docker compose config -q` (or a YAML parse fallback); Rule F re-runs Gates 1–2 and uses a nixpkgs pin verified server-side against the actual helper image. If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
+- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D and G run `docker compose config -q` (or a YAML parse fallback); Rule F re-runs Gates 1–2 and uses a nixpkgs pin verified server-side against the actual helper image. If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
 - If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
 
 4. Propose defaults, but treat **domain** as special — it's the public URL, user-facing forever, and deserves its own focused question:
