@@ -1,18 +1,25 @@
 """Resolve fleet facts for the /ereg router.
 
-Order: Monitor (authoritative for state) -> operator overlay -> UNRESOLVED.
-There is no third source and no guessing. "Unresolved" is a real outcome
+Order: Monitor (authoritative for state) -> fleet.json (written by
+`eregulations fleet --for-router`) -> operator overlay -> UNRESOLVED.
+There is no fourth source and no guessing. "Unresolved" is a real outcome
 that the fail-closed gates in gates.py act on.
+
+fleet.json is machine-written state, not a hand-edited fallback: it sits
+between Monitor and the overlay because it is closer to the truth than
+something a human typed, but it is not a live read the way Monitor is. It
+carries no posture -- that stays the overlay's alone, matched against
+`hosts` -- so the posture merge below is unchanged by its existence.
 
 Posture is the one exception to Monitor precedence: it is a judgement
 about whether a host is safe to touch rather than state, so the more
 severe value wins whichever source supplied it. See `_worse_posture`.
 
 Monitor's read endpoints sit behind `authenticate`, so the live path needs
-a token. Without one this module still works from the overlay alone, which
-is the baseline mode the plugin ships in.
+a token. Without one this module still works from fleet.json and the
+overlay, which is the baseline mode the plugin ships in.
 
-stdlib-only: urllib + json. No requests, no PyYAML — hence a JSON overlay.
+stdlib-only: urllib + json. No requests, no PyYAML — hence JSON files.
 """
 
 from __future__ import annotations
@@ -25,6 +32,7 @@ import urllib.request
 STATE_FIELDS = ("host", "version", "platform", "posture")
 
 DEFAULT_OVERLAY = os.path.join(os.path.expanduser("~"), ".ereg", "fleet.local.json")
+DEFAULT_FLEET_JSON = os.path.join(os.path.expanduser("~"), ".ereg", "fleet.json")
 
 
 def load_overlay(path):
@@ -57,6 +65,32 @@ def load_overlay(path):
             % (path, type(overlay).__name__)
         )
     return overlay
+
+
+def load_fleet_json(path):
+    """Read fleet.json, written by `eregulations fleet --for-router`.
+
+    Same tolerance as `load_overlay`, for the same reason: absent is a
+    state (no live fleet feed configured yet, so the router falls through
+    to the overlay), while unreadable or malformed is an operator-facing
+    error that must not be swallowed into silent unresolved fields. See
+    `load_overlay`'s docstring for why only FileNotFoundError degrades.
+    """
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read()
+    except FileNotFoundError:
+        return {}
+    try:
+        fleet_json = json.loads(text)
+    except ValueError as exc:
+        raise ValueError("could not parse fleet.json at %s: %s" % (path, exc))
+    if not isinstance(fleet_json, dict):
+        raise ValueError(
+            "fleet.json at %s must be a JSON object, got %s"
+            % (path, type(fleet_json).__name__)
+        )
+    return fleet_json
 
 
 def _as_dict(value):
@@ -171,8 +205,16 @@ def known_slugs(overlay):
     return sorted(str(slug) for slug in _as_dict(_as_dict(overlay).get("instances")))
 
 
-def resolve(slug, monitor_record, overlay):
-    """Merge Monitor and overlay into one context, reporting drift.
+def resolve(slug, monitor_record, overlay, fleet_record=None):
+    """Merge Monitor, fleet.json and the overlay into one context.
+
+    `fleet_record` is the slug's own entry from fleet.json (`eregulations
+    fleet --for-router`'s output), or None if there is none. It sits
+    between Monitor and the overlay in precedence for `host`, `version`
+    and `platform`: a field not supplied by Monitor falls to fleet.json
+    before falling to the overlay. It carries no `posture` -- that stays
+    the overlay's alone, matched against `hosts` -- so `_worse_posture`
+    below is unchanged: still just Monitor vs. the overlay.
 
     Two of the keys returned are RESOLUTION METADATA, not gate context:
     `known_instance` and `known_slugs`. They describe what this resolver
@@ -187,20 +229,11 @@ def resolve(slug, monitor_record, overlay):
     """
     overlay = _as_dict(overlay)
     monitor_record = _as_dict(monitor_record)
+    fleet_record = _as_dict(fleet_record)
 
     overlay_instance = _as_dict(_as_dict(overlay.get("instances")).get(slug))
     overlay_host = overlay_instance.get("host")
     overlay_hosts = _as_dict(overlay.get("hosts"))
-    # Only a string can name a host. A dict or a list is not merely the
-    # wrong value, it is an unhashable key -- `dict.get` raises TypeError
-    # on it, which no amount of dict-guarding downstream would catch.
-    host_record = _as_dict(overlay_hosts.get(overlay_host)) if isinstance(overlay_host, str) else {}
-    overlay_view = {
-        "host": overlay_host,
-        "version": overlay_instance.get("version"),
-        "platform": overlay_instance.get("platform"),
-        "posture": host_record.get("posture"),
-    }
 
     monitor_view = {}
     if monitor_record:
@@ -228,17 +261,62 @@ def resolve(slug, monitor_record, overlay):
             for field, value in monitor_view.items()
         )
 
+    # fleet.json carries only state, no posture -- `eregulations fleet
+    # --for-router`'s output is {host, version, platform}, nothing that
+    # judges whether the host is safe. The empty-string collapse mirrors
+    # `monitor_view`'s, for the same reason: a machine-written "" is an
+    # absent field wearing a value's clothes, not a real answer.
+    fleet_view = dict(
+        (field, None if value == "" else value)
+        for field, value in {
+            "host": fleet_record.get("host"),
+            "version": fleet_record.get("version"),
+            "platform": fleet_record.get("platform"),
+        }.items()
+    )
+
+    # Posture is looked up against the host that will actually WIN the
+    # merge -- Monitor, then fleet.json, then the overlay's own record --
+    # not against the overlay's per-instance host field taken in isolation.
+    # `hosts` is a host-level registry: an operator who names a host there
+    # means "this is what I know about that host", regardless of which
+    # source is the one telling us an instance sits on it right now. Using
+    # the overlay's own (possibly stale, or simply absent) host would look
+    # up the wrong row, or none, once a livelier source disagrees.
+    resolved_host = monitor_view.get("host")
+    if resolved_host is None:
+        resolved_host = fleet_view.get("host")
+    if resolved_host is None:
+        resolved_host = overlay_host
+    # Only a string can name a host. A dict or a list is not merely the
+    # wrong value, it is an unhashable key -- `dict.get` raises TypeError
+    # on it, which no amount of dict-guarding downstream would catch.
+    host_record = _as_dict(overlay_hosts.get(resolved_host)) if isinstance(resolved_host, str) else {}
+    overlay_view = {
+        "host": overlay_host,
+        "version": overlay_instance.get("version"),
+        "platform": overlay_instance.get("platform"),
+        "posture": host_record.get("posture"),
+    }
+
     resolved = {}
     drift = []
     for field in STATE_FIELDS:
         from_monitor = monitor_view.get(field)
         from_overlay = overlay_view.get(field)
+        from_fleet = fleet_view.get(field)
         if field == "posture":
             resolved[field] = _worse_posture(from_monitor, from_overlay)
+        elif from_monitor is not None:
+            resolved[field] = from_monitor
+        elif from_fleet is not None:
+            resolved[field] = from_fleet
         else:
-            resolved[field] = from_monitor if from_monitor is not None else from_overlay
+            resolved[field] = from_overlay
         # Drift is computed from the raw sources, not from what won, so a
-        # disagreement is still reported whichever way it resolved.
+        # disagreement is still reported whichever way it resolved. Only
+        # Monitor vs. the overlay is compared here, unchanged by
+        # fleet.json's addition -- see resolution.md for the rationale.
         if from_monitor is not None and from_overlay is not None and from_monitor != from_overlay:
             drift.append({"field": field, "monitor": from_monitor, "overlay": from_overlay})
 
@@ -266,7 +344,12 @@ def resolve(slug, monitor_record, overlay):
     # MONITOR while reporting the slug found nowhere, and `{"host": ""}`
     # reported it found while resolving nothing.
     monitor_named_it = any(monitor_view.get(field) is not None for field in STATE_FIELDS)
-    known_instance = monitor_named_it or slug in _as_dict(overlay.get("instances"))
+    # Same definition, same reason, for fleet.json: a record that named
+    # nothing did not source anything, however truthy the dict itself is.
+    fleet_named_it = any(fleet_view.get(field) is not None for field in STATE_FIELDS)
+    known_instance = (
+        monitor_named_it or fleet_named_it or slug in _as_dict(overlay.get("instances"))
+    )
 
     context = {
         "instance": slug,
@@ -274,7 +357,7 @@ def resolve(slug, monitor_record, overlay):
         # anything, however truthy it was. Otherwise an error object reported
         # `source: monitor` beside `known_instance: false`, and the two lines
         # of one object contradicted each other.
-        "source": "monitor" if monitor_named_it else "overlay",
+        "source": "monitor" if monitor_named_it else ("fleet-json" if fleet_named_it else "overlay"),
         "known_instance": known_instance,
         "known_slugs": known_slugs(overlay),
         "drift": drift,
@@ -291,18 +374,20 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Resolve fleet context for one instance.")
     parser.add_argument("slug")
     parser.add_argument("--overlay", default=os.environ.get("EREG_OVERLAY", DEFAULT_OVERLAY))
+    parser.add_argument("--fleet-json", default=os.environ.get("EREG_FLEET_JSON", DEFAULT_FLEET_JSON))
     parser.add_argument("--monitor-url", default=os.environ.get("EREG_MONITOR_URL"))
     parser.add_argument("--token", default=os.environ.get("EREG_MONITOR_TOKEN"))
     args = parser.parse_args(argv)
 
-    # load_overlay raises on an unreadable or malformed overlay -- absent is a
-    # state, unreadable is an error. Both must reach the operator as one stderr
-    # line, not a traceback: gates.py and audit.py already print that shape, and
-    # a traceback here is the same failure wearing a worse coat. Exit is
-    # non-zero either way, so no context is emitted and no gate can return a
-    # verdict on data that was never read.
+    # load_overlay/load_fleet_json raise on an unreadable or malformed file --
+    # absent is a state, unreadable is an error. Both must reach the operator
+    # as one stderr line, not a traceback: gates.py and audit.py already print
+    # that shape, and a traceback here is the same failure wearing a worse
+    # coat. Exit is non-zero either way, so no context is emitted and no gate
+    # can return a verdict on data that was never read.
     try:
         overlay = load_overlay(args.overlay)
+        fleet_json = load_fleet_json(args.fleet_json)
     except (OSError, ValueError) as exc:
         sys.stderr.write("fleet_resolve.py: %s\n" % exc)
         return 2
@@ -310,7 +395,8 @@ def main(argv=None):
     record = None
     if args.monitor_url:
         record = fetch_instance(args.monitor_url, args.token, args.slug)
-    print(json.dumps(resolve(args.slug, record, overlay), indent=2, sort_keys=True))
+    fleet_record = _as_dict(fleet_json.get("instances", {})).get(args.slug)
+    print(json.dumps(resolve(args.slug, record, overlay, fleet_record), indent=2, sort_keys=True))
     return 0
 
 
