@@ -54,7 +54,7 @@ Every document has exactly one sharing mode, set with `share_mode` on create or 
 |---|---|---|---|
 | `public` | yes | yes | anyone |
 | `link` | no | no | anyone holding the URL |
-| `password` | no | title only, with a lock | anyone holding the URL **and** the password |
+| `password` | no | title and details, with a lock | anyone holding the URL **and** the password |
 | `owner` | no | no | the publisher token, the management secret, or any share-service admin |
 
 The project page is `/{project}/`. See [Project addresses](#project-addresses).
@@ -69,8 +69,8 @@ for 12 hours. Two things to tell the user:
 
 - Send the password **separately from the link** — not in the same message.
 - The **title is still visible** without the password, because the prompt has to name
-  the document. The project page also shows the title. If the title itself is
-  sensitive, use `owner` instead.
+  the document. The project page also shows the title and the `doc_type`. If the
+  title or the `doc_type` is sensitive, use `owner` instead.
 - Changing the password **logs out every reader** who had unlocked it.
 
 **`owner` is not shareable, but it is not private from admins.** It returns `404` to
@@ -121,7 +121,8 @@ does not match, the project address gives the same 404 as an unknown document.
 `/{project}/` is the project page. It lists the `public` and `password` documents
 that have the label `{project}`. A document does not need a project address to be on it.
 
-- A `password` document shows a lock and its title only. Its content stays behind the prompt.
+- A `password` document shows a lock, its title, format, size, date and `doc_type`.
+  Its content stays behind the prompt.
 - The project page does not list `link` or `owner` documents.
 - Like the home page, it does not list unpinned documents that are older than 90 days.
 - The home page does not change. It lists `public` documents only.
@@ -155,9 +156,26 @@ Before you choose a label:
    ```
 
    The maximum `limit` is 100. If `total` is more than 100, read the next pages.
-2. If one label exists for the country or team, use that label.
-3. If two labels exist, ask the user which label to use.
-4. Never invent a new variant of a label.
+   This list shows only the documents of the user. A teammate can use a label
+   that is not in it.
+2. Check the project page of each candidate label. For example, check the country
+   name and its two-letter code.
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' "https://share.eregistrations.dev/<candidate>/"
+   ```
+
+   `200` means that the team uses the label. `404` means that the project page lists
+   no documents. Keep the slash at the end. Without it, the server sends `301`.
+3. If one label exists for the country or team, use that label.
+4. If two labels exist, ask the user which label to use.
+5. Never invent a new variant of a label.
+
+This check does not find every label. The project page lists only `public` and `password`
+documents, and it does not list unpinned documents that are older than 90 days.
+The labels of `link` and `owner` documents from other publishers stay hidden. Do
+not use `GET /api/documents?project=<candidate>` for this check, because it lists
+only `public` documents.
 
 A `PATCH` can change the label of a document (see
 [the example](#set-or-change-the-project-of-an-existing-document)). The ID does not
@@ -203,6 +221,8 @@ change. It is always `<base>/d/{id}`.
 
 5. Detect metadata from context:
    - **project**: Follow [Label discipline](#label-discipline). List the user's documents first.
+     Then check the project page of each candidate label, because a teammate can use a
+     label that is not in the user's list.
      Reuse the label that already exists for this country or team. Ask the user when two
      labels exist. Never invent a new variant. If no label exists, derive one from the git
      repo name or the directory name. The label must get a project address: use only
