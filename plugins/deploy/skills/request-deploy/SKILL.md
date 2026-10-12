@@ -9,10 +9,11 @@ license: UNCTAD-Internal
 compatibility: Requires `gh` CLI authenticated to GitHub.
 allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(cat *), Bash(ls *), Bash(test *), Bash(diff *), Bash(npm *), Bash(node *), Bash(docker *), Bash(python3 *), Bash(du *), Bash(find *), Bash(rm *), Bash(curl *), AskUserQuestion
 metadata:
-  version: "1.12.0"
-  version-date: "2026-09-29"
+  version: "1.13.0"
+  version-date: "2026-10-12"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "1.13.0 (2026-10-12): Added Rule H — each compose service needs a fixed memory limit — and the two new form fields `Memory limit` and `Keep for`. Since unctad-ai/deploy#75 every app has an owner, an expiry date and a memory limit. Coolify applies the limit itself for static, dockerfile and auto-detect builds, but not for compose apps, so the onboarder refuses a compose file where a service has no `mem_limit` and removes the app it created. Before this version the compose pre-flight reported such a file as ready and the request then failed on the runner. The final message now tells the user the owner, the expiry date and the memory limit."
     - "1.12.0 (2026-09-29): Added Rule G — compose `app` services get `init: true` (hygiene: rides along with other compose fixes, never triggers a prompt or commit on its own). Incident (erdev host): apps whose PID 1 is `npm run start` or `next-server` never reap exited child processes, so zombie processes piled up (57 in one app after five weeks). The host Docker daemon now defaults new containers to `init: true`, so deploys work either way; the explicit key keeps the fix portable and matches the merged app-repo PRs (Academy-Next#4, corridor#1, Manager-Next#2)."
     - "1.11.0 (2026-09-25): Added 'Watching the result' — after filing, wait for the onboarding run and probe the live URL, telling a crash-looping app (proxy 502/503/504) apart from a certificate delay. Incident (jamaica-film-platform, deploy #65): the onboarder said '✓ onboarded, likely waiting on Let's Encrypt' while app and setup crash-looped on Postgres P1000 — the compose warm-up deploy had started the database before env vars existed, so its volume kept the compose default password. Onboarder fixed in unctad-ai/deploy#66; the final message now warns never to change a database password after the first deploy. Corrected the onboarding time (about 6 min, not 15-30 s)."
     - "1.10.0 (2026-08-18): Added pre-flight Gate 3 — Runner toolchain compatibility (Rule F auto-fix). Incident (designstudio): local Gates 1–2 passed on the dev laptop's newer Node, but the nixpacks runner built with Node 22.11.0 while vite 8/rolldown require ^20.19.0 || >=22.12.0 — and npm on Node <22.12 silently skips optional deps with unsatisfied engines (npm/cli#4828), so `npm ci` exited 0 without installing @rolldown/binding-linux-x64-gnu and `vite build` died with 'Cannot find native binding'. Detection scans installed packages' engines against the runner's Node; fix pins a newer nixpkgsArchive in nixpacks.toml (repo-side, no Coolify change). Documents the NIXPACKS_NODE_VERSION=24/23 traps."
@@ -123,6 +124,25 @@ metadata:
    Anything left is **undeclared** and will interpolate to an empty string at compose parse time. Empty `POSTGRES_PASSWORD` → postgres refuses to init; empty `NEXTAUTH_SECRET` → app crashes on boot; etc.
    - *Fix:* during the bundled AskUserQuestion, list each undeclared var and, for each, either (a) add it to the env-vars the user will submit (offer `<GENERATE>` for anything matching `(PASSWORD|SECRET|TOKEN|KEY)$`, plain value otherwise), or (b) declare an inline default in the compose file.
 
+   **Rule H — A service has no fixed memory limit** (BLOCKER, auto-fixable).
+   The server is shared, so every app has a memory limit (unctad-ai/deploy#75). Coolify applies the limit itself for `static`, `dockerfile` and `auto-detect` builds, but **not** for compose apps: the compose file must carry it. The onboarder reads the compose file after the warm-up build. If a service has no limit, it stops, removes the app it created, and comments `these compose services have no memory limit: <names>` on the issue.
+   - *Detect:* a service fails this rule when any of these is true:
+     - it has neither `mem_limit` nor `deploy.resources.limits.memory`;
+     - the value is not a fixed size: a `${VAR}` reference (even with a default), `0`, or less than `6m`;
+     - it sets `memswap_limit` to `-1`, or to more than twice its limit.
+   - *Fix:* give each failing service a fixed `mem_limit`. Propose these sizes, and keep any valid limit the file already has:
+
+     | Service | `mem_limit` |
+     |---|---|
+     | Database image (`postgres`, `mysql`, `mariadb`, `mongo`) | `256m` |
+     | Cache image (`redis`, `valkey`, `memcached`) | `128m` |
+     | Anything else, including `app` | `256m` |
+
+     A `${VAR:-512m}` value becomes its default (`512m`) when that default is a size. A `memswap_limit` that fails the rule is removed. Insert `mem_limit` as the first key of the service (after `init: true` if Rule G adds it), using the file's own indentation.
+   - *Memory size for the request:* add up the limits of **all** services, counting a service once per replica (`deploy.replicas` or `scale`). The request's `Memory limit` (see "Building the issue body") is the smallest of `128m`, `256m`, `512m`, `1g` that is not below that total. Examples: `app` alone → `256m`; `app` + `db` → `512m`; `app` + `db` + `redis` (640m) → `1g`. The onboarder also refuses a file whose limits add up to more than the requested size, so run this sum even when no service fails the rule.
+   - *Total above `1g`:* the form offers nothing larger. Do not file the request. Tell the user: *"Your services ask for <total> of memory together. The shared server gives an app up to 1 GB without a maintainer."* Offer to lower the proposed limits, or to open a help issue so a maintainer sets a larger size.
+   - *Not auto-fixable:* the onboarder refuses a compose file that uses a top-level `include`, or `extends` on any service, because it cannot read limits that come from another place. It also refuses a service name with characters other than letters, digits, `.`, `_` and `-`. Treat each as a blocker the user fixes by hand (see "What the skill must NOT do").
+
    **Rule G — `app` service has no `init: true`** (HYGIENE, non-blocking, rides along with other fixes).
    The `app` service usually runs `npm run start` or `next-server` as PID 1. Neither reaps child processes that exit, so zombie processes pile up over weeks (one app on the shared host had 57). An init process (`init: true`, Docker's built-in tini) reaps them. The shared host's Docker daemon now defaults new containers to `init: true` (2026-09-29), so a deploy works with or without the key — this rule keeps the setting explicit, so it also holds if the app moves to another host. It matches what the merged app repos now carry (Academy-Next, corridor, Manager-Next).
    - *Detect:* after Rule B, the `app` service has no `init:` key at all. If `init` is present with any value, leave it alone — someone chose it.
@@ -132,11 +152,11 @@ metadata:
      # Run a minimal init as PID 1 so exited child processes are reaped (no zombies).
      init: true
      ```
-   - *Never on its own:* Rule G is **not** counted in the `<N> issues that will fail the deploy` total, never raises the bundled question, and never causes a commit by itself. If Rule G is the only finding, do nothing and continue silently. It is only applied when the auto-fix path already runs for Rules A–D, in the same diff and the same commit.
+   - *Never on its own:* Rule G is **not** counted in the `<N> issues that will fail the deploy` total, never raises the bundled question, and never causes a commit by itself. If Rule G is the only finding, do nothing and continue silently. It is only applied when the auto-fix path already runs for Rules A–D or H, in the same diff and the same commit.
    - Skip Rule G for `dockerfile`, `auto-detect` and `static` builds — those containers are created by Coolify, and the host default already covers them.
 
    **Bundled confirmation — one `AskUserQuestion`, never free text.**
-   After running Rules A–D, if any finding exists, show a single question whose body enumerates every finding. The "Fix it for me" description must list the concrete edits/additions the skill will apply; the user reviews the full batch before any change is made. `<N>` counts blocking findings only (Rules A–D); Rule G, if it applies, is listed as an extra bullet but never counted.
+   After running Rules A–D and H, if any finding exists, show a single question whose body enumerates every finding. The "Fix it for me" description must list the concrete edits/additions the skill will apply; the user reviews the full batch before any change is made. `<N>` counts blocking findings only (Rules A–D and H); Rule G, if it applies, is listed as an extra bullet but never counted.
 
    ```
    question: "docker-compose.yml has <N> issues that will fail the deploy. How to proceed?"
@@ -151,6 +171,7 @@ metadata:
            • [Rule B] rename top-level service `<old>` → `app` (and update refs)
            • [Rule C] add `start_period: 30s` to `<service>.healthcheck` (+ bump retries to 10)
            • [Rule D] record env vars <FOO>, <BAR> to submit in the deploy issue
+           • [Rule H] add a memory limit to <service> (<size>) — the shared server requires one per service
            • [Rule G, extra] add `init: true` to `app` so exited processes are cleaned up
          (Only the rules that fired are listed — skip the others.)
      - label: "I'll fix it manually"
@@ -174,7 +195,8 @@ This path modifies the **user's app repo** — move carefully:
    - **Rule B (service rename):** change the top-level service key and update any `depends_on`, `links`, and other service references elsewhere in the file.
    - **Rule C (healthcheck `start_period`):** insert `start_period: 30s` (or `40s` for `postgres|mysql|mariadb|mongo` images) into the affected `healthcheck:` block. If `retries:` is present and `< 10`, bump it to `10`. Only add — never reduce existing values. If the healthcheck `test:` uses bare `pg_isready`, also extend it to `pg_isready -U postgres -d <db>` where `<db>` is the service's `POSTGRES_DB` (from its env block).
    - **Rule D (undeclared env vars):** this rule does NOT edit docker-compose.yml. Instead, the collected var names get appended to the env-var block the skill posts in the deploy issue (step 6 of the main flow). During the batch confirmation, show the user the proposed KEY=VALUE lines so they can override before submission.
-   - **Rule G (`init: true`):** only when the `app` service has no `init:` key **and** another rule is already editing `docker-compose.yml` (Rules A–C, or Rule D's inline-default option). Insert the comment line and `init: true` as the first entries of the `app:` mapping, using the file's own indentation. Never add it when no other edit is being made.
+   - **Rule G (`init: true`):** only when the `app` service has no `init:` key **and** another rule is already editing `docker-compose.yml` (Rules A–C or H, or Rule D's inline-default option). Insert the comment line and `init: true` as the first entries of the `app:` mapping, using the file's own indentation. Never add it when no other edit is being made.
+   - **Rule H (memory limits):** insert `mem_limit: <size>` in each service that fails the rule, with the sizes from the Rule H table. Replace a variable with its default size, and remove a `memswap_limit` that fails the rule. Never lower or raise a valid limit the file already has. Keep the total for the issue body.
    - Bundle all file edits into one combined diff. Run `diff -u <old> <new>` to produce a unified diff string.
    - Show the diff to the user inline before writing. Use a second `AskUserQuestion` with `{Apply this diff / Cancel}`. Only write on explicit Apply.
 
@@ -186,6 +208,7 @@ This path modifies the **user's app repo** — move carefully:
      - `fix(compose): make deploy-ready for Coolify (expose, healthcheck, service name)`
      - `fix(compose): expose ports instead of publishing` (Rule A only)
      - `fix(compose): add healthcheck start_period for DB dependency` (Rule C only)
+     - `fix(compose): add memory limits for the shared deploy server` (Rule H only)
    - Commit body: one line per applied rule, code + short description (self-documenting git log). If Rule G was applied, add a line for it (`G: init: true on app`) but never put it in the subject — it is hygiene, not the reason for the commit.
    - `git push` to the current branch's upstream (no `-u`, no branch-name argument — the upstream was verified in the guardrail step).
    - If push fails (permission, protected branch, rejected fast-forward), roll back the local commit with `git reset --hard HEAD~1`, then show the user a plain-language message: *"I made the fix locally but couldn't push it to GitHub — this branch may be protected, or a maintainer needs to let this project through. I've undone the local change. Options below."* Offer only two options: (a) "Open a help issue — a maintainer will set it up for me" and (b) "Cancel." Never ask the user to change branches or push manually.
@@ -198,8 +221,8 @@ This path modifies the **user's app repo** — move carefully:
 - **Never rewrite the whole file** — use the Edit tool with minimal old_string/new_string so comments and surrounding formatting are preserved.
 - **Never prompt, commit or push for Rule G alone.** It is hygiene that rides along with a fix that is already happening; a repo whose only "finding" is a missing `init: true` deploys fine and is left untouched.
 - **Never ask the user about branches.** The user's current `HEAD` is their branch choice — commit and push there. Pushing to `main` is fine when the user is on `main`; the push-failure rollback path handles the protected-branch case without ever exposing the word "branch" to the user.
-- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D and G run `docker compose config -q` (or a YAML parse fallback); Rule F re-runs Gates 1–2 and uses a nixpkgs pin verified server-side against the actual helper image. If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
-- If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why.
+- **Never push a change that hasn't been validated locally.** Rule E runs `npm ci && npm run build`; Rules A-D, G and H run `docker compose config -q` (or a YAML parse fallback); Rule F re-runs Gates 1–2 and uses a nixpkgs pin verified server-side against the actual helper image. If validation fails, the change is restored to the working tree's pre-edit state and no commit is made. Pushing an unvalidated change would move the failure from the user's laptop (where we can gracefully offer a help-issue fallback) to the deploy runner (where the user sees a cryptic red × on a GitHub Action they didn't file).
+- If the compose file uses extends, anchors, or other YAML features that make mechanical editing risky, bail to "I'll fix it manually" and tell the user why. For `extends` and a top-level `include`, also say that the deploy server refuses them (Rule H): the services must be written out in one file.
 
 4. Propose defaults, but treat **domain** as special — it's the public URL, user-facing forever, and deserves its own focused question:
    - **Name** = the repo name (let the user override — the server slugifies whatever they pick, e.g. "My App" → "my-app").
@@ -419,7 +442,14 @@ The deploy workflow parses the Issue Forms–rendered body — each field become
 4. `Branch`
 5. `Port`
 6. `Build type` — one of `static`, `dockerfile`, `dockercompose`, `auto-detect`
-7. `Environment variables` — fenced `shell` block (the template declares `render: shell`):
+7. `Memory limit` — one of `128m`, `256m`, `512m`, `1g`. Do not ask the user. Pick it from the build type:
+   - `static` → `128m`
+   - `dockerfile`, `auto-detect` → `256m`
+   - `dockercompose` → the size Rule H computed from the compose file
+
+   Pick a larger size only when the user said the app needs it. An app that uses more than its limit restarts, so do not go below these.
+8. `Keep for` — one of `30 days`, `90 days`, `180 days`. Use `90 days` unless the user said how long the app must stay (a demo for one event → `30 days`; a long-running pilot → `180 days`). Do not ask.
+9. `Environment variables` — fenced `shell` block (the template declares `render: shell`):
    ~~~
    ### Environment variables
 
@@ -430,6 +460,8 @@ The deploy workflow parses the Issue Forms–rendered body — each field become
 
    ~~~
    Omit the section, or write `_No response_`, when the user has no env vars.
+
+The person who files the issue becomes the app's **owner**. The workflow computes the expiry date from `Keep for`. Nothing stops on that date: a weekly report mentions the owner, who then renews or asks for removal.
 
 Do **not** send headings the current form doesn't have (`Project slug`, `One-line description`, `Build pack`, `Build-pack extras`, `Pre-flight checklist`) — the parser ignores them, but including them bloats the body and leaves stale content in the issue.
 
@@ -472,6 +504,10 @@ Filing the issue is not the end: the onboarder can report "✓ onboarded" while 
 | fails | 502 / 503 / 504 | No container answers for this domain. The app is crash-looping, its build is still running, or (compose) the domain points at no service because the main service is not named `app` (Rule B). **Not** a certificate delay. | "The app was created but isn't answering. A maintainer needs to check its deployment and logs in Coolify." Name the likely cause below if it applies. |
 | fails | 200 | The app is up; the certificate is still being issued. | "Almost ready: the secure certificate takes a few more minutes." Probe once more after the user's next message. |
 
+**If the last comment says onboarding stopped or failed:** read it to the user in plain words. A comment about `mem_limit` or `the service limits add up to` is Rule H: the compose file on the deployed branch has a service without a fixed memory limit, or its limits are above the requested size. Fix the file (re-run the compose pre-flight), push, and tell the user a maintainer must re-apply `approved` on the issue. If the comment only links the run log, open it with `gh run view <run-id> --repo unctad-ai/deploy --log-failed` and look for the line that starts with `Error:`.
+
+**Likely cause for an app that restarts and shows no error in its log:** it uses more memory than its limit. For a compose app, raise `mem_limit` in the compose file, push, and tell a maintainer so the `memory` value in `projects/<name>.yml` on unctad-ai/deploy stays true. For the other build types Coolify holds the limit: a maintainer raises `memory` in that file and runs the onboarder again.
+
 **Likely cause for a compose app with a database:** the database volume was created with a different password. Postgres reads `POSTGRES_PASSWORD` only when its volume is empty. If the password changed after the first start, every later start is refused (`P1000`). This is fixed for new apps by unctad-ai/deploy#66. A maintainer repairs an existing app by setting the database user's password to the Coolify value (`ALTER USER postgres PASSWORD '…'` in the `db` container), which keeps the data.
 
 ## Final message to the user
@@ -488,11 +524,15 @@ You'll need to fill these in Coolify after deploy (https://coolify.singlewindow.
 
 Future pushes to `<branch>` will auto-redeploy.
 
+You are the owner of this app. It is kept until <expiry date> and can use up to <memory limit>
+of memory. To keep it longer, ask a maintainer before then, or open a PR on unctad-ai/deploy
+that sets a later `expires` date in projects/<name>.yml.
+
 Don't change POSTGRES_PASSWORD in Coolify after this: the database keeps the first
 one, and a new value locks the app out.
 ```
 
-Drop the Coolify follow-up section if the user has no placeholders. Keep the database-password line only for compose apps whose env vars include a database password (`POSTGRES_PASSWORD`, `MYSQL_PASSWORD`, `MARIADB_PASSWORD`, `MONGO_INITDB_ROOT_PASSWORD`). If the check in "Watching the result" did not return 200, replace the first line with what the table says to tell the user.
+Take the expiry date and the memory limit from the onboarder's success comment (`Expires:` and `Memory limit:`). Drop the Coolify follow-up section if the user has no placeholders. Keep the database-password line only for compose apps whose env vars include a database password (`POSTGRES_PASSWORD`, `MYSQL_PASSWORD`, `MARIADB_PASSWORD`, `MONGO_INITDB_ROOT_PASSWORD`). If the check in "Watching the result" did not return 200, replace the first line with what the table says to tell the user.
 
 ## Pre-flight
 
