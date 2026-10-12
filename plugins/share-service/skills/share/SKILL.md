@@ -10,11 +10,12 @@ description: >
 license: UNCTAD-Internal
 allowed-tools: Read, Write, Edit, Bash(curl *), Bash(cat *), Bash(ls *)
 metadata:
-  version: "1.6.0"
+  version: "1.6.1"
   version-date: "2026-10-12"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[list | <file-path>]"
   changelog:
+    - "1.6.1 (2026-10-12): Project pages list documents of any age. The 90-day rule applies only to the home page and to GET /api/documents. Age alone never makes a project page give 404. Label discipline: the project page check now finds the labels of old documents."
     - "1.6.0 (2026-10-12): Project addresses. New 'Project addresses' section. /{project}/{name} serves the document '{project}-{name}' filed under {project}. /{project}/ is a project page. It lists public documents and password documents (title and lock only). Label rules and label discipline: list the user's documents and reuse the label that exists. Ask the user when two labels exist for one country. Step 5 requires a label that gets an address. Step 7, the custom slug section and /share list show project_url when the response has it, else url. New PATCH example that sets 'project', and the 400 text for an invalid project. Sharing Modes table names the project page. Important Notes: scripts in a markdown document do not run, so publish interactive pages as html."
 ---
 
@@ -124,9 +125,11 @@ that have the label `{project}`. A document does not need a project address to b
 - A `password` document shows a lock, its title, format, size, date and `doc_type`.
   Its content stays behind the prompt.
 - The project page does not list `link` or `owner` documents.
-- Like the home page, it does not list unpinned documents that are older than 90 days.
-- The home page does not change. It lists `public` documents only.
-- A project with no listed documents gives 404.
+- The project page lists documents of any age, pinned or not.
+- The home page does not change. It lists `public` documents only. It does not list
+  unpinned documents that are older than 90 days.
+- A project with no listed documents gives 404. The project page also lists old
+  documents, so age alone never makes it give 404.
 
 ### Label rules
 
@@ -172,10 +175,9 @@ Before you choose a label:
 5. Never invent a new variant of a label.
 
 This check does not find every label. The project page lists only `public` and `password`
+documents. The labels of `link` and `owner` documents from other publishers stay hidden. Do
+not use `GET /api/documents?project=<candidate>` for this check. It lists only `public`
 documents, and it does not list unpinned documents that are older than 90 days.
-The labels of `link` and `owner` documents from other publishers stay hidden. Do
-not use `GET /api/documents?project=<candidate>` for this check, because it lists
-only `public` documents.
 
 A `PATCH` can change the label of a document (see
 [the example](#set-or-change-the-project-of-an-existing-document)). The ID does not
