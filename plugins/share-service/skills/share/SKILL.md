@@ -186,8 +186,9 @@ change. If you move `ke-access-review` to the label `kenya`, it loses the addres
 
 Every JSON response that describes a document has `project_url` when the document has
 a project address. For example: `"project_url": "https://share.eregistrations.dev/comores/documents"`.
-The field is not there when the document has no project address. The `url` field does not
-change. It is always `<base>/d/{id}`.
+The field is not there when the document has no project address. Only the publish
+response has `url`, and its value does not change: it is always `<base>/d/{id}`.
+For other responses, build `<base>/d/{id}` from `id`.
 
 ## Commands
 
