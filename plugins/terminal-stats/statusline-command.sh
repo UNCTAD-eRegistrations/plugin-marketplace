@@ -156,7 +156,7 @@ _countdown() {
 # has been sitting idle since its last request. Writes IDLE_STR (e.g.
 # "3h12m") and IDLE_COLOR.
 _idle_time() {
-    IDLE_STR=""; IDLE_COLOR="$SLATE"
+    IDLE_STR=""; IDLE_COLOR="$SLATE"; LAST_STR=""
     [ -z "$TRANSCRIPT" ] && return
     local raw
     raw=$(tail -n 50 "$TRANSCRIPT" 2>/dev/null | jq -rs '[.[] | select(.timestamp != null) | .timestamp] | last // empty' 2>/dev/null)
@@ -166,6 +166,8 @@ _idle_time() {
     ts=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$clean" "+%s" 2>/dev/null || \
          date -d "$raw" "+%s" 2>/dev/null)
     [ -z "$ts" ] && return
+    # Local-time date of the last message, e.g. "14 Oct 06:27" (macOS, then GNU fallback)
+    LAST_STR=$(date -r "$ts" "+%d %b %H:%M" 2>/dev/null || date -d "@$ts" "+%d %b %H:%M" 2>/dev/null)
     local age=$(( $(date +%s) - ts ))
     [ "$age" -lt 0 ] && age=0
     if   [ "$age" -lt 3600 ];   then IDLE_STR="$((age/60))m";                    IDLE_COLOR="$LIME"
@@ -221,6 +223,7 @@ PC=$(fg $CR $CG $CB)
 L2="${CTX_P} ${BAR} ${PC}${BD}${PCT}%${RST} ${DM}${US}/${SS}${RST}"
 [ "$TC" -gt 0 ] 2>/dev/null && L2="${L2} ${GHOST}░${RST} ${GHOST}cache ${RST}${TEAL}⛃${CH}%${RST}"
 [ -n "$IDLE_STR" ] && L2="${L2} ${GHOST}░${RST} ${GHOST}idle ${RST}${IDLE_COLOR}◷ ${IDLE_STR}${RST}"
+[ -n "$LAST_STR" ] && L2="${L2} ${GHOST}· last msg ${RST}${ICE}${LAST_STR}${RST}"
 
 # ── Panel OPS: cost · time · delta · rate limit ──
 L3="${OPS_P} ${GHOST}cost ${RST}${GOLD}${CS}${RST} ${GHOST}░${RST} ${GHOST}active ${RST}${SLATE}${DS}${RST}"
