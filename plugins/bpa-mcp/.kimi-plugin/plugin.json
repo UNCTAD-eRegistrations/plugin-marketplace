@@ -1,6 +1,6 @@
 {
   "name": "bpa-mcp",
-  "version": "1.65.41",
+  "version": "1.65.52",
   "description": "Install the BPA MCP server and register eRegistrations instance profiles. Install this once — all other UNCTAD plugins depend on it.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
@@ -13,7 +13,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main",
+        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1",
         "mcp-eregistrations-bpa"
       ]
     }

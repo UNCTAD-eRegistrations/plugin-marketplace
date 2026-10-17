@@ -49,7 +49,7 @@ problem is repository access, not the plugin. Ask whoever administers the
 
 ### Step 1 — Confirm the BPA MCP server is loaded
 
-> The plugin's `.mcp.json` uses `uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa`, which fetches the current `main` branch on every startup. No manual install or upgrade is needed — but it does require read access to that private repository (see Step 0b).
+> The plugin's `.mcp.json` uses `uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1 mcp-eregistrations-bpa`, which fetches the current `main` branch on every startup. No manual install or upgrade is needed — but it does require read access to that private repository (see Step 0b).
 
 Attempt to call `mcp__BPA__instance_list()`.
 
@@ -67,14 +67,14 @@ Do not proceed past this point until the BPA tools are confirmed available.
 Run the migration detector via Bash:
 
 ```
-uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa migrate 2>/dev/null
+uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1 mcp-eregistrations-bpa migrate 2>/dev/null
 ```
 
 - If the output says **"Nothing to migrate"** → continue to Step 3.
 - If it shows a migration plan (old `BPA-*` entries detected) → apply it:
 
   ```
-  uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main mcp-eregistrations-bpa migrate --apply
+  uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1 mcp-eregistrations-bpa migrate --apply
   ```
 
   Report the migration results to the user (profiles created, entries removed, backup details). If the output mentions restarting Claude Desktop, relay that to the user. Then continue to Step 3.

@@ -3,7 +3,7 @@
     "Keycloak": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main", "mcp-eregistrations-keycloak"]
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1", "mcp-eregistrations-keycloak"]
     }
   }
 }

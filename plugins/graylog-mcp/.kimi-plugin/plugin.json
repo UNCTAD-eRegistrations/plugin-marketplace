@@ -1,6 +1,6 @@
 {
   "name": "graylog-mcp",
-  "version": "1.65.41",
+  "version": "1.65.52",
   "description": "Graylog MCP server for searching and monitoring logs across eRegistrations instances. Uses Graylog-native auth (NOT Keycloak). Requires bpa-mcp plugin for instance management.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
@@ -12,7 +12,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main",
+        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1",
         "mcp-eregistrations-graylog"
       ]
     }

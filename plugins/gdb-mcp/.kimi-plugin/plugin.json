@@ -1,6 +1,6 @@
 {
   "name": "gdb-mcp",
-  "version": "1.65.41",
+  "version": "1.65.52",
   "description": "GDB (Generic Database Builder) MCP server for managing databases, schemas, and records in eRegistrations. Requires bpa-mcp plugin for authentication.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
@@ -13,7 +13,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@main",
+        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1",
         "mcp-eregistrations-gdb"
       ]
     }
