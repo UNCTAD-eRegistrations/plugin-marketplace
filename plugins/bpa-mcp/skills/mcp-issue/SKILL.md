@@ -18,10 +18,11 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.7.0"
-  version-date: "2026-10-17"
+  version: "3.8.0"
+  version-date: "2026-10-18"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "3.8.0 (2026-10-18): Added Step 5.5f — Size. The skill lists the files that the Requested Outcome must change. Above 10 files it decomposes the change into at most 6 ordered slices of 10 files or fewer, and files them as an epic in the bot's own split protocol (auto:split-parent, auto:split-child, auto:split-depth:1, auto:split-blocked, manifest comment). The bot's split-chainer then runs the slices in order. A change that does not decompose goes to one design ticket with auto:skip. Reason: the bot's size gate counts files but its splitter divides tasks, so a cross-cutting ticket stalls for days (MCP #481: estimated at 34 files, split twice, the last child still changed 34 files). The scope checklist moves from 5.5f to 5.5g and gains a size row. New Step 9b gate and split-label rows in the label map."
     - "3.7.0 (2026-10-17): Added Step 5.5d — Out of scope. A request that no file change can deliver (repo access, a question, an operations task) gets no ticket: the skill tells the user why and where the request goes instead. If the user insists, the skill files the issue with the auto:skip label in the same gh call, plus a first body line that names the person who must act. Reason: the MCP repo's automation bot treats every issue as a code change. On MCP #834 it closed an access request as 'Shipped' after it merged a tests-only PR, and no person saw the request. New 5.5f checklist row, a Step 9b gate, and an auto:skip row in the label map that is never omitted."
     - "3.6.0 (2026-07-31): Added Step 5.5e — Atomicity. One ticket, one observable behavior change: count the distinct observable changes in Requested Outcome and offer to file N linked tickets when there is more than one. Deliberately a scope-SHAPE rule, not a length rule — measured evidence shows ticket length does not predict how much work a ticket becomes (of six oversized plans on record the smallest originating ticket was 60% below median length, and one was already a split-off child). New Atomicity confidence dimension, a Step 9b blocking condition, a Step 5.5f checklist row, and an explicit note in the Requested Outcome template. Subsumes the weaker 'conflating two issues' line in Step 6, which asked about merged bugs rather than merged asks."
     - "3.5.0 (2026-05-10): Feature requests are now filable when they pass the same evidence bar as bugs. Replaced the blanket 'no feature requests' gate in Step 9b with three evidence-specific sub-conditions: cited backend capability, Hard-typed evidence, and observable-behavior phrasing. Resolves the internal contradiction between the 'Missing capability' category (Step 3) and the old gate (Step 9b). TRIGGER description and Guidelines updated to match. Per-server wrapper command descriptions broadened from 'issue or unexpected behavior' to 'issue or feature request'."
@@ -299,15 +300,58 @@ Two traps in counting:
 
 If the user says they must ship together, file one ticket and say so explicitly in the Requested Outcome: *"These {N} changes are inseparable because …"*. A stated reason is reviewable; an unstated merge is not.
 
-**What this does and does not buy you.** It makes tickets reviewable and independently shippable. It does **not** guarantee the resulting work is small: a single-behavior ticket can still require a large change, and measured evidence says so plainly — of six oversized plans on record, the *smallest* originating ticket was 60% below the median ticket length, and one was itself already a split-off child of an earlier split. Size is decided by how much code the change touches, which the reporter cannot see. Split for reviewability; do not promise smallness.
+**What this does and does not buy you.** It makes tickets reviewable and independently shippable. It does **not** guarantee the resulting work is small: a single-behavior ticket can still require a large change, and measured evidence says so plainly — of six oversized plans on record, the *smallest* originating ticket was 60% below the median ticket length, and one was itself already a split-off child of an earlier split. Size is decided by how much code the change touches, which the reporter often cannot see. Split for reviewability here; Step 5.5f handles size.
 
 This subsumes the weaker "Am I conflating two different issues into one?" line in Step 6's hallucination table — that one asks whether you merged two *bugs*; this one asks whether you merged two *asks*, which is the more common failure.
 
-### 5.5f — Scope checklist (must all pass before Step 6)
+### 5.5f — Size: decompose a big change into ordered issues
+
+The bot cannot deliver a big change in one PR. Its size gate counts the files that a change touches. On the MCP repo the gate is 25 files, and an early check runs during the bot's spec phase. When a ticket is over the gate, the bot splits it by task. A task split often does not lower the file count, because the tasks change the same files. The ticket then stalls for days. Example: the bot estimated MCP #481 at 34 files and split it twice. The last child still changed 34 files.
+
+You can see the files before the bot does. Decompose the change at filing time.
+
+**1. List the files.** List each file that the Requested Outcome must change. Use the source tree (Step 4c). If you cannot read the source, estimate from the tools and packages that the request names. Typical sizes on the MCP repo:
+
+| Change | Typical files |
+|---|---|
+| Fix in one existing tool | 2: the tool module and its test |
+| New read tool in an existing module | 3: the module, the registration, the test |
+| New write tool | 5: the module, `tools/__init__.py`, `server.py`, `rollback/manager.py`, the test |
+| One rule for every write tool, or for every package | 1 per module plus tests, often more than 20 |
+
+**2. If the list has 10 files or fewer,** file one ticket. Go to 5.5g. The limit is 10, not 25, because a filing-time list usually misses docs and tests that the bot must also change.
+
+**3. If the list has more than 10 files,** decompose the change into slices. Each slice must obey these rules:
+
+- The slice changes 10 files or fewer.
+- The slice delivers one observable behavior change (5.5e), and a maintainer can verify it alone.
+- The slice needs only the slices before it. Put shared code first: a helper or a client method that later slices use goes in slice 1.
+- Two slices can change the same registration file, for example `server.py`. If most slices need most of the same files, the change does not decompose. Go to step 5.
+- Make 6 slices or fewer. If the change needs more than 6, go to step 5.
+
+**4. File the slices as an epic.** Use the bot's split protocol. The bot then runs the slices in order without help.
+
+1. Create the parent issue with the label `auto:split-parent`. The body states the full problem and lists the slices. The bot does not triage or pick up a parent.
+2. Create slice 1 with the labels `auto:split-child,auto:split-depth:1`.
+3. Create each later slice with the labels `auto:split-child,auto:split-depth:1,auto:split-blocked`. The bot does not work on a blocked slice.
+4. Post this comment on the parent. Write the slice numbers in order: `<!-- autopilot:split children=#A,#B,#C depth=1 -->`
+
+Set the labels in each `gh issue create` call, not after it. Without its labels, a later slice can get triaged before its turn.
+
+The bot works on slice 1 first. When a slice closes, the bot removes `auto:split-blocked` from the next slice. When all slices are closed, the bot closes the parent. If an estimate is wrong, `auto:split-depth:1` lets the bot split one slice once more.
+
+Keep each slice body short. Write the slice's tasks, its files, and the line `Part {N} of #{parent}`. Do not copy the full parent text into each slice. Put this line last: *"Before you start, compare each task with `main`. Remove each task that an earlier slice already delivered."* A blocked slice waits while earlier slices change `main`.
+
+**5. If the change does not decompose,** file one design ticket with the label `auto:skip`. The body states the problem, the file list, and why the change does not decompose. A person plans the slices, then files them with step 4.
+
+Show the user the slice plan before you file anything (Step 9, item 3).
+
+### 5.5g — Scope checklist (must all pass before Step 6)
 
 Run through this list explicitly. Answer each one:
 
 - [ ] **At least one file in the destination repo must change to deliver the Requested Outcome** (5.5d). If no file must change, use the out-of-scope path in 5.5d.
+- [ ] **The file list has 10 files or fewer** (5.5f). If not: the change is decomposed into an epic of slices, or filed as one design ticket with `auto:skip`.
 - [ ] **Requested Outcome names exactly ONE observable behavior change** (5.5e) — or the user explicitly chose to keep them together and the reason is written into the ticket.
 - [ ] **Filing destination is decided and written into the draft** (MCP repo, specific backend repo, or specific consumer repo).
 - [ ] If destination is MCP repo: the fix is plausibly implementable by changing MCP tool code alone (no backend model/endpoint change required).
@@ -629,6 +673,7 @@ Never auto-select the MCP repo as a fallback.
     - The "Requested Outcome" is phrased as a preference ("would be nice", "should consider", "ideally") rather than an observable behavior the maintainer can verify against
 - The **Scope hygiene** confidence dimension is below 90%
 - The **Requested Outcome names more than one observable behavior change** (Step 5.5e) and the user has not explicitly chosen to keep them together with a stated reason
+- The **file list has more than 10 files** (Step 5.5f) and the report is not decomposed into slices or filed as a design ticket with `auto:skip`
 - The filing destination is unresolved, or the target repo is not the one the routing decision selected
 - The request is out of scope (Step 5.5d). Exception: the user insists. Then file it only as 5.5d says, with the `auto:skip` label and the out-of-scope first line.
 
@@ -663,6 +708,10 @@ If any gate fails, tell the user exactly what's blocking it and what evidence wo
    | Severity: critical | `critical` |
    | Severity: high | `high` |
    | Out of scope (Step 5.5d) | `auto:skip` |
+   | Design ticket for a change that does not decompose (Step 5.5f) | `auto:skip` |
+   | Epic parent (Step 5.5f) | `auto:split-parent` |
+   | Slice 1 (Step 5.5f) | `auto:split-child`, `auto:split-depth:1` |
+   | Each later slice (Step 5.5f) | `auto:split-child`, `auto:split-depth:1`, `auto:split-blocked` |
 
 3. **Ask the user for confirmation** before filing:
 
@@ -683,6 +732,8 @@ If any gate fails, tell the user exactly what's blocking it and what evidence wo
 5. **Show the issue URL** to the user.
 
 If any labels don't exist in the repo, omit them rather than failing. Use `--label` only for labels that exist.
+
+**Exception: never omit a split label from an epic or a slice on the MCP repo.** If one of those labels does not exist there, do not file any part of the epic. File the change as one design ticket with `auto:skip` instead.
 
 **Exception: never omit `auto:skip` from an out-of-scope issue on the MCP repo.** If that label does not exist there, do not file. Save the report and tell the user to send the request to the person named in Step 5.5d. On a repo that the bot does not watch, use `auto:skip` only if the label exists.
 
