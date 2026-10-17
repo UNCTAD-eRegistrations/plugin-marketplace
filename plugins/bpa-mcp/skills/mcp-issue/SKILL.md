@@ -8,7 +8,9 @@ description: >
   normal work (proactive). Also triggers on "this is broken", "that's not right", "the tool
   did the wrong thing", "it should have done X instead", "report this bug", "the MCP is
   missing X", "we need a tool for X", "expose this backend endpoint as a tool", "request a
-  feature".
+  feature". Also triggers when the user asks to open any issue on the MCP repo, including a
+  request that needs no code change (repo access, a question, an operations task). The skill
+  declines that request, or files it with the auto:skip label if the user insists.
   DO NOT TRIGGER when: the error is clearly a user input mistake (wrong params, wrong tool),
   auth is expired (suggest re-login instead), or the user is asking about MCP server
   development/code (not tool usage).
@@ -16,10 +18,11 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
 metadata:
-  version: "3.6.0"
-  version-date: "2026-07-31"
+  version: "3.7.0"
+  version-date: "2026-10-17"
   author: "UNCTAD Trade Facilitation Section"
   changelog:
+    - "3.7.0 (2026-10-17): Added Step 5.5d — Out of scope. A request that no file change can deliver (repo access, a question, an operations task) gets no ticket: the skill tells the user why and where the request goes instead. If the user insists, the skill files the issue with the auto:skip label in the same gh call, plus a first body line that names the person who must act. Reason: the MCP repo's automation bot treats every issue as a code change. On MCP #834 it closed an access request as 'Shipped' after it merged a tests-only PR, and no person saw the request. New 5.5f checklist row, a Step 9b gate, and an auto:skip row in the label map that is never omitted."
     - "3.6.0 (2026-07-31): Added Step 5.5e — Atomicity. One ticket, one observable behavior change: count the distinct observable changes in Requested Outcome and offer to file N linked tickets when there is more than one. Deliberately a scope-SHAPE rule, not a length rule — measured evidence shows ticket length does not predict how much work a ticket becomes (of six oversized plans on record the smallest originating ticket was 60% below median length, and one was already a split-off child). New Atomicity confidence dimension, a Step 9b blocking condition, a Step 5.5f checklist row, and an explicit note in the Requested Outcome template. Subsumes the weaker 'conflating two issues' line in Step 6, which asked about merged bugs rather than merged asks."
     - "3.5.0 (2026-05-10): Feature requests are now filable when they pass the same evidence bar as bugs. Replaced the blanket 'no feature requests' gate in Step 9b with three evidence-specific sub-conditions: cited backend capability, Hard-typed evidence, and observable-behavior phrasing. Resolves the internal contradiction between the 'Missing capability' category (Step 3) and the old gate (Step 9b). TRIGGER description and Guidelines updated to match. Per-server wrapper command descriptions broadened from 'issue or unexpected behavior' to 'issue or feature request'."
     - "3.4.1 (2026-04-14): Clarified consumer-project routing — consumers (e.g. SmartRules / SR) may integrate with eRegistrations directly via REST (not via MCP). The earlier wording 'a consumer project that calls the MCP' wrongly excluded SR, which is the actual origin of #58/#68/#69. Added the SR alias everywhere, listed SR's concrete internal surfaces (procedures-api, gdb-sync.js, hash files) as examples."
@@ -243,6 +246,33 @@ Same file/line, different legitimacy, depending on (a) whether it's framed as ev
 
 **Applied to the currently-open examples (#58, #68, #69):** all three ask for Django-layer changes (new metadata column, server-side dedup, new `created_at`/`created_by_user_id` exposure). None of them can be satisfied by changing MCP tool code alone. The correct destination for all three is the backend repository that owns GDB — they are mis-filed today and should be re-opened there (with the sanitization from 5.5a and 5.5b applied in the process).
 
+### 5.5d — Out of scope: no file change can deliver the request
+
+Some requests do not ask for a change to any file in any repository. Examples:
+
+| Request | Why no file change delivers it | Where the request goes instead |
+|---|---|---|
+| "Give @user read access to repo X." | Repo access is a GitHub org or repo setting. | A maintainer or an org admin, directly. |
+| "How do I configure tool Y?" | It is a question. Nothing is broken. | Answer it in this session, or ask the maintainers in chat. |
+| "Deploy, restart or upgrade instance Z." | It is an operations task on a server. | The team that operates instance Z. |
+| "Create an account, reset a password or add a role on instance Z." | It is an admin action in a live system. | The instance admin. |
+
+**Test:** name one file in the destination repo that must change to deliver the Requested Outcome. If you cannot name one, the request is out of scope.
+
+**Why this step exists:** an automation bot triages every new issue on the MCP repo. It tries to deliver each issue as a code change. For an out-of-scope request, the bot writes a change that does nothing, merges it, and closes the issue as "Shipped". No person sees the request. This occurred on MCP issue #834 (2026-10-17): the bot closed an access request after it merged a PR that only added tests.
+
+**If all of the request is out of scope:** do not draft a ticket. Tell the user:
+
+> This request does not need a change to any repository file: {reason}. A GitHub issue is the wrong channel for it. The automation bot would try to deliver it as a code change and close it, and no person would act on it. Instead: {where the request goes}.
+
+**If the user still wants an issue:** file it only with the `auto:skip` label. The bot does not triage an issue that has `auto:skip`, and it does not pick that issue up. Put this line first in the issue body:
+
+> **Out of scope for automation — no code change requested.** A person must act: {who, and the action}.
+
+Set the label in the same `gh issue create` call that creates the issue. Do not add the label after the issue exists: the bot can triage the issue between the two calls. Skip Steps 6–7 for this issue. The body is the out-of-scope line plus the user's request in their words.
+
+**If only part of the request is out of scope:** apply 5.5e. File the in-scope part as a normal ticket. Use the rules above for the out-of-scope part.
+
 ### 5.5e — Atomicity: one ticket, one observable behavior change
 
 A ticket that asks for several things at once cannot be reviewed, estimated, or shipped as one unit. It also loses the reporter's leverage: a maintainer who disagrees with *one* of the three asks has to reject or renegotiate the whole ticket.
@@ -277,6 +307,7 @@ This subsumes the weaker "Am I conflating two different issues into one?" line i
 
 Run through this list explicitly. Answer each one:
 
+- [ ] **At least one file in the destination repo must change to deliver the Requested Outcome** (5.5d). If no file must change, use the out-of-scope path in 5.5d.
 - [ ] **Requested Outcome names exactly ONE observable behavior change** (5.5e) — or the user explicitly chose to keep them together and the reason is written into the ticket.
 - [ ] **Filing destination is decided and written into the draft** (MCP repo, specific backend repo, or specific consumer repo).
 - [ ] If destination is MCP repo: the fix is plausibly implementable by changing MCP tool code alone (no backend model/endpoint change required).
@@ -599,6 +630,7 @@ Never auto-select the MCP repo as a fallback.
 - The **Scope hygiene** confidence dimension is below 90%
 - The **Requested Outcome names more than one observable behavior change** (Step 5.5e) and the user has not explicitly chosen to keep them together with a stated reason
 - The filing destination is unresolved, or the target repo is not the one the routing decision selected
+- The request is out of scope (Step 5.5d). Exception: the user insists. Then file it only as 5.5d says, with the `auto:skip` label and the out-of-scope first line.
 
 If any gate fails, tell the user exactly what's blocking it and what evidence would unblock it:
 
@@ -630,6 +662,7 @@ If any gate fails, tell the user exactly what's blocking it and what evidence wo
    | Confidence: likely | `likely` |
    | Severity: critical | `critical` |
    | Severity: high | `high` |
+   | Out of scope (Step 5.5d) | `auto:skip` |
 
 3. **Ask the user for confirmation** before filing:
 
@@ -650,6 +683,8 @@ If any gate fails, tell the user exactly what's blocking it and what evidence wo
 5. **Show the issue URL** to the user.
 
 If any labels don't exist in the repo, omit them rather than failing. Use `--label` only for labels that exist.
+
+**Exception: never omit `auto:skip` from an out-of-scope issue on the MCP repo.** If that label does not exist there, do not file. Save the report and tell the user to send the request to the person named in Step 5.5d. On a repo that the bot does not watch, use `auto:skip` only if the label exists.
 
 ## Guidelines
 
