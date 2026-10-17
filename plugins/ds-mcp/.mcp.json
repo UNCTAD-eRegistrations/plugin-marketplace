@@ -3,7 +3,7 @@
     "DS": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1", "mcp-eregistrations-ds"]
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@6a7688205fb59479e6cf1ce941e6d7d63fdc1d08", "mcp-eregistrations-ds"]
     }
   }
 }

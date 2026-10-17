@@ -1,6 +1,6 @@
 {
   "name": "ds-mcp",
-  "version": "1.65.52",
+  "version": "1.65.53",
   "description": "DS (Display System) MCP server for admin/ops monitoring of eRegistrations application files, workflows, payments, and documents. Requires bpa-mcp plugin for authentication.",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
@@ -12,7 +12,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@d4b1d441b5ad7f0f723ced57e6d17a98ac4922e1",
+        "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@6a7688205fb59479e6cf1ce941e6d7d63fdc1d08",
         "mcp-eregistrations-ds"
       ]
     }
