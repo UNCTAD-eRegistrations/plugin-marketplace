@@ -2,6 +2,10 @@
 
 Newest first. The skill version and date are in the `metadata` block of `SKILL.md`.
 
+## 3.10.0 (2026-10-18)
+
+Behavior fixes: Graylog and Translations are now supported servers. Their /issue commands already called this skill, but the skill had no tool prefix, label or status tool for them. Step 2 now has a table with the status tool of each server: only BPA has connection_status (DS: ds_health, GDB: gdb_status, Keycloak: kc_connection_status, Graylog: graylog_connection_status, Translations: none). Step 2 also says which field holds the MCP version. The version field of DS, GDB and Graylog is the backend version, not the MCP version. BPA server_info is the fallback. Only BPA writes a local server.log, so the log search is BPA only, and the other servers report "No local log file" instead of "No errors found in logs". allowed-tools now has both tool-name forms (mcp__{SERVER}__ and mcp__plugin_{server}-mcp_{SERVER}__) for all six servers. The report template gains a backend-version line and a source for the MCP version, the Server Logs placeholder follows the BPA-only log rule, and the tool-call lines quote the full tool name as called. Size: the report template moves to report-template.md, read at Step 7. The Step 7 scope rules and four Guidelines lines that repeat Steps 4 and 6 are replaced by references. The case history in 5.5c and 5.5e is shortened. SKILL.md goes from 8,546 to about 8,000 words. The 9b gate and the example confidence table are unchanged.
+
 ## 3.9.0 (2026-10-18)
 
 Rewrite in Simplified Technical English (ASD-STE100, Strict mode for agent instructions). No rule, gate, threshold or label changes. New Terms table: problem (what went wrong), report (the markdown file), GitHub issue (what the skill files), maintainer (the person who owns the destination repo). The word 'ticket' is gone, and 'issue' alone always means a GitHub issue. Long sentences, semicolons and em-dash run-ons are split. The report template output and the trigger phrases are unchanged. The changelog moves from the SKILL.md frontmatter to this file, because the frontmatter loads each time the skill triggers and the agent does not use the history.
