@@ -2,7 +2,8 @@
 name: mcp-issue
 effort: medium
 description: >
-  Report a problem with an MCP tool, or request a feature (BPA, DS, GDB or Keycloak).
+  Report a problem with an MCP tool, or request a feature (BPA, DS, GDB, Keycloak, Graylog or
+  Translations).
   TRIGGER when: an MCP tool returns an error, wrong data, or a result that is different from
   what the user expected. This includes a suspicious MCP tool response that Claude sees during
   normal work (proactive). Also triggers on "this is broken", "that's not right", "the tool
@@ -16,9 +17,9 @@ description: >
   development or code (not tool usage).
 license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
-allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*
+allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*, mcp__Graylog__*, mcp__Translations__*, mcp__plugin_bpa-mcp_BPA__*, mcp__plugin_ds-mcp_DS__*, mcp__plugin_gdb-mcp_GDB__*, mcp__plugin_keycloak-mcp_Keycloak__*, mcp__plugin_graylog-mcp_Graylog__*, mcp__plugin_translations-mcp_Translations__*
 metadata:
-  version: "3.9.0"
+  version: "3.10.0"
   version-date: "2026-10-18"
   author: "UNCTAD Trade Facilitation Section"
 ---
@@ -50,14 +51,18 @@ Exception: the title of the report template (Step 7) and the Step 8 message use 
 
 ## Supported MCP servers
 
-| Server | Tool prefix | Config path | Source path |
-|--------|------------|-------------|-------------|
-| **BPA** | `mcp__BPA__` | `~/.config/mcp-eregistrations-bpa/` | `src/mcp_eregistrations_bpa/tools/` |
-| **DS** | `mcp__DS__` | `~/.config/mcp-eregistrations-ds/` | `src/mcp_eregistrations_ds/tools/` |
-| **GDB** | `mcp__GDB__` | `~/.config/mcp-eregistrations-gdb/` | `src/mcp_eregistrations_gdb/tools/` |
-| **Keycloak** | `mcp__Keycloak__` | `~/.config/mcp-eregistrations-keycloak/` | `src/mcp_eregistrations_keycloak/tools/` |
+A tool name has one of two forms: `mcp__{SERVER}__<tool>`, or `mcp__plugin_{server}-mcp_{SERVER}__<tool>` for a plugin install. Both forms identify the same server.
 
-In this skill, `{SERVER}` is the server that you identify (BPA, DS, GDB or Keycloak). `{server}` is the same name in lowercase (bpa, ds, gdb, keycloak).
+| Server | Tool prefix (short form) | Status tool (Step 2) | Source path | GitHub label |
+|--------|------------|-------------|-------------|------|
+| **BPA** | `mcp__BPA__` | `connection_status` | `src/mcp_eregistrations_bpa/tools/` | `bpa` |
+| **DS** | `mcp__DS__` | `ds_health` | `src/mcp_eregistrations_ds/tools/` | `ds` |
+| **GDB** | `mcp__GDB__` | `gdb_status` | `src/mcp_eregistrations_gdb/tools/` | `gdb` |
+| **Keycloak** | `mcp__Keycloak__` | `kc_connection_status` | `src/mcp_eregistrations_keycloak/tools/` | `keycloak` |
+| **Graylog** | `mcp__Graylog__` | `graylog_connection_status` | `src/mcp_eregistrations_graylog/tools/` | `graylog` |
+| **Translations** | `mcp__Translations__` | none | `src/mcp_eregistrations_translations/tools/` | `translations` |
+
+In this skill, `{SERVER}` is the server that you identify (BPA, DS, GDB, Keycloak, Graylog or Translations). `{server}` is the same name in lowercase (bpa, ds, gdb, keycloak, graylog, translations).
 
 ## Production repositories (routing reference)
 
@@ -83,8 +88,14 @@ Other repos can also be the destination repo, depending on scope: `SmartLink` (A
 ## Step 1 — Identify the server and understand what happened
 
 First, identify the MCP server. Look for:
-- The tool prefix in the failed call (`mcp__BPA__`, `mcp__DS__`, `mcp__GDB__`, `mcp__Keycloak__`).
-- Clues in the context: forms or determinants → BPA, files or payments → DS, databases or records → GDB, users or realms → Keycloak.
+- The tool prefix in the failed call (see "Supported MCP servers").
+- Clues in the context:
+  - forms or determinants → BPA
+  - files or payments → DS
+  - databases or records → GDB
+  - users or realms → Keycloak
+  - log searches or streams → Graylog
+  - service translations or languages → Translations
 - If it is not clear, ask the user.
 
 Then ask the user to describe the problem in their own words. A good question:
@@ -103,17 +114,31 @@ If the problem is in the current conversation (for example, a tool call that ret
 
 Collect these details yourself. Do not ask the user for them.
 
-1. **Server version and instances:** call `mcp__{SERVER}__connection_status(instance="<name>")` for the affected instance. The response has the fields `version`, `latest_version` and `update_available`. Also call `mcp__{SERVER}__instance_list()` to record the registered instances.
+1. **Server status:** call the status tool of `{SERVER}` (see "Supported MCP servers") with `instance="<name>"` for the affected instance. Each status tool needs an explicit instance. The fields are different for each server:
 
-2. **Today's date:** run this with Bash:
+   | Server | MCP version | Backend version |
+   |---|---|---|
+   | BPA | `mcp_server_version`, plus `latest_version` and `update_available` | not reported |
+   | DS | not reported | `version` (the DS backend) |
+   | GDB | not reported | `version` (the GDB backend) |
+   | Keycloak | `mcp_version` | `keycloak_version` (can be null) |
+   | Graylog | not reported | `version` (the Graylog server) |
+   | Translations | not reported (no status tool) | not reported |
+
+   Do not record a backend version as the MCP version. If the MCP version is not reported and the BPA tools are available, call BPA `server_info`. It needs no instance and no login. Its `mcp_version` usually applies to all six servers, because they ship in one release. Otherwise, write "not reported" in the report.
+
+2. **Registered instances:** call `instance_list()` on BPA, DS, GDB or Graylog. Keycloak and Translations do not have this tool.
+
+3. **Today's date:** run this with Bash:
    ```
    date +%Y-%m-%d
    ```
 
-3. **Recent server log errors** (if available): run this with Bash:
+4. **Recent server log errors (BPA only):** only the BPA server writes a local log file. Run this with Bash:
    ```
-   find ~/.config/mcp-eregistrations-{server}/instances -name 'server.log' -exec grep -E 'ERROR|CRITICAL' {} \; 2>/dev/null | tail -10
+   find ~/.config/mcp-eregistrations-bpa -name 'server.log' -exec grep -E 'ERROR|CRITICAL' {} \; 2>/dev/null | tail -10
    ```
+   For the other servers, write "No local log file for {SERVER}" in the Server Logs section. Do not write "No errors found in logs", because no log was searched.
 
 ## Step 3 — Identify the root cause area
 
@@ -236,6 +261,8 @@ You can *mention* in one neutral sentence that "one known consumer encountered t
 
 This is the **most important filter** in the skill. Each report must go to the repository that owns the fix. GDB, BPA, DS and Keycloak are production eRegistrations backends. Each one has its **own repository and its own release train**, separate from the MCP repo. The MCP repo owns only the MCP tool layer.
 
+Graylog and Translations have no row in the "Production repositories" table. For a fix outside their MCP tool, select a repo from the "Other repos" list and verify it. A fix in the upstream Graylog product goes upstream.
+
 Select the destination repo **before** you draft the report:
 
 | The fix requires… | File in | Representative examples |
@@ -257,7 +284,7 @@ Select the destination repo **before** you draft the report:
 
 The same file and line can be correct or incorrect. That depends on two things: (a) whether the text is evidence or a prescription, and (b) which repo receives the GitHub issue.
 
-**Examples #58, #68 and #69:** all three ask for changes in the Django layer (a new metadata column, server-side dedup, exposure of `created_at` and `created_by_user_id`). A change to MCP tool code alone cannot deliver any of them. Their correct destination repo is the backend repository that owns GDB. They were filed in the wrong repo. They should be opened again there, with the sanitization from 5.5a and 5.5b.
+**Example:** MCP #58, #68 and #69 ask for changes in the GDB Django layer. MCP tool code alone cannot deliver them, so their correct destination repo is the GDB backend repo.
 
 ### 5.5d — Out of scope: no file change can deliver the request
 
@@ -312,7 +339,7 @@ Two traps when you count:
 
 If the user says that the changes must ship together, file one GitHub issue. State this in the Requested Outcome: *"These {N} changes are inseparable because …"*. A maintainer can review a stated reason. A maintainer cannot review an unstated merge.
 
-**What this rule does and does not give you.** It makes each GitHub issue reviewable, and each one can ship alone. It does **not** make the work small. A GitHub issue with one behavior change can still need a large change. The measured evidence is clear: of six oversized plans on record, the *smallest* original report was 60% shorter than the median report. One of the six was already a child of an earlier split. The size of the work depends on how much code the change touches. The user often cannot see that code. Use this rule to split for reviewability. Step 5.5f handles size.
+**What this rule does and does not give you.** It makes each GitHub issue reviewable, and each one can ship alone. It does **not** make the work small: one behavior change can still need a large change. Step 5.5f handles size.
 
 This rule covers more than the question "Do I merge two different problems into one?" in the Step 6 hallucination table. That question stays in Step 6. It asks if you merged two *bugs*. This rule asks if you merged two *asks*, which is the more common failure.
 
@@ -521,124 +548,14 @@ Write the report to `~/Desktop/mcp-issue-reports/<date>-<server>-<slug>.md`. `<s
 
 ### Report template
 
-```markdown
-# {SERVER} MCP Issue: <Short title>
-
-**Date:** <YYYY-MM-DD>
-**Server:** <BPA | DS | GDB | Keycloak>
-**Reporter:** <user name if known, otherwise "via Claude">
-**Severity:** <critical | high | medium | low>
-**Confidence:** <verified | likely | suspected | unverified>
-
-## Environment
-
-- **MCP server version:** <version> (latest: <latest>)
-- **Instance:** <name> (<url>)
-- **Service ID:** <if applicable>
-
-## Summary
-
-<1-2 sentence description of the problem>
-
-## Reproduction
-
-- **Reproduced:** <yes — consistent | yes — intermittent | no — works on retry | not attempted>
-- **Reproduction tool call:**
-```
-Tool: mcp__{SERVER}__<tool_name>(param=value, ...)
-Result: <same error | different result | success>
-```
-
-## Steps to Reproduce
-
-1. <step>
-2. <step>
-3. <step>
-
-## Actual Behavior
-
-<What happened. Include the tool call, parameters, and response.>
-
-```
-Tool: mcp__{SERVER}__<tool_name>(param=value, ...)
-Response: <summarized or full response>
-```
-
-## Expected Behavior
-
-<What should have happened.>
-
-**Evidence source:** <web UI observation | API reference doc | tool docstring | user report only>
-
-## Web UI Comparison
-
-<If available: what the UI sends/receives for the same operation.
-Include API endpoint, method, and payload if captured.>
-
-<If not available: "Not compared — user did not check UI behavior.">
-
-## Claim Classification
-
-| Claim | Type | Evidence |
-|-------|------|----------|
-| <claim> | <Hard / Soft / Assumption> | <evidence or "needs verification"> |
-
-## Confidence Breakdown
-
-| Dimension | Confidence | Justification |
-|-----------|-----------:|---------------|
-| <dimension> | <%> | <evidence or admitted gap> |
-
-**Weakest dimension:** <name> at <%> — <what would need to be verified to raise it>
-
-**Overall confidence ceiling (set by the weakest dimension):** <verified | likely | suspected | unverified>
-
-## Alternative Explanations Considered
-
-| Alternative | Ruled out? | How |
-|-------------|-----------|-----|
-| User error (wrong params) | <yes/no> | <explanation> |
-| Stale state | <yes/no> | <explanation> |
-| Auth/session issue | <yes/no> | <explanation> |
-| Known limitation | <yes/no> | <explanation> |
-| Working as designed | <yes/no> | <explanation> |
-
-## Server Logs
-
-<Relevant error lines from server.log, or "No errors found in logs.">
-
-## Analysis
-
-<Your assessment of what's likely wrong. Reference specific source files
-in the MCP server if you can identify them.>
-
-### Likely affected files
-
-- `src/mcp_eregistrations_{server}/tools/<file>.py`
-
-## Filing Destination
-
-- **Target repository:** <UNCTAD-eRegistrations/MCP_eRegistrations | backend repo (name to be confirmed) | consumer repo (name to be confirmed)>
-- **Why this repo:** <which layer owns the fix — MCP tool layer, backend, or consumer>
-
-## Requested Outcome
-
-<ONE observable behavior change (Step 5.5e). If several were deliberately kept together, say so here and state why they are inseparable.
-
-Describe the observable behavior that should change, phrased for the chosen destination:
-
-- **If MCP repo:** describe the tool's input/output/behavior that needs to change. The backend capability needed must already exist — if it doesn't, this ticket belongs in the backend repo instead.
-- **If backend repo:** describe the capability the backend should expose (field, endpoint, guard, response shape). File and line references are welcome as evidence; the backend team owns the implementation choice.
-- **If consumer repo:** describe what the caller should do differently.
-
-Do not prescribe implementation details across repository boundaries. Evidence from another repo (e.g. citing a backend source line in a ticket about the MCP tool) is welcome when it explains the current state — just don't ask the wrong repo's maintainers to change it.>
-```
+Read `report-template.md` in the directory of this skill. Use it as the structure of the report, and fill in each placeholder.
 
 ### Scope rules for the report body
 
-- Do NOT include a path that starts with `/Users/`, `/home/`, `~/` or `C:\`, or any other directory on one host. If a claim comes only from a local document, write the claim again as an observation that the maintainer can reproduce, or remove it.
-- Do NOT cite files or specification documents from consumer projects (for example `procedures-api/gdb-sync.js`, SmartRules specifications, migration scripts). The exception: the destination repo **is** that consumer's repo. Otherwise, the limit is one neutral sentence that says "a known consumer hit this".
-- Backend source citations (`views.py`, `models.py`, `serializers.py`, line numbers) are **permitted** as evidence. They help the maintainer find the current behavior. They are **not permitted** as prescriptions when the destination repo is the MCP repo, because the MCP maintainers do not merge into the backend.
+Apply the rules of Step 5.5 to the report body:
+- No local paths (5.5a).
+- No consumer-project files (5.5b). The exception: the destination repo is that consumer's repo.
+- Backend citations only as evidence when the destination repo is the MCP repo (5.5c).
 
 ## Step 8 — Confirm with the user
 
@@ -647,7 +564,7 @@ Show the user the report path and a short summary of what you recorded:
 > Issue report saved to `~/Desktop/mcp-issue-reports/<filename>.md`
 >
 > **Summary:** <one line>
-> **Server:** <BPA | DS | GDB | Keycloak>
+> **Server:** <BPA | DS | GDB | Keycloak | Graylog | Translations>
 > **Category:** <category>
 > **Severity:** <severity>
 > **Confidence:** <level> — <one-line justification>
@@ -709,6 +626,8 @@ If a gate fails, tell the user exactly what blocks the filing and which evidence
    | Server: DS | `ds` |
    | Server: GDB | `gdb` |
    | Server: Keycloak | `keycloak` |
+   | Server: Graylog | `graylog` |
+   | Server: Translations | `translations` |
    | Category: Wrong API call | `api` |
    | Category: Data transformation | `data` |
    | Category: UI mismatch | `ui-mismatch` |
@@ -752,13 +671,9 @@ If a label does not exist in the repo, omit it. Do not let the call fail. Use `-
 ## Guidelines
 
 - **Be patient with non-technical users.** Do not ask them for API endpoints or HTTP methods. Find those yourself from the tool name and the context.
-- **Do not guess.** If you do not know what the expected behavior is, say so in the report and mark it for investigation.
-- **Do not trust your own memory.** Read the actual tool responses again. Do not paraphrase them. AI agents, you included, misread data more often than you expect.
-- **Prefer "needs verification" to a confident but wrong claim.** A report that says "I'm not sure about the expected behavior" is more useful than a report that states a wrong expectation with confidence.
 - **Severity guide:**
   - **critical:** data loss or corruption. The tool destroys or overwrites data.
   - **high:** the tool gives wrong results silently. The user may not notice.
   - **medium:** the tool fails with an error, but no data is damaged.
   - **low:** a cosmetic problem, a format problem or a small inconvenience.
 - **Keep the report short.** Maintainers skim. Put the important information first.
-- **A feature request is not a bug.** If the tool works as designed but the user wants a different behavior, classify it as a feature request (category: "Missing capability", label: `enhancement`). You can file a feature request, but it needs *evidence that the destination repo can implement the addition* (see Step 9b). A feature request that cannot cite a backend capability or a concrete observable outcome is noise, whether it is a bug or a feature.
