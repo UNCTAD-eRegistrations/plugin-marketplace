@@ -286,3 +286,83 @@ def test_case_walk_ignores_a_target_that_is_not_under_the_base(tmp_path):
     base = tmp_path / "Admin"
     base.mkdir()
     assert branch_pair._case_divergent_segment(str(tmp_path / "Elsewhere" / "x"), str(base)) is None
+
+
+def test_a_case_only_mismatch_is_named_as_such_not_as_containment(tmp_path):
+    """The verdict was always right; the reason was not.
+
+    `commonpath` is a string comparison, so a reference written
+    `eregulations-4.0-admin` against an on-disk `eRegulations-4.0-Admin`
+    lands "outside admin_root" by that test. It is not outside anything --
+    it is the same directory in the wrong case. The operator was sent
+    looking for a path problem that did not exist.
+
+    The block itself is correct and must not change: a reference that
+    resolves only by case-folding does not resolve under `dotnet build` on
+    Linux, so the pair genuinely does not build in CI.
+    """
+    admin = tmp_path / "eRegulations-Admin"
+    lib = admin / "Project" / "Lib"
+    lib.mkdir(parents=True)
+    (lib / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+
+    public = tmp_path / "Public" / "Project" / "Web"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\..\\eregulations-admin\\Project\\Lib\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    result = branch_pair.derive(str(csproj), str(admin), lambda root: "b")
+
+    assert result["valid"] is False, "a case-only match must still block"
+    assert "only by case" in result["reason"]
+    assert "case-sensitive" in result["reason"]
+    assert "outside admin_root" not in result["reason"]
+
+
+def test_a_genuinely_elsewhere_reference_still_says_outside(tmp_path):
+    """The control: containment failures that are actually containment
+    failures must keep their own reason."""
+    admin = tmp_path / "Admin"
+    admin.mkdir()
+    other = tmp_path / "Elsewhere" / "Project" / "Lib"
+    other.mkdir(parents=True)
+    (other / "Unctad.eRegulations.Library.csproj").write_text("<Project />")
+
+    public = tmp_path / "Public" / "Project" / "Web"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\..\\Elsewhere\\Project\\Lib\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+
+    result = branch_pair.derive(str(csproj), str(admin), lambda root: "b")
+
+    assert result["valid"] is False
+    assert "outside admin_root" in result["reason"]
+    assert "only by case" not in result["reason"]
+
+
+def test_a_reference_pointing_at_nothing_still_says_so(tmp_path):
+    """The control for the case diagnosis: a reference to a directory that
+    does not exist in ANY casing must keep its own reason, not be reported as
+    a casing problem."""
+    admin = tmp_path / "Admin"
+    admin.mkdir()
+    public = tmp_path / "Public" / "Project" / "Web"
+    public.mkdir(parents=True)
+    csproj = public / "WebAppCore.csproj"
+    csproj.write_text(
+        '<Project><ItemGroup><ProjectReference Include='
+        '"..\\..\\..\\Admin\\Project\\Nope\\Unctad.eRegulations.Library.csproj" />'
+        "</ItemGroup></Project>"
+    )
+    result = branch_pair.derive(str(csproj), str(admin), lambda root: "b")
+    assert result["valid"] is False
+    assert "does not exist" in result["reason"]
+    assert "only by case" not in result["reason"]
