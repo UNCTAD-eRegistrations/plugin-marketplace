@@ -34,7 +34,7 @@ only difference is the spine — **journey, not type**.
 - **`form_component_get`** + **`documentrequirement_list`** — what the citizen must **provide**.
 - **`print_document_list`** + the result registrations — what's **issued** ("what you receive").
 - **`legal-brief-for-company`** (or a plain law digest) — the **governing regulation** (eligibility, obligations).
-- **`assets/journey-map-template.md`** — the output layout.
+- **`assets/journey-map-template.md`** (source: `2 - eR services/templates/leaflet/model/`, refreshed here at each release) — the output layout.
 
 Downstream: `service-leaflet`, manuals, and training consume the map. Sibling:
 `service-concept-brief` (the entity-type version).

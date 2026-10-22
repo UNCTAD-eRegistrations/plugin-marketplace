@@ -66,6 +66,9 @@ Live source: `mcp__BPA__instance_list()` — always current, never drifts.
 - Plugin versions in `plugin.json`: `MAJOR.MINOR.PATCH`
 - Skill versions in `SKILL.md` metadata: same scheme
 - Always add a changelog entry when bumping a skill version
+- **change-document and leaflets:** their models and method files come from the eR knowledge base
+  (`2 - eR services/templates/`, since 23-10-2026). Edit them there; before bumping either
+  plugin's version run `python3 scripts/refresh-from-er-base.py` (`--check` to compare only).
 
 ## Bundled skill tests
 

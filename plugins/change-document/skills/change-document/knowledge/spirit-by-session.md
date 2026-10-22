@@ -1,3 +1,5 @@
+**Moved on 23-10-2026 to `templates/`.** This copy is frozen and stays one month for old links; read and write the notes in [`templates/design-and-change/note.md`](../../../../../../2%20-%20eR%20services/templates/design-and-change/note.md).
+
 # The spirit, session by session
 
 What this file is: the evidence behind [the criteria](criteria-change-document.md). For each session, what Frank asked in his own words, what changed in the document, and what it means for the next one.

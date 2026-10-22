@@ -33,7 +33,7 @@ made country/service-agnostic and callable on its own.
   determinant→branch matrix — to **enumerate the types** and pull each one's gated branch.
 - **`service-coherence-method`** tracing discipline — **every claim cites** an MCP tool
   result or a law section; nothing asserted from memory.
-- **`assets/content-map-template.md`** — the output layout (the OBFC `governance-content-map`
+- **`assets/content-map-template.md`** (source: `2 - eR services/templates/leaflet/model/`, refreshed here at each release) — the output layout (the OBFC `governance-content-map`
   generalised).
 
 Downstream/siblings: `service-leaflet` & `obfc-company-leaflet` **consume** the map this

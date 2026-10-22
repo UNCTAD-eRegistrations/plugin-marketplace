@@ -7,6 +7,8 @@ metadata:
   originSessionId: 1a528992-227f-4734-a560-8a72344601dd
   modified: 2026-07-26T06:40:20.979Z
 ---
+**Moved on 23-10-2026 to `templates/`.** This copy is frozen and stays one month for old links; read and write the notes in [`templates/design-and-change/note.md`](../../../../../../2%20-%20eR%20services/templates/design-and-change/note.md).
+
 
 Frank's rules for implementation-plan documents, distilled from the line-by-line review of the Lesotho beneficial-owners plan (2026-07-22). A template skill will freeze these once the BO review closes; until then this memory is the source.
 

@@ -2,7 +2,7 @@
 
 One row per term. `say` is what the team says; `never` lists the substitutes a session invents when it forgets. The check greps for the substitutes in anything we write and names the house term to use.
 
-Sources: Frank's corrections (dated), `2 - eR services/CLAUDE.md` §CRITICAL RULES 1, 2, 7 and §Domain primer, the Glossary, the Rosetta Stone (naming authority), `knowledge/service-anatomy.md`.
+Sources: Frank's corrections (dated), `2 - eR services/CLAUDE.md` §CRITICAL RULES 1, 2, 7 and §Domain primer, the Glossary, the Rosetta Stone (naming authority), `templates/service-models/note.md` § Anatomy of a service.
 
 | say | never | note |
 |---|---|---|

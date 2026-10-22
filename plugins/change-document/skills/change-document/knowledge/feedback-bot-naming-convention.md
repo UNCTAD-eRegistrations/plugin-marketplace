@@ -6,6 +6,8 @@ metadata:
   type: feedback
   originSessionId: 2433006f-d744-406c-bedd-d45653c4e80f
 ---
+**Moved on 23-10-2026 to `templates/`.** This copy is frozen and stays one month for old links; read and write the notes in [`templates/build/note.md`](../../../../../../2%20-%20eR%20services/templates/build/note.md).
+
 
 BPA bot names use a fixed pattern: **GDB name in uppercase + everything else in lowercase**. The GDB name is the all-caps token at the front (e.g. `CERTIFICADOS`, `DOCUMENTOS`, `PERMISOSTODOS`); the action verb and any qualifier (which document type, which operation) are in lowercase.
 

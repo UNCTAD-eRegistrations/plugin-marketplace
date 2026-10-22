@@ -13,7 +13,7 @@ How to render a service's own JSON as a mockup indistinguishable from the live B
 Two ways to draw, chosen by one question: **does the thing being drawn exist in the live product?**
 
 - **Contract mode (exact-BPA)** — the screen exists, or is the end-state of an approved change to an existing screen. Render canvas-true from a live pull with the kit (steps 1–6 below). This is the mode for implementation plans: the drawing is the build contract. Default for `er-implementation-plan`.
-- **Proposal mode (simulated)** — the thing drawn does not exist yet anywhere (a new platform feature, a new option, a product idea). Draw a clean simulated panel that borrows the product's basic look (its header, its panel shapes) but does not claim pixel-truth; its job is to make **what's new** unmissable, typically today-vs-proposed side by side with the new part highlighted. Exemplar: [`internal-bot-switch-mockup.html`](/Users/unctad/Claude/2%20-%20eR%20services/countries/Lesotho/services/register-a-business/internal-bot-switch-mockup.html) (the internal-bot write-mode switch, Frank: "very good", 2026-07-22).
+- **Proposal mode (simulated)** — the thing drawn does not exist yet anywhere (a new platform feature, a new option, a product idea). Draw a clean simulated panel that borrows the product's basic look (its header, its panel shapes) but does not claim pixel-truth; its purpose is to make **what's new** unmissable, typically today-vs-proposed side by side with the new part highlighted. Exemplar: [`internal-bot-switch-mockup.html`](/Users/unctad/Claude/2%20-%20eR%20services/countries/Lesotho/services/register-a-business/internal-bot-switch-mockup.html) (the internal-bot write-mode switch, Frank: "very good", 2026-07-22).
 
 **Who decides:** the session, by the rule above — it announces its pick in one line ("drawing in proposal mode: the switch doesn't exist yet — say 'exact' to override") and asks only when genuinely ambiguous. Frank is not quizzed each time. When a proposal is approved and becomes an implementation plan, the same screen is redrawn in contract mode.
 
@@ -23,7 +23,7 @@ Simulated never means invented style: when proposing a feature inside an existin
 
 `form_component_get` (read-only) on the panel/section, saved to a new dated folder: `exports/<section>-fetch-YYYY-MM-DD/`. Re-pull right before building, not just before drawing; services drift under a shared design (verified 2026-07-22: the Lesotho team added a content block and two validations between a 19 July and a 22 July pull on the same tab). Never describe a component from memory or from an older export.
 
-## 2. Parse the raw tree
+## 2. Read the raw tree
 
 Properties that decide the drawing, per component:
 
@@ -49,40 +49,40 @@ Properties that decide the drawing, per component:
 | `validate.required:true` | `.req` | Red asterisk after the label |
 | `suffix` | `.bpa-suffix` | Grey unit text beside the input |
 | `disabled:true` plus a formula | `.bpa-input.computed` | Grey-filled box, bold value |
-| `columns[].width` | `.c3` / `.c6` | Field width on the row (12-grid) |
+| `columns[].width` | `.c3` / `.c6` | Field width on the line (12-grid) |
 | `html` (content) | `.bpa-content-text` (+ `.heading`) | Plain paragraph, no box |
 | every component | `.bpa-outline` | Dashed outline (the canvas draws this around all components, general rule) |
-| `effectsIds` / `behaviourId` | `.bpa-badge.e` | Blue E badge, corner of its own component |
-| `componentValidationId` + rows | `.bpa-badge.v` | Pink V badge |
-| `componentFormulaId` + rows | `.bpa-badge.f` | Light-blue F badge |
-| `componentActionId` | `.bpa-badge.a` | Green A badge |
+| `effectsIds` / `behaviourId` | `.bpa-badge.e` | Blue E (effect), corner of its own component |
+| `componentValidationId` + validation rows || `.bpa-badge.v` | Pink V (validation) |
+| `componentFormulaId` + formula rows || `.bpa-badge.f` | Light-blue F (formula) |
+| `componentActionId` | `.bpa-badge.a` | Green A (action) |
 | `type:"editgrid"`/`"datagrid"` | `.bpa-editgrid` + `.bpa-dg-header` | Salmon dashed wrapper, grey header band |
 
 ## 4. The logic overlay
 
-Every logic id becomes a badge (`.bpa-badges` > `.bpa-badge.e/v/f/a`), stacked at its own component's top-right corner, never inline after the label. Each badge carries two things at once: a plain-English `title=` tooltip for a human hovering, and a `data-logic="..."` attribute holding the actual ids for an AI reading the markup. Both facts live on the same element, never one without the other.
+Every logic id becomes a letter (`.bpa-badges` > `.bpa-badge.e/v/f/a`), stacked at its own component's top-right corner, never inline after the label. Each letter carries two things at once: a plain-English `title=` tooltip for a human hovering, and a `data-logic="..."` attribute holding the actual ids for an AI reading the markup. Both facts live on the same element, never one without the other.
 
-**Columns, as BPA draws them (measured 07-09-2026 on the Lesotho BPA canvas, Register a Business, Owner tab, capture `knowledge/school/experiments/w0-bpa-lexicon/02-tab-applicantTabsowner.png`).** A Columns component is one frame whose parts touch: each part is a cell with its own 1px dotted border rgb(156,164,176) (one pixel on, four off), cells abut so two borders meet, no gutter; the field inside has no box of its own; a part with no field stays drawn, empty; the cell pads 26px above the label, 14px at the sides, 12px below the input; two Columns rows are 30px apart. The letter of a field sits inside its part, 5px down and 12px in from the right; a letter for the Columns component itself straddles the frame's top-right corner, like a panel's. In the kit: `.canvas .bpa-cols` with two or more `.field-wrap` parts, an empty part is `<div class="c4 field-wrap empty"></div>`; a row of one full-width field stays a bare component in its dashed outline. Criteria C61 and C63.
+**Columns, as BPA draws them (measured 07-09-2026 on the Lesotho BPA canvas, Register a Business, Owner tab, capture `knowledge/school/experiments/w0-bpa-lexicon/02-tab-applicantTabsowner.png`).** A Columns component is one frame whose parts touch: each part is a cell with its own 1px dotted border rgb(156,164,176) (one pixel on, four off), cells abut so two borders meet, no gutter; the field inside has no box of its own; a part with no field stays drawn, empty; the cell pads 26px above the label, 14px at the sides, 12px below the input; two Columns lines are 30px apart. The letter of a field sits inside its part, 5px down and 12px in from the right; a letter for the Columns component itself straddles the frame's top-right corner, like a panel's. In the kit: `.canvas .bpa-cols` with two or more `.field-wrap` parts, an empty part is `<div class="c4 field-wrap empty"></div>`; a line of one full-width field stays a bare component in its dashed outline. Criteria C61 and C63.
 
-The logic's content is reviewable, not just badged: under each drawing, a collapsed "The logic, spelled out" annex lists one line per badge, component, type, plain English, ids, pulled live via `componentformula_get`, `componentbehaviour_get_by_component`, and `determinant_get`. One line reads, for example: "Total shares (F): value per share times number of shares; `componentFormulaId f3f74d80-9a56-313d-9043-cef28e10577a`." For an end-situation screen this annex is agreed like the pixels: the logic is contract too.
+The logic's content is reviewable, not just lettered: under each drawing, a collapsed "The logic, spelled out" annex lists one line per letter, component, type, plain English, ids, pulled live via `componentformula_get`, `componentbehaviour_get_by_component`, and `determinant_get`. One line reads, for example: "Total shares (F): value per share times number of shares; `componentFormulaId f3f74d80-9a56-313d-9043-cef28e10577a`." For an end-situation screen this annex is agreed like the pixels: the logic is contract too.
 
 ## 5. The change overlay (end-situation screens)
 
-Only on the "contract" screen, apply `.chip.new` (blue) or `.chip.modified` (grey) to every changed element, content texts included. A modified field's `.help-text` opens with "Was ..." naming what it replaces. Draw one screen per path (for example ordinary-only vs ordinary-and-preferred); chips mark only what changes in that path. The author never comments inside the screen, no "this draws path X" asides; the paths are shown, not narrated.
+Only on the "contract" screen, apply `.chip.new` (blue) or `.chip.modified` (grey) to every changed element, content texts included. A modified field's `.help-text` opens with "Was ..." naming what it replaces. Draw one screen per path (for example ordinary-only vs ordinary-and-preferred); the new and modified labels show only what changes in that path. The author never comments inside the screen, no "this draws path X" asides; the paths are shown, not narrated.
 
 ## 6. What stays out
 
 Editor chrome (toolbars, trash/gear icons), author comments, and any trace of a design negotiation (an abandoned idea, a "not a field" note, a previous draft's ghost) never appear in the drawing. The one exception: a dashed struck-through ghost is honest only for a component that exists in the live service today and that the change removes.
 
-## Evidence tags used in this guide
+## Evidence labels used in this guide
 
-"Verified live YYYY-MM-DD" means confirmed via the MCP tool named. "Frank, YYYY-MM-DD" means his explicit correction or ruling. A claim without one of these tags does not belong in a mockup or in this guide.
+"Verified live YYYY-MM-DD" means confirmed via the MCP tool named. "Frank, YYYY-MM-DD" means his explicit correction or ruling. A claim without one of these labels does not belong in a mockup or in this guide.
 
 ## Related reading
 
 - [`VISUAL-DICTIONARY.md`](./VISUAL-DICTIONARY.md) §"Component states" and §"Critical Rules": the base rendering rules this kit builds on (fieldset/columns/info-box/alert-box left-bar rules, indicator anchoring).
 - [`rosetta-stone.md`](./rosetta-stone.md) Section J: the same visual rules in the designer-vocabulary bridge.
-- [`dynamic-logic.md`](./dynamic-logic.md): the three-axis effect reasoning (Activate/Deactivate, Show/Hide, Enable/Disable) behind every E badge.
+- [`dynamic-logic.md`](./dynamic-logic.md): the three-axis effect reasoning (Activate/Deactivate, Show/Hide, Enable/Disable) behind every E letter.
 
 
 ---
@@ -101,9 +101,9 @@ Editor chrome (toolbars, trash/gear icons), author comments, and any trace of a 
 
 ## 7. The citizen look, for a screen drawn "as the person sees it" (07-09-2026)
 
-Two kinds of drawing, never mixed (criteria C54): this guide's canvas-true look is for *in BPA, every component*; a screen *as the person sees it* wears `tools/ds-mockup-kit.css` under a `<div class="ds" data-form="…">…<!--/ds-->` wrapper, same markup classes, no E, V, A letters, no drawing notes, one named example, every field of the record shown, empty ones empty (C55, reversed 07-09-2026 evening). The look was measured on the Lesotho draft portal, Register a Business, Part A, from the headless screenshots of 25-07-2026 in `countries/Lesotho/services/register-a-business/tests/e2e-2026-07-25/evidence/` (`01-after-login.png` for My Dashboard, `08-shrow-filled.png` and `12-directors-tab.png` for a form); 2,916 such screenshots exist under that service's `tests/`. Approximated: the font (Figtree, of the five families the portal loads) and the hues (read off pixels). The radio is a segmented control, the chosen answer a filled navy pill, the required dot after the container; a button sits level with its field (C63). A canvas carries the letters, folds its panels and blocks on a click of their title, and shows no example values. `tools/screen-labels-check.py` proves every label of a citizen screen exists on its form's canvas.
+Two kinds of drawing, never mixed (criteria C54): this guide's canvas-true look is for *in BPA, every component*; a screen *as the person sees it* wears `tools/ds-mockup-kit.css` under a `<div class="ds" data-form="…">…<!--/ds-->` wrapper, same markup classes, no E, V, A letters, no drawing notes, one named example, every field of the record shown, empty ones empty (C55, reversed 07-09-2026 evening). The look was measured on the Lesotho draft portal, Register a Business, Part A, from the headless screenshots of 25-07-2026 in `countries/Lesotho/services/register-a-business/tests/e2e-2026-07-25/evidence/` (`01-after-login.png` for My Dashboard, `08-shrow-filled.png` and `12-directors-tab.png` for a form); 2,916 such screenshots exist under that service's `tests/`. Approximated: the font (Figtree, of the five families the portal loads) and the hues (read off pixels). The radio is a segmented control, the chosen answer a filled navy oval, the required dot after the container; a button sits level with its field (C63). A canvas carries the letters, folds its panels and blocks on a click of their title, and shows no example values. `tools/screen-labels-check.py` proves every label of a citizen screen exists on its form's canvas.
 
 
 ## 8. Editing an existing page (08-09-2026)
 
-The rules of SKILL.md §"Editing a page that exists" apply: one copy of everything, every replacement resolved by pane, kind and `data-form`, a size guard after every write, the last good copy kept. Prefer a script that finds the drawing first (`<div class="canvas" data-form="…">` … `<!--/canvas-->`) and edits inside it, over a replacement on the whole file. After any change to a drawing, run `tools/logic-check.py` and `tools/screen-labels-check.py`: the effects table, the bot grid, the counts and the labels are what drift.
+The rules of SKILL.md §"Editing a page that exists" apply: one copy of everything, every replacement resolved by pane, kind and `data-form`, a size guard after every write, the last good copy kept. Prefer a script that finds the drawing first (`<div class="canvas" data-form="…">` … `<!--/canvas-->`) and edits inside it, over a replacement on the whole file. After any change to a drawing, run `tools/logic-check.py` and `tools/screen-labels-check.py`: the effects grid, the bot grid, the counts and the labels are what drift.

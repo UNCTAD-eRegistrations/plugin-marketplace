@@ -29,7 +29,7 @@ screenshots) in Phase 1, not hardcoded. The voice guide's **name and voice are
 chosen by the user**. Everything else (TTS engine, deploy target, content source)
 is asked once.
 
-**Bundled assets** (`assets/`):
+**Bundled assets** (`assets/`; their source since 23-10-2026 is the eR knowledge base, `2 - eR services/templates/leaflet/model/`, and these copies are refreshed from it at each release: edit them there):
 - `document-template.html`, `poster-template.html` — brand-neutral layouts driven
   by `:root` `--brand-*` tokens.
 - `comparison-template.html` — the **comparison / "which-one" mode**: compare N
@@ -409,7 +409,7 @@ confirm before publishing to anything live.
 
 This skill is the **method**; reusable domain substance lives in playbooks it consumes:
 
-- **OHADA company/legal-form leaflets** → `2 - eR services/knowledge/ohada-formes-juridiques-playbook.md`
+- **OHADA company/legal-form leaflets** → `2 - eR services/templates/leaflets-on-legal-texts/note.md` § OHADA legal forms: the substance of the leaflets
   (the 5 OHADA forms — entreprenant · commerçant personne physique · SARL · SAS · SA —
   with their articles + the transversal patterns: spouse/matrimonial regime, taxation
   physical-person vs company, and the comparison logic; an "OHADA shared vs national
@@ -445,7 +445,7 @@ This skill is the **method**; reusable domain substance lives in playbooks it co
   pass). Captured from the final Comores campaign (6 leaflets — entreprenant · commerçant
   PP · SARL · SAS · comparison · the `/formes-juridiques` home page — all Zalia-narrated).
 - **0.2.1** (2026-06-24) — Added a **Playbooks / domaines** section pointing to the OHADA
-  legal-form playbook (`2 - eR services/knowledge/ohada-formes-juridiques-playbook.md`) —
+  legal-form playbook (`2 - eR services/templates/leaflets-on-legal-texts/note.md` § OHADA legal forms: the substance of the leaflets) —
   the reusable substance (5 forms + articles + transversal patterns) that this method
   consumes, with the Comores leaflet ecosystem as the worked example.
 - **0.2.0** (2026-06-24) — Four lessons from a real campaign (Comores

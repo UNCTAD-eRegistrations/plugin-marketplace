@@ -224,6 +224,13 @@ Plugin correctness is verified in three ways:
   sources are per-plugin zips on the rolling `kimi-latest` release, rebuilt automatically by
   the `publish-kimi-plugins` workflow on every push to `main` that touches `plugins/` — so
   publishing is again just pushing to the default branch (manifests regenerated first).
+- **eR templates (change-document, leaflets):** since 23-10-2026 the source of their models and
+  method files (change document criteria, review method and briefs, mockup kits, leaflet
+  templates and assets) is the eR knowledge base, `2 - eR services/templates/` in the
+  maintainers' workspace. Before bumping either plugin's version, run
+  `python3 scripts/refresh-from-er-base.py` (it copies the listed files from the base;
+  `--check` exits 1 when a plugin copy differs), so a user who installs the plugin never needs
+  the base. Edit those files in the base, never here.
 - The BPA MCP server binary itself is external (`uv tool install mcp-eregistrations`); this
   repo only ships the plugin wrapper, instance registration commands (`/bpa-install`,
   `/bpa-login`), and skills.
