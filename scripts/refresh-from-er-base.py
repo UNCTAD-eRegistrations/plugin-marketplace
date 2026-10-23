@@ -3,7 +3,7 @@
 
 Since 23-10-2026 the source of these models and method files is the eR knowledge base
 (`2 - eR services/templates/` in the maintainers' workspace, private repository
-UNCTAD-eRegistrations/er-knowledge). Each plugin below keeps a copy, so a user who installs
+unctad-ai/er-knowledge). Each plugin below keeps a copy, so a user who installs
 the plugin from this marketplace never needs the base. Run this before bumping the version
 of change-document or leaflets:
 
