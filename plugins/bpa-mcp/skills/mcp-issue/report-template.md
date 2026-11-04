@@ -15,6 +15,7 @@ Step 7 of `SKILL.md` uses this template. Fill in each placeholder.
 
 - **MCP server version:** <version, or "not reported"> (latest: <latest, or "not reported">) — source: <status tool field | BPA server_info>
 - **Backend version:** <the backend version field named in the Step 2 table, or "not reported">
+- **Checked on `main`:** <main commit and date from Step 4e> — <no fix found | possible fix in <sha>, not confirmed | "not checked">
 - **Instance:** <name> (<url>)
 - **Service ID:** <if applicable>
 
