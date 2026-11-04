@@ -3,7 +3,7 @@
     "GDB": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@43d32b27ff04d28c7ac110f614d5c5ecc1e8c4ca", "mcp-eregistrations-gdb"]
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@9d9abca78744a3ddf2c367f4a2145dc88527197b", "mcp-eregistrations-gdb"]
     }
   }
 }
