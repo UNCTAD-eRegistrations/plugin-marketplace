@@ -19,8 +19,8 @@ license: UNCTAD-Internal
 compatibility: Works with or without an active MCP server connection.
 allowed-tools: Read, Write, Grep, Glob, Bash(mkdir -p *), Bash(grep *), Bash(find *), Bash(cat *), Bash(date *), Bash(gh *), mcp__BPA__*, mcp__BPA-local-dev__*, mcp__DS__*, mcp__GDB__*, mcp__Keycloak__*, mcp__Graylog__*, mcp__Translations__*, mcp__plugin_bpa-mcp_BPA__*, mcp__plugin_ds-mcp_DS__*, mcp__plugin_gdb-mcp_GDB__*, mcp__plugin_keycloak-mcp_Keycloak__*, mcp__plugin_graylog-mcp_Graylog__*, mcp__plugin_translations-mcp_Translations__*
 metadata:
-  version: "3.10.0"
-  version-date: "2026-10-18"
+  version: "3.11.0"
+  version-date: "2026-11-04"
   author: "UNCTAD Trade Facilitation Section"
 ---
 
@@ -205,6 +205,43 @@ Invented claims usually hide here. Before you accept a claim about what _should_
 - **Compare with the web UI** (if the user can confirm): does the UI really do what the user says?
 
 **Never write "Expected: X" in a report without evidence that X is correct.** If you are not sure, write "Expected behavior needs verification" and give the reason.
+
+### 4e. Check that `main` still has the problem
+
+The MCP server on this machine can run older code than `main`. A plugin update does not always update the server, because the plugin starts the server from a fixed commit. If `main` already has the fix, a GitHub issue costs the maintainer and the bot a full cycle, and the bot can deliver an unrelated change. Example: MCP #927 asked for a fix that `main` already had, and the bot's PR changed other code paths.
+
+Do this step for each problem. It needs 2 or 3 `gh` calls.
+
+1. **Compare the versions.** Use the MCP version from Step 2. BPA `connection_status` also gives `latest_version` and `update_available`. For the other servers, get the latest release:
+   ```
+   gh api repos/UNCTAD-eRegistrations/MCP_eRegistrations/releases/latest --jq .tag_name
+   ```
+2. **Search the commits on `main` for the error text.** Use a short, specific part of the error message. Do not use instance data (IDs, names, values).
+   ```
+   gh search commits --repo UNCTAD-eRegistrations/MCP_eRegistrations "<error text>"
+   ```
+   The error text is a better search key than the tool name. A fix can be in a shared helper, and its commit message can name a different tool. Example: the fix for MCP #927 changed `formio_helpers.py`, and its message names `role_form_component_update`, not the `print_document_*` tools that failed.
+3. **If the MCP version is older than the latest version, read the commits since the MCP version.** Look for the error text, the tool name and the symptom:
+   ```
+   gh api "repos/UNCTAD-eRegistrations/MCP_eRegistrations/compare/v<MCP version>...main" --jq '.commits[] | .sha[0:9] + " " + (.commit.message | split("\n")[0])'
+   ```
+4. **If a commit is a possible fix, read its diff and the code on `main`.** Follow the call from the tool function into its helpers:
+   ```
+   gh api repos/UNCTAD-eRegistrations/MCP_eRegistrations/commits/<sha> --jq '.files[].filename'
+   gh api -H "Accept: application/vnd.github.raw" "repos/UNCTAD-eRegistrations/MCP_eRegistrations/contents/<path>?ref=main"
+   ```
+5. **Record the `main` commit that you checked**, for the report:
+   ```
+   gh api repos/UNCTAD-eRegistrations/MCP_eRegistrations/commits/main --jq '.sha[0:9] + " " + .commit.committer.date[0:10]'
+   ```
+
+| Result | Action |
+|---|---|
+| No commit on `main` fixes the problem. | Go to Step 5. Write the `main` commit from item 5 in the report. |
+| A commit on `main` fixes the problem. | **Stop. Do not file.** Tell the user the commit, and whether the latest release has it: `gh api repos/UNCTAD-eRegistrations/MCP_eRegistrations/compare/<sha>...<latest tag> --jq .status` gives `ahead` or `identical` when the release has it. If the release has it, tell the user to update the plugin and start a new session. If only `main` has it, the fix comes in the next release. |
+| The plugin is at the latest version, but the server still reports an older MCP version. | The plugin starts an old server commit. That is a plugin release problem. Do not file the fixed problem. Search the open GitHub issues for the plugin release problem before you file it. |
+| A commit changed the code, but you cannot confirm that it fixes the problem. | Go to Step 5. Set the "Source code analysis" confidence to 50% or less. Name the commit in the report, and ask the maintainer to check it first. |
+| `gh` is not available or not authenticated. | Write "not checked" in the report. The Step 9b gate then blocks the filing. You can still save the report locally. |
 
 ## Step 5 — Record the technical details
 
@@ -595,6 +632,7 @@ Never select the MCP repo automatically as a fallback.
 ### 9b — Hard gate: do NOT offer to file if any of these is true
 
 - The confidence is below **"likely"**.
+- Step 4e is not done, or it found a commit on `main` that fixes the problem.
 - A claim in the "Expected Behavior" section has the type **"Assumption"** in the claim classification table.
 - The report is a **feature request** (category: "Missing capability"), AND one of these is true:
     - The "Requested Outcome" cites **no** backend endpoint, field or capability that already exists or that is in active backend development.
