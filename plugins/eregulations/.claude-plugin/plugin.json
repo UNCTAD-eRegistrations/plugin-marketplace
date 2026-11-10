@@ -1,7 +1,7 @@
 {
   "name": "eregulations",
   "description": "One front door for eRegulations work — describe the problem in plain English, or run /eregulations:ereg, and the router sends the request to the right knowledge, resolves which instance and version it concerns, and blocks on unsafe hosts, mismatched Admin/Public branches, and unsupported versions before anything runs.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "UNCTAD Trade Facilitation Section"
   },
