@@ -3,7 +3,7 @@
     "Translations": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@04d547f11da189e27789795f8c92e890a89492fd", "mcp-eregistrations-translations"],
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@5cd4945d76817c5dee608895417c76cbc2b03524", "mcp-eregistrations-translations"],
       "env": {
         "GTS_API_KEY": "${GTS_API_KEY:-}"
       }

@@ -47,7 +47,7 @@ If FAIL, skip checks 3–5 (they depend on the server) but still report all issu
 Run via Bash:
 
 ```
-uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@04d547f11da189e27789795f8c92e890a89492fd mcp-eregistrations-bpa migrate 2>/dev/null
+uvx --from git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@5cd4945d76817c5dee608895417c76cbc2b03524 mcp-eregistrations-bpa migrate 2>/dev/null
 ```
 
 - **"Nothing to migrate"** → `[ok] no legacy BPA-* entries`
