@@ -3,7 +3,7 @@
     "Graylog": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@9d9abca78744a3ddf2c367f4a2145dc88527197b", "mcp-eregistrations-graylog"]
+      "args": ["--from", "git+ssh://git@github.com/UNCTAD-eRegistrations/MCP_eRegistrations@04d547f11da189e27789795f8c92e890a89492fd", "mcp-eregistrations-graylog"]
     }
   }
 }
