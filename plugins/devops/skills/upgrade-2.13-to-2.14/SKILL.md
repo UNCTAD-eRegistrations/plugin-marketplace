@@ -29,8 +29,8 @@ license: UNCTAD-Internal
 compatibility: Run from the eregistrations-v4 working tree on master (standalone) or on the orchestrator-supplied chain branch (chain mode), with a clean tracked tree. Requires an authenticated CLI for the host VCS in standalone mode (gh for GitHub origins; Bitbucket origins skip CLI PR creation and print a manual link).
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(grep *), Bash(test *), Bash(ls *), Bash(basename *), Bash(dirname *), AskUserQuestion
 metadata:
-  version: "1.0.0"
-  version-date: "2026-05-04"
+  version: "1.0.1"
+  version-date: "2026-11-23"
   author: "UNCTAD Trade Facilitation Section"
   argument-hint: "[<country>] [<env>] [BACKUP_CONFIRMED=1] [CHAIN_MODE=1 CHAIN_BRANCH=<name>]"
   jira: "TOBE-17814"
@@ -564,3 +564,7 @@ from eRegistrations 2.13 to 2.14.
 - [ ] Smoke-test BPA login flow end-to-end (auth path drop is the riskiest
       change beyond the Keycloak block).
 ```
+
+## Changelog
+- **1.0.1** (2026-11-23) — The realm patch adds the `basic` client scope to `display-system-frontend` (in `partial-import.json` and in the `apply.sh` step 1c loop). On Keycloak 25+, `sub` comes only from `basic`; without it DS backend 2.18 returns 403 ("Access denied") on every DS user call.
+- **1.0.0** (2026-05-04) — First version.

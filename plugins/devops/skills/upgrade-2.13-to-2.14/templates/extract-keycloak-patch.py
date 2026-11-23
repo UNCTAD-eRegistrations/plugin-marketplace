@@ -148,6 +148,12 @@ ds_fe = next((c for c in realm["clients"] if c["clientId"] == CLIENT_IDS["DS_FE_
 if not ds_fe:
     sys.exit(f"client {CLIENT_IDS['DS_FE_OAUTH_CLIENT_ID_PLACEHOLDER']!r} not in template")
 
+# Keycloak 25+ puts the `sub` claim only in the "basic" scope. A client imported after the realm
+# migration does not get "basic" automatically, so force it into the list.
+ds_fe_scopes = ds_fe.setdefault("defaultClientScopes", [])
+if "basic" not in ds_fe_scopes:
+    ds_fe_scopes.insert(0, "basic")
+
 ereg_scope = next((s for s in realm["clientScopes"] if s["name"] == "eregistrations"), None)
 if not ereg_scope:
     sys.exit("eregistrations client scope not in template")

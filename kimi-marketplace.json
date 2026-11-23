@@ -106,7 +106,7 @@
     {
       "id": "devops",
       "displayName": "DevOps",
-      "version": "2.28.0",
+      "version": "2.28.1",
       "description": "DevOps and deployment skills for eRegistrations infrastructure — Docker Swarm migration, Bitbucket→GitHub Actions repo migration, mule3-* post-migration alignment (CI/CD + propagator wiring), eRegistrations platform-version instance upgrades (orchestrator + per-env/per-version-pair sub-skills), configuration management, and deployment automation.",
       "homepage": "https://github.com/UNCTAD-eRegistrations/plugin-marketplace",
       "keywords": [

@@ -7,9 +7,9 @@
 #   3. declarative user-profile attributes     → via user-profile.json
 #
 # Plus the cross-wiring that's not carried by partial-import:
-#   4. attach default OIDC scopes (web-origins, profile, roles, email,
+#   4. attach default OIDC scopes (basic, web-origins, profile, roles, email,
 #      eregistrations) to display-system-frontend — without these the token
-#      lacks `sub` and ds-backend's log filter crashes
+#      lacks `sub` and ds-backend rejects every DS user call
 #   5. attach eregistrations as default scope on the 8 backend clients
 #   6. grant realm-management roles (view-clients, view-realm, view-users,
 #      query-groups, manage-users) to each backend client's service-account
@@ -81,7 +81,10 @@ print(data[0]["id"] if data else "")')
 if [ -z "$DSFE_UUID" ]; then
     echo -e "  ${RED}display-system-frontend client missing — partial import failed?${NC}"
 else
-    for scope_name in web-origins profile roles email eregistrations; do
+    # basic: on Keycloak 25+ the `sub` claim comes from the scope "basic", not from "profile". The realm migration adds
+    # "basic" only to clients that exist before it; this client is created after, so add it here. Without `sub`,
+    # ds-backend 2.18 cannot load the user and every DS user call returns 403 ("Access denied").
+    for scope_name in basic web-origins profile roles email eregistrations; do
         SID=$(curl -sf -H "$AUTH" "$KC_URL/admin/realms/$KC_REALM/client-scopes" \
             | python3 -c "
 import json,sys

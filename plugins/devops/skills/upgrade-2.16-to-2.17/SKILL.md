@@ -175,7 +175,7 @@ Replace `image: opensearchproject/opensearch:2.12.0` with `image: opensearchproj
 
 Pre-2.17 instances (e.g. Burundi LIVE) that never went through the cas-to-keycloak migration sometimes lack the `ds-frontend:` service block entirely. The 2.17 baseline expects it. Grep for `^  ds-frontend:`; if absent, insert the canonical block (see `templates/ds-frontend.service.yml.tpl` if shipped, otherwise reference `Conf-TEST/compose/mali/docker-stack.yml` as the working pattern) before the `cashier:` service block.
 
-Adapt domain literals to the country's domain (read `KC_HOSTNAME=login.<domain>` from the keycloak service). For public clients (DS frontend is public), use `OAUTH_SECRET=null`. The 8 default scopes attached on display-system-frontend are part of the realm patch shipped by the 2.13→2.14 skill — this rule only handles the docker-stack.yml side.
+Adapt domain literals to the country's domain (read `KC_HOSTNAME=login.<domain>` from the keycloak service). For public clients (DS frontend is public), use `OAUTH_SECRET=null`. The default scopes attached on display-system-frontend (including `basic`, which carries `sub` on Keycloak 25+) are part of the realm patch shipped by the 2.13→2.14 skill — this rule only handles the docker-stack.yml side.
 
 If the block is present, leave it alone — operators may have customized the env list.
 
