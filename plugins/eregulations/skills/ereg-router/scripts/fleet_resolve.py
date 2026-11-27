@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 
 STATE_FIELDS = ("host", "version", "platform", "posture")
@@ -81,10 +82,20 @@ def _as_dict(value):
 def fetch_instance(base_url, token, slug, opener=urllib.request.urlopen):
     """GET one instance from Monitor. Returns None if unreachable.
 
-    Unreachable is not an error here — it degrades to the overlay, and the
-    gates block on whatever stays unresolved.
+    The route is `/api/instances/by-slug/<slug>`, keyed by the deploy slug.
+    Its body holds exactly `host`, `posture`, `version` and `platform` (and
+    `instance`) -- see fixtures/monitor.by-slug.sample.json. Monitor's
+    `/api/instances/<id>` takes an integer id only, so the earlier call to it
+    with a slug never resolved anything.
+
+    The slug is quoted with no safe characters, so it stays one path segment
+    whatever it contains.
+
+    Unreachable is not an error here -- it degrades to the overlay, and the
+    gates block on whatever stays unresolved. A 404 (a slug Monitor does not
+    know) is the same outcome.
     """
-    url = "%s/api/instances/%s" % (base_url.rstrip("/"), slug)
+    url = "%s/api/instances/by-slug/%s" % (base_url.rstrip("/"), urllib.parse.quote(slug, safe=""))
     request = urllib.request.Request(url)
     if token:
         request.add_header("Authorization", "Bearer %s" % token)
