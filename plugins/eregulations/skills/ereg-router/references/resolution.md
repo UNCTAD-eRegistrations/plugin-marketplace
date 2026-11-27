@@ -85,6 +85,24 @@ overlay") is for a file that already exists and still cannot be read.
 Monitor being unreachable is likewise not an error. It degrades to the overlay,
 and whatever stays unresolved is what the gates block on.
 
+## The Monitor read
+
+The resolver calls `GET <monitor>/api/instances/by-slug/<slug>`. The slug is
+the instance's deploy slug: the `instances/<slug>` directory name in
+eRegulations-deploy. The body has these keys
+(`fixtures/monitor.by-slug.sample.json`):
+
+| Key | Value |
+| --- | --- |
+| `host` | the Monitor server name, or `null` when no server is recorded |
+| `posture` | the server's posture, or `null` when no server is recorded. A server that no admin assessed reports `unknown`, which blocks |
+| `version` | the release the last poll measured (`EREG_RELEASE` of the containers), or `null` |
+| `platform` | `linux` — the Monitor finds only instances that the provisioner deploys |
+
+A slug the Monitor does not know answers `404`, which resolves exactly like an
+unreachable Monitor. The historical Windows estate has no deploy slug, so it
+always comes from the overlay.
+
 ## Drift
 
 Where Monitor and the overlay disagree on a field, **Monitor wins and the
@@ -147,7 +165,7 @@ policy and PyYAML is a third-party package.
     "<instance-slug>": {
       "host": "<host-name>",
       "version": "7.2",
-      "platform": "ubuntu"
+      "platform": "linux"
     }
   },
   "hosts": {
@@ -168,7 +186,8 @@ policy and PyYAML is a third-party package.
   a typo, is unknown — and blocks.
 - `version` is the full version string; `version_major` is derived from it.
 - `platform` is what the version gate's sibling `windows_target` reads; use
-  `windows` for Windows/IIS.
+  `windows` for Windows/IIS. Monitor reports `linux` for the instances it
+  serves, so `linux` there keeps the overlay free of drift.
 - `address` and `vpn` are read by the operator and by the lane probes, not by
   the gates. They live **only** here.
 

@@ -106,3 +106,15 @@ this run made no functional change to any skill — `metadata.version` stays
 `0.1.0` on all four skills, so `CLAUDE.md`'s "changelog entry on version bump"
 rule does not trigger here. Where that entry should live for a future bump is
 still open; see the maintainer note in the Phase A task plan.
+
+## Changelog
+
+### 0.2.1 — ereg-router 0.2.0 (2026-11-27)
+
+- `fleet_resolve.py` calls the Monitor at `/api/instances/by-slug/<slug>`. The
+  earlier call went to `/api/instances/<slug>`, which takes an integer id only,
+  so the live Monitor path never resolved a fact. It needs the Monitor PR that
+  adds the route.
+- The slug is quoted, so it stays one path segment.
+- `tests/test_monitor_contract.py` and `fixtures/monitor.by-slug.sample.json`
+  pin the Monitor body and what each body does to the `host_posture` gate.

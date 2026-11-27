@@ -3,8 +3,8 @@ name: ereg-router
 description: Use when handling any eRegulations or TradePortal request — a country portal throwing errors or refusing to start, a deploy or redeploy of Admin or Public, an upgrade to 7.x, a code change across the Admin and Public repos, a new instance, or a missing or wrong translation label. Classifies the request, resolves which instance and version it concerns, detects what this environment can actually do right now, and evaluates the safety gates before any work starts. Also reachable explicitly as /eregulations:ereg.
 allowed-tools: Read, Bash, Grep, Glob, Skill
 metadata:
-  version: "0.1.0"
-  version-date: "2026-08-26"
+  version: "0.2.0"
+  version-date: "2026-11-27"
   argument-hint: "[request] or --dry-run [request]"
 ---
 
